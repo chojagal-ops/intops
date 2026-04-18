@@ -5,6 +5,8 @@ import threading
 import smtplib
 import json
 import os
+import calendar
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from io import BytesIO
@@ -317,6 +319,19 @@ def init_db():
         )
     ''')
 
+    conn.execute(f'''
+        CREATE TABLE IF NOT EXISTS inspection_items (
+            id           {_PK},
+            equipment_id INTEGER NOT NULL,
+            item_order   INTEGER DEFAULT 0,
+            category     TEXT DEFAULT '',
+            item_name    TEXT NOT NULL,
+            criteria     TEXT DEFAULT '',
+            unit         TEXT DEFAULT '',
+            created_at   TEXT DEFAULT ({_NOW_DEFAULT})
+        )
+    ''')
+
     # 마이그레이션
     if USE_PG:
         migrations = [
@@ -326,6 +341,8 @@ def init_db():
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS status TEXT DEFAULT '점검완료'",
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS approved_by INTEGER",
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS approved_at TEXT",
+            "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS inspection_cycle TEXT DEFAULT '매일'",
+            "ALTER TABLE inspection_details ADD COLUMN IF NOT EXISTS item_id INTEGER",
         ]
         for sql in migrations:
             try:
@@ -340,6 +357,8 @@ def init_db():
             "ALTER TABLE inspections ADD COLUMN status TEXT DEFAULT '점검완료'",
             "ALTER TABLE inspections ADD COLUMN approved_by INTEGER",
             "ALTER TABLE inspections ADD COLUMN approved_at TEXT",
+            "ALTER TABLE equipment ADD COLUMN inspection_cycle TEXT DEFAULT '매일'",
+            "ALTER TABLE inspection_details ADD COLUMN item_id INTEGER",
         ]
         for sql in migrations:
             try:
@@ -568,12 +587,27 @@ def admin_equipment_add():
         qr_code     = request.form.get('qr_code', '').strip() or str(uuid.uuid4())
         conn = get_db()
         try:
-            conn.execute(
+            inspection_cycle = request.form.get('inspection_cycle', '매일')
+            eq_id_new = conn.insert(
                 '''INSERT INTO equipment
-                   (name, qr_code, location, department, description, approver_id, created_by)
-                   VALUES (?,?,?,?,?,?,?)''',
-                (name, qr_code, location, department, description, approver_id, session['user_id'])
+                   (name, qr_code, location, department, description, approver_id, created_by, inspection_cycle)
+                   VALUES (?,?,?,?,?,?,?,?)''',
+                (name, qr_code, location, department, description, approver_id, session['user_id'], inspection_cycle)
             )
+            # 점검 항목 저장
+            item_names      = request.form.getlist('item_name')
+            item_categories = request.form.getlist('item_category')
+            item_criterias  = request.form.getlist('item_criteria')
+            item_units      = request.form.getlist('item_unit')
+            for i, iname in enumerate(item_names):
+                if iname.strip():
+                    cat = item_categories[i] if i < len(item_categories) else ''
+                    cri = item_criterias[i]  if i < len(item_criterias)  else ''
+                    unt = item_units[i]      if i < len(item_units)       else ''
+                    conn.execute(
+                        'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit) VALUES (?,?,?,?,?,?)',
+                        (eq_id_new, i+1, cat.strip(), iname.strip(), cri.strip(), unt.strip())
+                    )
             conn.commit()
             flash(f'설비 "{name}" 이(가) 등록되었습니다.', 'success')
             return redirect(url_for('admin_equipment'))
@@ -717,13 +751,38 @@ def inspect(eq_id):
     tmpl_rows     = json.loads(tmpl['rows']) if tmpl else None
     tmpl_max_cols = tmpl['max_cols']         if tmpl else 0
 
+    db_items = conn.execute(
+        'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
+        (eq_id,)
+    ).fetchall()
+
     if request.method == 'POST':
         action = request.form.get('action')
 
         if action == 'submit' and is_inspector:
             overall_notes = request.form.get('notes', '').strip()
 
-            if tmpl_rows:
+            if db_items:
+                item_results = []
+                for item in db_items:
+                    r_val = request.form.get(f'result_item_{item["id"]}', '정상')
+                    n_val = request.form.get(f'notes_item_{item["id"]}', '')
+                    item_results.append((item['id'], r_val, n_val))
+                all_vals = [r for _, r, _ in item_results]
+                overall  = '이상' if '이상' in all_vals else '정상'
+                ins_id = conn.insert(
+                    "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status) VALUES (?,?,?,?,'점검완료')",
+                    (eq_id, session['user_id'], overall, overall_notes)
+                )
+                for item_id, r_val, n_val in item_results:
+                    conn.execute(
+                        'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES (?,?,?,?,?)',
+                        (ins_id, 0, item_id, r_val, n_val)
+                    )
+                conn.commit()
+                result = overall
+
+            elif tmpl_rows:
                 item_results = []
                 for idx, row in enumerate(tmpl_rows):
                     if not row['is_item']:
@@ -813,10 +872,13 @@ def inspect(eq_id):
     ''', (eq_id,)).fetchall()
     conn.close()
 
+    now = datetime.now()
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
-                           tmpl_rows=tmpl_rows, tmpl_max_cols=tmpl_max_cols)
+                           tmpl_rows=tmpl_rows, tmpl_max_cols=tmpl_max_cols,
+                           db_items=db_items,
+                           now_year=now.year, now_month=now.month)
 
 
 # ── 내 점검 결과 ──────────────────────────────────────────────────────────────
@@ -927,6 +989,302 @@ def equipment_list():
     ''').fetchall()
     conn.close()
     return render_template('equipment_list.html', equipments=equipments)
+
+
+# ── 월별 점검결과 HTML 페이지 ─────────────────────────────────────────────────
+@app.route('/monthly/<int:eq_id>')
+@login_required
+def monthly_results(eq_id):
+    now   = datetime.now()
+    year  = int(request.args.get('year',  now.year))
+    month = int(request.args.get('month', now.month))
+    ym    = f"{year}-{month:02d}"
+
+    conn = get_db()
+    eq = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    if not eq:
+        conn.close()
+        flash('설비를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('dashboard'))
+
+    db_items = conn.execute(
+        'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order', (eq_id,)
+    ).fetchall()
+
+    tmpl = conn.execute('SELECT * FROM inspection_templates WHERE equipment_id=?', (eq_id,)).fetchone()
+    tmpl_rows = json.loads(tmpl['rows']) if tmpl and not db_items else []
+
+    if USE_PG:
+        ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
+    else:
+        ym_expr = "strftime('%Y-%m', inspected_at)"
+
+    inspections = conn.execute(f'''
+        SELECT i.*, u.name AS inspector_name,
+               {date_col("i.inspected_at")} AS insp_date
+        FROM inspections i
+        JOIN users u ON i.inspector_id = u.id
+        WHERE i.equipment_id = ? AND {ym_expr} = ?
+        ORDER BY i.inspected_at
+    ''', (eq_id, ym)).fetchall()
+
+    insp_by_day = {}
+    for ins in inspections:
+        day = int(str(ins['insp_date']).split('-')[2])
+        insp_by_day[day] = ins
+
+    details_by_insp = {}
+    for ins in inspections:
+        rows = conn.execute(
+            'SELECT * FROM inspection_details WHERE inspection_id=?', (ins['id'],)
+        ).fetchall()
+        if db_items:
+            details_by_insp[ins['id']] = {d['item_id']: d for d in rows if d['item_id']}
+        else:
+            details_by_insp[ins['id']] = {d['row_index']: d for d in rows}
+
+    conn.close()
+    days_in_month = calendar.monthrange(year, month)[1]
+
+    return render_template('monthly_results.html',
+        eq=eq, db_items=db_items, tmpl_rows=tmpl_rows,
+        insp_by_day=insp_by_day, details_by_insp=details_by_insp,
+        year=year, month=month, days_in_month=days_in_month,
+        now_year=now.year, now_month=now.month)
+
+
+# ── 월별 점검결과 엑셀 내보내기 ───────────────────────────────────────────────
+@app.route('/export/monthly/<int:eq_id>')
+@login_required
+def export_monthly(eq_id):
+    if not HAS_OPENPYXL:
+        flash('openpyxl 패키지가 필요합니다.', 'error')
+        return redirect(url_for('inspect', eq_id=eq_id))
+
+    now   = datetime.now()
+    year  = int(request.args.get('year',  now.year))
+    month = int(request.args.get('month', now.month))
+    ym    = f"{year}-{month:02d}"
+
+    conn = get_db()
+    eq   = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    if not eq:
+        conn.close()
+        flash('설비를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('dashboard'))
+
+    tmpl      = conn.execute('SELECT * FROM inspection_templates WHERE equipment_id=?', (eq_id,)).fetchone()
+    tmpl_rows = json.loads(tmpl['rows']) if tmpl else []
+
+    # 해당 월 점검 목록
+    if USE_PG:
+        ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
+    else:
+        ym_expr = "strftime('%Y-%m', inspected_at)"
+
+    inspections = conn.execute(f'''
+        SELECT i.*, u.name AS inspector_name,
+               {date_col("i.inspected_at")} AS insp_date
+        FROM inspections i
+        JOIN users u ON i.inspector_id = u.id
+        WHERE i.equipment_id = ? AND {ym_expr} = ?
+        ORDER BY i.inspected_at
+    ''', (eq_id, ym)).fetchall()
+
+    # day → inspection 매핑 (같은 날 여러 건이면 마지막 기준)
+    insp_by_day = {}
+    for ins in inspections:
+        day = int(str(ins['insp_date']).split('-')[2])
+        insp_by_day[day] = ins
+
+    # 항목별 결과 로드
+    details_by_insp = {}
+    for ins in inspections:
+        rows = conn.execute(
+            'SELECT * FROM inspection_details WHERE inspection_id=?', (ins['id'],)
+        ).fetchall()
+        details_by_insp[ins['id']] = {d['row_index']: d for d in rows}
+
+    conn.close()
+
+    # ── Excel 생성 ────────────────────────────────────────────────────────────
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"{month:02d}월 점검결과"
+
+    days_in_month = calendar.monthrange(year, month)[1]
+    total_cols    = 4 + days_in_month  # 번호+항목+기준+단위 + 일수
+
+    # 스타일 정의
+    def fill(hex_):  return PatternFill('solid', fgColor=hex_)
+    def font(bold=False, color='111827', size=9):
+        return Font(bold=bold, color=color, size=size)
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left   = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+    thin   = Side(style='thin', color='D1D5DB')
+    bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ORANGE_FILL  = fill('F97316')
+    LIGHT_FILL   = fill('FFF7ED')
+    GREEN_FILL   = fill('DCFCE7')
+    RED_FILL     = fill('FEE2E2')
+    GRAY_FILL    = fill('F3F4F6')
+    EMPTY_FILL   = fill('F9FAFB')
+    SECTION_FILL = fill('FFEDD5')
+
+    def hdr_cell(row, col, value):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=True, color='FFFFFF', size=9)
+        c.fill = ORANGE_FILL
+        c.alignment = center
+        c.border = bdr
+        return c
+
+    # ── 1행: 제목 ────────────────────────────────────────────────────────────
+    ws.merge_cells(f'A1:{get_column_letter(total_cols)}1')
+    c = ws['A1']
+    c.value     = f"{eq['name']}  |  {year}년 {month}월 점검결과표"
+    c.font      = Font(bold=True, color='FFFFFF', size=13)
+    c.fill      = ORANGE_FILL
+    c.alignment = center
+    ws.row_dimensions[1].height = 32
+
+    # ── 2행: 설비 정보 ────────────────────────────────────────────────────────
+    info = [('설치위치', eq['location'] or '-'), ('부서', eq['department'] or '-')]
+    col = 1
+    for label, val in info:
+        lc = ws.cell(row=2, column=col, value=label)
+        lc.font = Font(bold=True, size=9); lc.fill = LIGHT_FILL; lc.alignment = center; lc.border = bdr
+        vc = ws.cell(row=2, column=col+1, value=val)
+        vc.font = font(size=9); vc.fill = LIGHT_FILL; vc.alignment = left; vc.border = bdr
+        col += 2
+    # 나머지 셀 채우기
+    for c2 in range(col, total_cols+1):
+        ws.cell(row=2, column=c2).fill = LIGHT_FILL
+        ws.cell(row=2, column=c2).border = bdr
+    ws.row_dimensions[2].height = 18
+
+    # ── 4행: 컬럼 헤더 ────────────────────────────────────────────────────────
+    HDR_ROW = 4
+    for col, h in enumerate(['번호', '점검항목', '판단기준', '단위'], 1):
+        hdr_cell(HDR_ROW, col, h)
+    for day in range(1, days_in_month+1):
+        hdr_cell(HDR_ROW, 4+day, f"{day}")
+    ws.row_dimensions[HDR_ROW].height = 20
+
+    # ── 열 너비 ────────────────────────────────────────────────────────────────
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 26
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 7
+    for day in range(1, days_in_month+1):
+        ws.column_dimensions[get_column_letter(4+day)].width = 5
+
+    # ── 데이터 행 ─────────────────────────────────────────────────────────────
+    data_row = HDR_ROW + 1
+    item_num = 0
+
+    for row_idx, row in enumerate(tmpl_rows):
+        cells = row['cells']
+
+        if not row['is_item']:
+            # 섹션 헤더
+            ws.merge_cells(f'A{data_row}:{get_column_letter(total_cols)}{data_row}')
+            c = ws.cell(row=data_row, column=1, value=' '.join(cells))
+            c.font = Font(bold=True, size=9, color='EA580C')
+            c.fill = SECTION_FILL; c.alignment = left; c.border = bdr
+            for col in range(2, total_cols+1):
+                ws.cell(row=data_row, column=col).fill = SECTION_FILL
+                ws.cell(row=data_row, column=col).border = bdr
+            ws.row_dimensions[data_row].height = 18
+            data_row += 1
+            continue
+
+        item_num += 1
+        # 번호
+        c = ws.cell(row=data_row, column=1, value=item_num)
+        c.font = font(); c.alignment = center; c.border = bdr
+
+        # 점검항목
+        item_name = cells[1] if len(cells) > 1 else (cells[0] if cells else '')
+        c = ws.cell(row=data_row, column=2, value=item_name)
+        c.font = font(); c.alignment = left; c.border = bdr
+
+        # 판단기준
+        c = ws.cell(row=data_row, column=3, value=cells[2] if len(cells) > 2 else '')
+        c.font = font(); c.alignment = left; c.border = bdr
+
+        # 단위
+        c = ws.cell(row=data_row, column=4, value=cells[3] if len(cells) > 3 else '')
+        c.font = font(); c.alignment = center; c.border = bdr
+
+        # 일별 결과
+        for day in range(1, days_in_month+1):
+            c = ws.cell(row=data_row, column=4+day)
+            c.alignment = center; c.border = bdr
+
+            if day in insp_by_day:
+                ins = insp_by_day[day]
+                detail = details_by_insp.get(ins['id'], {}).get(row_idx)
+                if detail:
+                    res = detail['result']
+                    if res == '정상':
+                        c.value = 'O'; c.fill = GREEN_FILL
+                        c.font = Font(bold=True, size=9, color='15803D')
+                    elif res == '이상':
+                        c.value = 'X'; c.fill = RED_FILL
+                        c.font = Font(bold=True, size=9, color='DC2626')
+                    else:
+                        c.value = '-'; c.fill = GRAY_FILL
+                        c.font = Font(size=9, color='6B7280')
+                else:
+                    c.fill = EMPTY_FILL
+            else:
+                c.fill = EMPTY_FILL
+
+        ws.row_dimensions[data_row].height = 18
+        data_row += 1
+
+    # ── 점검자 행 ─────────────────────────────────────────────────────────────
+    ws.merge_cells(f'A{data_row}:D{data_row}')
+    c = ws.cell(row=data_row, column=1, value='점검자')
+    c.font = Font(bold=True, size=9); c.fill = LIGHT_FILL
+    c.alignment = center; c.border = bdr
+
+    for day in range(1, days_in_month+1):
+        c = ws.cell(row=data_row, column=4+day)
+        c.border = bdr; c.alignment = center
+        c.font = Font(size=7)
+        if day in insp_by_day:
+            c.value = insp_by_day[day]['inspector_name']
+            c.fill = LIGHT_FILL
+        else:
+            c.fill = EMPTY_FILL
+    ws.row_dimensions[data_row].height = 16
+    data_row += 1
+
+    # ── 범례 ──────────────────────────────────────────────────────────────────
+    ws.merge_cells(f'A{data_row}:{get_column_letter(total_cols)}{data_row}')
+    c = ws.cell(row=data_row, column=1,
+                value='※ O: 정상   X: 이상   -: 해당없음   빈칸: 미점검')
+    c.font = Font(size=8, italic=True, color='6B7280')
+    c.alignment = left
+
+    # ── 출력 ──────────────────────────────────────────────────────────────────
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"{eq['name']}_{year}년{month:02d}월_점검결과.xlsx"
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 # ── 로그아웃 ──────────────────────────────────────────────────────────────────

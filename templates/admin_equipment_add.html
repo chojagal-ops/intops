@@ -119,6 +119,41 @@
           <input type="text" name="description" placeholder="예) 월 1회 윤활유 교체 필요">
         </div>
 
+        <div class="form-group">
+          <label>점검 주기</label>
+          <select name="inspection_cycle">
+            <option value="매일">매일</option>
+            <option value="주1회">주 1회</option>
+            <option value="격주">격주</option>
+            <option value="월1회">월 1회</option>
+            <option value="분기1회">분기 1회</option>
+          </select>
+        </div>
+
+        <hr class="divider">
+
+        <div class="section-title" style="margin-bottom:12px;">
+          📋 점검 항목 등록
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400; text-transform:none; margin-left:6px;">
+            항목을 추가하고 설비 등록 시 함께 저장됩니다
+          </span>
+        </div>
+
+        <div id="items-wrap" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+          <!-- JS로 동적 추가 -->
+        </div>
+
+        <button type="button" onclick="addItem()"
+                style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px;
+                       background:var(--orange-light); border:1px solid rgba(249,115,22,0.3);
+                       border-radius:8px; font-size:0.85rem; font-weight:600;
+                       color:var(--orange-dark); cursor:pointer; margin-bottom:4px;">
+          + 항목 추가
+        </button>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
+          항목이 없으면 나중에 Excel 점검표를 업로드하거나 기본 점검 폼이 사용됩니다.
+        </div>
+
         <button type="submit" class="btn btn-primary">설비 등록</button>
       </form>
 
@@ -200,6 +235,34 @@
       el.textContent = msg;
       el.className = 'scanner-status' + (type ? ' status-' + type : '');
     }
+
+    let itemCount = 0;
+
+    function addItem() {
+      itemCount++;
+      const wrap = document.getElementById('items-wrap');
+      const div = document.createElement('div');
+      div.id = 'item-' + itemCount;
+      div.style.cssText = 'display:grid; grid-template-columns:2fr 2fr 1fr 1fr auto; gap:6px; align-items:center; background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:10px;';
+      div.innerHTML = `
+        <input type="text" name="item_name" placeholder="점검항목명 *" style="font-size:0.82rem; padding:7px 10px;" required>
+        <input type="text" name="item_criteria" placeholder="판단기준" style="font-size:0.82rem; padding:7px 10px;">
+        <input type="text" name="item_unit" placeholder="단위" style="font-size:0.82rem; padding:7px 10px;">
+        <input type="text" name="item_category" placeholder="분류(선택)" style="font-size:0.82rem; padding:7px 10px;">
+        <button type="button" onclick="removeItem(${itemCount})"
+                style="padding:6px 10px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.2);
+                       border-radius:6px; color:#dc2626; cursor:pointer; font-size:0.85rem; white-space:nowrap;">✕</button>
+      `;
+      wrap.appendChild(div);
+    }
+
+    function removeItem(id) {
+      const el = document.getElementById('item-' + id);
+      if (el) el.remove();
+    }
+
+    // 기본 1개 추가
+    addItem();
   </script>
 
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>

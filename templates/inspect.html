@@ -60,12 +60,12 @@
       </div>
 
       <!-- ── 월별 결과 내보내기 ─────────────────────────────── -->
-      {% if tmpl_rows %}
+      {% if db_items or tmpl_rows %}
       <div class="export-box" style="background:var(--orange-faint); border:1px solid rgba(249,115,22,0.2);
                   border-radius:10px; padding:14px 18px; margin-top:12px;
                   display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-        <span style="font-size:0.88rem; font-weight:700; color:var(--orange);">📊 월별 점검결과 엑셀 다운로드</span>
-        <form method="GET" action="/export/monthly/{{ eq.id }}"
+        <span style="font-size:0.88rem; font-weight:700; color:var(--orange);">📊 월별 점검결과</span>
+        <form method="GET" action="/monthly/{{ eq.id }}"
               style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
           <select name="year" style="padding:7px 10px; font-size:0.85rem; width:auto; border-radius:6px;">
             {% for y in range(2024, 2028) %}
@@ -78,9 +78,14 @@
             {% endfor %}
           </select>
           <button type="submit" class="btn btn-primary"
-                  style="width:auto; padding:8px 18px; font-size:0.85rem;">
-            ⬇ 다운로드
-          </button>
+                  style="width:auto; padding:8px 16px; font-size:0.85rem;">📋 결과 보기</button>
+        </form>
+        <form method="GET" action="/export/monthly/{{ eq.id }}"
+              style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+          <input type="hidden" name="year" id="exp_year" value="{{ now_year }}">
+          <input type="hidden" name="month" id="exp_month" value="{{ now_month }}">
+          <button type="submit" class="btn btn-outline"
+                  style="width:auto; padding:8px 16px; font-size:0.85rem; border-color:var(--orange); color:var(--orange);">⬇ 엑셀</button>
         </form>
       </div>
       {% endif %}
@@ -142,7 +147,69 @@
       <form method="POST" id="inspect-form">
         <input type="hidden" name="action" value="submit">
 
-        {% if tmpl_rows %}
+        {% if db_items %}
+        <!-- ════ DB 등록 점검항목 ════ -->
+        <div class="tmpl-table-wrap">
+          <table class="tmpl-table">
+            <thead>
+              <tr class="tmpl-header-row">
+                <th class="tmpl-header-cell" style="width:36px;">번호</th>
+                <th class="tmpl-header-cell">점검항목</th>
+                <th class="tmpl-header-cell">판단기준</th>
+                <th class="tmpl-header-cell" style="width:60px;">단위</th>
+                <th class="tmpl-header-cell" style="color:var(--orange);">점검결과</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set ns = namespace(num=0, cat='') %}
+              {% for item in db_items %}
+                {% if item.category and item.category != ns.cat %}
+                  {% set ns.cat = item.category %}
+                  <tr class="tmpl-header-row">
+                    <td class="tmpl-header-cell" colspan="5"
+                        style="color:var(--orange-dark); font-weight:700;">{{ item.category }}</td>
+                  </tr>
+                {% endif %}
+                {% set ns.num = ns.num + 1 %}
+                <tr class="tmpl-item-row">
+                  <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
+                  <td class="tmpl-cell"><strong>{{ item.item_name }}</strong></td>
+                  <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">{{ item.criteria or '-' }}</td>
+                  <td class="tmpl-cell" style="text-align:center; color:var(--text-sub);">{{ item.unit or '-' }}</td>
+                  <td class="tmpl-result-cell">
+                    <div class="item-result-group">
+                      <label class="item-radio item-normal">
+                        <input type="radio" name="result_item_{{ item.id }}" value="정상" checked>
+                        <span>정상</span>
+                      </label>
+                      <label class="item-radio item-abnormal">
+                        <input type="radio" name="result_item_{{ item.id }}" value="이상">
+                        <span>이상</span>
+                      </label>
+                      <label class="item-radio item-na">
+                        <input type="radio" name="result_item_{{ item.id }}" value="해당없음">
+                        <span>해당없음</span>
+                      </label>
+                    </div>
+                    <input type="text" name="notes_item_{{ item.id }}"
+                           placeholder="비고" class="item-notes-input">
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label>종합 특이사항 (선택)</label>
+          <textarea name="notes" rows="2"
+            style="width:100%; padding:10px 14px; background:var(--bg);
+                   border:1px solid var(--border-mid); border-radius:8px;
+                   color:var(--text); font-size:0.9rem; resize:vertical; outline:none;"
+            placeholder="전체 점검에 대한 특이사항을 입력하세요"></textarea>
+        </div>
+
+        {% elif tmpl_rows %}
         <!-- ════ Excel 연동 점검표 ════ -->
         <div class="tmpl-table-wrap">
           <table class="tmpl-table">
