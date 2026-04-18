@@ -370,6 +370,11 @@ def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 
+# gunicorn 포함 모든 실행 환경에서 DB 초기화 보장
+with app.app_context():
+    init_db()
+
+
 # ── 데코레이터 ────────────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
