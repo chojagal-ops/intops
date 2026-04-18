@@ -43,8 +43,10 @@ USE_PG = bool(DATABASE_URL)
 if USE_PG:
     import psycopg2
     import psycopg2.extras
+    print(f"[DB] PostgreSQL 사용 (데이터 영구 보존)", flush=True)
 else:
     import sqlite3
+    print("[DB] ⚠ SQLite 사용 중 - DATABASE_URL 미설정. Render 재배포 시 데이터 초기화됨!", flush=True)
 
 # SQL 방언 상수
 _PK           = 'SERIAL PRIMARY KEY'          if USE_PG else 'INTEGER PRIMARY KEY AUTOINCREMENT'
