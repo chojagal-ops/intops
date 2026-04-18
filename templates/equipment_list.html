@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>전체 설비 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/equipment-list" class="nav-link active">전체 설비</a>
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      <div class="admin-header" style="margin-bottom:20px;">
+        <div>
+          <div class="card-title" style="text-align:left;">전체 설비 현황</div>
+          <div class="card-desc">오늘 점검 여부와 최근 점검 결과를 확인합니다.</div>
+        </div>
+        <!-- 요약 뱃지 -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          {% set inspected = equipments | selectattr('inspected_today') | list %}
+          {% set not_inspected = equipments | rejectattr('inspected_today') | list %}
+          <span style="padding:6px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;
+                       background:rgba(22,163,74,0.12); color:#15803d;">
+            ✅ 오늘 점검 {{ inspected | length }}대
+          </span>
+          <span style="padding:6px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;
+                       background:rgba(249,115,22,0.12); color:#c2410c;">
+            ⚠️ 미점검 {{ not_inspected | length }}대
+          </span>
+        </div>
+      </div>
+
+      <!-- 검색/필터 -->
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <input type="text" id="searchInput" placeholder="설비명 / 위치 검색..."
+               style="max-width:260px; padding:9px 14px; font-size:0.88rem;"
+               oninput="filterTable()">
+        <select id="statusFilter" onchange="filterTable()"
+                style="max-width:160px; padding:9px 12px; font-size:0.88rem;">
+          <option value="">전체 상태</option>
+          <option value="점검">오늘 점검</option>
+          <option value="미점검">미점검</option>
+        </select>
+      </div>
+
+      {% if equipments %}
+      <div class="tmpl-table-wrap">
+        <table class="tmpl-table" id="eqTable">
+          <thead>
+            <tr class="tmpl-header-row">
+              <th class="tmpl-header-cell" style="width:40px;">#</th>
+              <th class="tmpl-header-cell">설비명</th>
+              <th class="tmpl-header-cell">위치</th>
+              <th class="tmpl-header-cell">부서</th>
+              <th class="tmpl-header-cell" style="text-align:center;">오늘 점검</th>
+              <th class="tmpl-header-cell">최근 결과</th>
+              <th class="tmpl-header-cell">최근 점검일시</th>
+              <th class="tmpl-header-cell">점검자</th>
+              <th class="tmpl-header-cell" style="text-align:center;">바로가기</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for eq in equipments %}
+            <tr class="tmpl-item-row" data-name="{{ eq.name }}" data-loc="{{ eq.location or '' }}"
+                data-status="{{ '점검' if eq.inspected_today else '미점검' }}">
+              <td class="tmpl-cell" style="color:var(--text-muted); font-size:0.8rem;">{{ loop.index }}</td>
+              <td class="tmpl-cell"><strong>{{ eq.name }}</strong></td>
+              <td class="tmpl-cell" style="color:var(--text-sub);">{{ eq.location or '-' }}</td>
+              <td class="tmpl-cell" style="color:var(--text-sub);">{{ eq.department or '-' }}</td>
+              <td class="tmpl-cell" style="text-align:center;">
+                {% if eq.inspected_today %}
+                  <span style="display:inline-flex; align-items:center; gap:4px; padding:4px 14px;
+                               border-radius:20px; font-size:0.78rem; font-weight:700;
+                               background:rgba(22,163,74,0.12); color:#15803d;">
+                    ✅ 점검
+                  </span>
+                {% else %}
+                  <span style="display:inline-flex; align-items:center; gap:4px; padding:4px 14px;
+                               border-radius:20px; font-size:0.78rem; font-weight:700;
+                               background:rgba(249,115,22,0.12); color:#c2410c;">
+                    ⚠️ 미점검
+                  </span>
+                {% endif %}
+              </td>
+              <td class="tmpl-cell">
+                {% if eq.last_result %}
+                  {% if eq.last_result == '정상' %}
+                    <span class="result-tag tag-normal">✅ 정상</span>
+                  {% elif eq.last_result == '이상' %}
+                    <span class="result-tag tag-abnormal">⚠️ 이상</span>
+                  {% elif eq.last_result == '수리필요' %}
+                    <span class="result-tag tag-repair">🔴 수리필요</span>
+                  {% else %}
+                    <span class="result-tag tag-idle">⏸ 휴동</span>
+                  {% endif %}
+                {% else %}
+                  <span style="color:var(--text-muted); font-size:0.82rem;">기록 없음</span>
+                {% endif %}
+              </td>
+              <td class="tmpl-cell" style="font-size:0.82rem; color:var(--text-sub);">
+                {{ eq.last_inspected or '-' }}
+              </td>
+              <td class="tmpl-cell" style="font-size:0.82rem; color:var(--text-sub);">
+                {{ eq.inspector_name or '-' }}
+              </td>
+              <td class="tmpl-cell" style="text-align:center;">
+                <a href="/inspect/{{ eq.id }}" class="btn btn-primary btn-sm">
+                  점검하기
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-row">등록된 설비가 없습니다.</div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>
+    function filterTable() {
+      const keyword = document.getElementById('searchInput').value.toLowerCase();
+      const status  = document.getElementById('statusFilter').value;
+      document.querySelectorAll('#eqTable tbody tr').forEach(row => {
+        const name  = row.dataset.name.toLowerCase();
+        const loc   = row.dataset.loc.toLowerCase();
+        const st    = row.dataset.status;
+        const matchKw = !keyword || name.includes(keyword) || loc.includes(keyword);
+        const matchSt = !status  || st === status;
+        row.style.display = (matchKw && matchSt) ? '' : 'none';
+      });
+    }
+  </script>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

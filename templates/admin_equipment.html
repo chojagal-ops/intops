@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>설비 관리 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link active">설비 관리</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="admin-header">
+        <div class="section-title" style="margin-bottom:0;">
+          등록된 설비
+          <span class="badge badge-approved">{{ equipments | length }}</span>
+        </div>
+        <a href="/admin/equipment/add" class="btn btn-primary" style="width:auto; padding:10px 22px;">
+          + 설비 등록
+        </a>
+      </div>
+
+      {% if not has_qrcode %}
+      <div class="alert alert-warning" style="margin-top:16px;">
+        QR 이미지 다운로드 사용 시 <strong>pip install "qrcode[pil]"</strong> 실행 필요
+      </div>
+      {% endif %}
+      {% if not has_openpyxl %}
+      <div class="alert alert-warning" style="margin-top:8px;">
+        Excel 점검표 업로드 사용 시 <strong>pip install openpyxl</strong> 실행 필요
+      </div>
+      {% endif %}
+
+      <table style="margin-top:20px;">
+        <thead>
+          <tr>
+            <th>설비명</th>
+            <th>위치</th>
+            <th>담당부서</th>
+            <th>승인자</th>
+            <th>점검표 (Excel)</th>
+            <th>점검횟수</th>
+            <th>등록일</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if equipments %}
+            {% for eq in equipments %}
+            <tr>
+              <td><strong style="color:#e0e6ed;">{{ eq.name }}</strong></td>
+              <td>{{ eq.location or '-' }}</td>
+              <td>{{ eq.department or '-' }}</td>
+              <td>
+                <form method="POST" action="/admin/equipment/set-approver/{{ eq.id }}">
+                  <select name="approver_id" class="role-select"
+                          onchange="this.form.submit()" title="승인자 지정">
+                    <option value="">미지정</option>
+                    {% for ap in approvers %}
+                    <option value="{{ ap.id }}"
+                      {% if eq.approver_id == ap.id %}selected{% endif %}>
+                      {{ ap.name }} ({{ ap.team }})
+                    </option>
+                    {% endfor %}
+                  </select>
+                </form>
+              </td>
+              <td>
+                {% if eq.template_id %}
+                  <!-- 등록된 점검표 있음 -->
+                  <div style="display:flex; flex-direction:column; gap:5px;">
+                    <span class="badge badge-approved" style="width:fit-content;">
+                      📋 {{ eq.template_file }}
+                    </span>
+                    <a href="/admin/equipment/delete-template/{{ eq.id }}"
+                       onclick="return confirm('점검표를 삭제하시겠습니까?')"
+                       style="font-size:0.75rem; color:#ef5350; text-decoration:none;">
+                      ✕ 삭제
+                    </a>
+                  </div>
+                {% else %}
+                  <!-- 업로드 폼 -->
+                  <form method="POST"
+                        action="/admin/equipment/upload-template/{{ eq.id }}"
+                        enctype="multipart/form-data"
+                        style="display:flex; flex-direction:column; gap:5px;">
+                    <label class="excel-upload-label">
+                      📂 Excel 선택
+                      <input type="file" name="excel_file"
+                             accept=".xlsx,.xls,.xlsm"
+                             onchange="this.form.submit()"
+                             style="display:none;">
+                    </label>
+                    <span style="font-size:0.75rem; color:#546e7a;">미등록</span>
+                  </form>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-approved">{{ eq.inspection_count }} 회</span></td>
+              <td style="font-size:0.82rem; color:#78909c;">{{ eq.created_at[:10] }}</td>
+              <td>
+                <div class="action-btns">
+                  <a href="/admin/equipment/qr/{{ eq.id }}" class="btn btn-primary btn-sm">QR 다운</a>
+                  <a href="/inspect/{{ eq.id }}" class="btn btn-success btn-sm">점검표</a>
+                  <a href="/admin/equipment/delete/{{ eq.id }}"
+                     onclick="return confirm('{{ eq.name }} 설비를 삭제하시겠습니까?')"
+                     class="btn btn-danger btn-sm">삭제</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="empty-row">
+                등록된 설비가 없습니다.<br>
+                <a href="/admin/equipment/add" style="color:#42a5f5;">설비를 등록하세요</a>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      {% if equipments %}
+      <div class="qr-guide">
+        <div class="qr-guide-title">사용 흐름</div>
+        <div class="qr-guide-steps">
+          <div class="qr-step"><span class="qr-step-num">1</span><span>설비 등록 → <strong>승인자 지정</strong> (드롭다운 선택 시 자동 저장)</span></div>
+          <div class="qr-step"><span class="qr-step-num">2</span><span><strong>QR 다운</strong> 버튼으로 QR 이미지 출력 → 설비에 부착</span></div>
+          <div class="qr-step"><span class="qr-step-num">3</span><span>점검자가 QR 스캔 → 점검 입력 → <strong>점검완료</strong> 제출</span></div>
+          <div class="qr-step"><span class="qr-step-num">4</span><span>지정된 승인자가 로그인 → 대시보드에서 <strong>승인확인</strong></span></div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

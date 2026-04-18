@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>설비 등록 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link active">설비 관리</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card" style="max-width:600px; width:100%;">
+
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 11h2v2H3v-2zm0 4h2v2H3v-2zm4-4h2v2H7v-2zm0 4h2v2H7v-2zM3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zm-2 8h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2zm-8-8H5v2H3v-2h2V7h2v2z"/></svg>
+        </div>
+        <div class="card-title">설비 QR 등록</div>
+        <div class="card-desc">카메라로 기존 QR을 스캔하거나 새 QR을 자동 생성합니다</div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- 탭 -->
+      <div class="tab-group">
+        <button class="tab-btn active" onclick="switchTab('scan', this)">카메라로 QR 스캔</button>
+        <button class="tab-btn" onclick="switchTab('auto', this)">QR 자동 생성</button>
+      </div>
+
+      <!-- 카메라 스캔 -->
+      <div id="tab-scan" class="tab-content">
+        <div class="scanner-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas" hidden></canvas>
+          <div class="scanner-overlay">
+            <div class="scanner-frame"></div>
+          </div>
+          <div id="scanner-status" class="scanner-status">카메라를 시작하세요</div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button type="button" class="btn btn-primary" id="btn-start" onclick="startCamera()" style="flex:1;">카메라 시작</button>
+          <button type="button" class="btn btn-outline" id="btn-stop" onclick="stopCamera()" style="flex:1; display:none;">카메라 중지</button>
+        </div>
+        <div id="scan-result" class="scan-result" style="display:none;">
+          <div class="scan-result-label">스캔된 QR 내용</div>
+          <div id="scan-result-text" class="scan-result-text"></div>
+          <button type="button" class="btn btn-outline" onclick="resetScan()"
+                  style="margin-top:8px; width:auto; padding:6px 16px; font-size:0.82rem;">다시 스캔</button>
+        </div>
+      </div>
+
+      <!-- 자동 생성 -->
+      <div id="tab-auto" class="tab-content" style="display:none;">
+        <div class="auto-qr-info">
+          <div style="font-size:2rem; margin-bottom:8px;">🎲</div>
+          <div style="font-weight:600; color:#e0e6ed; margin-bottom:4px;">QR 코드 자동 생성</div>
+          <div style="font-size:0.85rem; color:#78909c;">
+            등록 후 관리 페이지에서 QR 이미지를 다운로드하여 설비에 부착하세요.
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- 설비 정보 폼 -->
+      <form method="POST" action="/admin/equipment/add">
+        <input type="hidden" name="qr_code" id="qr_code_field">
+
+        <div class="form-group">
+          <label>설비명 *</label>
+          <input type="text" name="name" placeholder="예) CNC 머신 #1" required>
+        </div>
+
+        <div class="form-group">
+          <label>설치 위치 *</label>
+          <input type="text" name="location" placeholder="예) A동 1층 생산라인" required>
+        </div>
+
+        <div class="form-group">
+          <label>담당 부서 *</label>
+          <select name="department" required>
+            <option value="" disabled selected>담당 부서를 선택하세요</option>
+            {% for team in teams %}
+            <option value="{{ team }}">{{ team }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>승인자 지정</label>
+          <select name="approver_id">
+            <option value="">미지정</option>
+            {% for ap in approvers %}
+            <option value="{{ ap.id }}">{{ ap.name }} ({{ ap.team }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>설비 설명 (선택)</label>
+          <input type="text" name="description" placeholder="예) 월 1회 윤활유 교체 필요">
+        </div>
+
+        <button type="submit" class="btn btn-primary">설비 등록</button>
+      </form>
+
+      <a href="/admin/equipment" class="btn btn-outline">목록으로 돌아가기</a>
+
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+  <script>
+    let stream = null, scanInterval = null, scanned = false;
+
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      btn.classList.add('active');
+      document.getElementById('tab-' + tab).style.display = 'block';
+      if (tab !== 'scan') stopCamera();
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        document.getElementById('video').srcObject = stream;
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-stop').style.display = 'flex';
+        setStatus('QR 코드를 화면 중앙에 맞춰주세요...', 'scanning');
+        scanInterval = setInterval(scanFrame, 200);
+      } catch (e) {
+        setStatus('카메라 접근 실패: ' + e.message, 'error');
+      }
+    }
+
+    function stopCamera() {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      clearInterval(scanInterval);
+      document.getElementById('btn-start').style.display = 'flex';
+      document.getElementById('btn-stop').style.display = 'none';
+      if (!scanned) setStatus('카메라를 시작하세요', '');
+    }
+
+    function scanFrame() {
+      if (scanned) return;
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+                        canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+      if (code) onQRDetected(code.data);
+    }
+
+    function onQRDetected(data) {
+      scanned = true;
+      stopCamera();
+      let qrValue = data;
+      const match = data.match(/\/qr\/([a-zA-Z0-9\-_]+)/);
+      if (match) qrValue = match[1];
+      document.getElementById('qr_code_field').value = qrValue;
+      document.getElementById('scan-result-text').textContent = data;
+      document.getElementById('scan-result').style.display = 'block';
+      setStatus('QR 스캔 완료!', 'success');
+    }
+
+    function resetScan() {
+      scanned = false;
+      document.getElementById('qr_code_field').value = '';
+      document.getElementById('scan-result').style.display = 'none';
+      setStatus('카메라를 시작하세요', '');
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById('scanner-status');
+      el.textContent = msg;
+      el.className = 'scanner-status' + (type ? ' status-' + type : '');
+    }
+  </script>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

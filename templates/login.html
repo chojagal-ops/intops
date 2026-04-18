@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="card">
+
+      <div class="card-header">
+        <div class="card-icon">
+          <img src="/static/logo.png" alt="INTOPS" style="width:64px;height:64px;border-radius:12px;object-fit:cover;">
+        </div>
+        <div class="card-title">INTOPS 설비점검 시스템</div>
+        <div class="card-desc">사번과 비밀번호로 로그인하세요</div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="/login">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <div class="form-group">
+          <label>사 번</label>
+          <input type="text" name="employee_id" placeholder="사번을 입력하세요" required autofocus>
+        </div>
+        <div class="form-group">
+          <label>비밀번호</label>
+          <input type="password" name="password" placeholder="비밀번호를 입력하세요" required>
+        </div>
+        <button type="submit" class="btn btn-primary">로그인</button>
+      </form>
+
+      <hr class="divider">
+      <a href="/register" class="btn btn-outline">회원가입 신청</a>
+
+    </div>
+  </div>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

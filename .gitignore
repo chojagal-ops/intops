@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+facility.db
+.env
+*.bat
+이메일설정방법.txt

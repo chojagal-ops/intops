@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ eq.name }} 점검표</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      {% if session.is_admin %}
+        <a href="/admin">관리자</a>
+      {% else %}
+        <a href="/dashboard">홈</a>
+      {% endif %}
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card" style="max-width:900px; width:100%;">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- 설비 정보 -->
+      <div class="eq-info-box">
+        <div class="eq-info-icon">🔧</div>
+        <div class="eq-info-body">
+          <div class="eq-info-name">{{ eq.name }}</div>
+          <div class="eq-info-meta">
+            <span>📍 {{ eq.location or '위치 미등록' }}</span>
+            <span>🏭 {{ eq.department or '-' }}</span>
+          </div>
+          <div class="eq-info-meta" style="margin-top:4px;">
+            <span>👤 승인자:
+              <strong style="color:{% if eq.approver_name %}#90caf9{% else %}#ef9a9a{% endif %};">
+                {{ eq.approver_name or '미지정' }}
+              </strong>
+            </span>
+            {% if tmpl_rows %}
+            <span>📋 점검표: <strong style="color:#a5d6a7;">Excel 연동</strong></span>
+            {% endif %}
+          </div>
+          {% if eq.description %}<div class="eq-info-desc">{{ eq.description }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- ── 승인자: 승인 대기 목록 ─────────────────────────── -->
+      {% if is_approver and pending_approvals %}
+      <div class="approve-section">
+        <div class="section-title" style="color:#ffe082;">
+          ⏳ 승인 대기
+          <span class="badge badge-pending">{{ pending_approvals | length }}</span>
+        </div>
+        {% for p in pending_approvals %}
+        <div class="approve-card">
+          <div class="approve-card-info">
+            <div class="approve-card-meta">
+              <span>👷 {{ p.inspector_name }}</span>
+              <span>🕐 {{ p.inspected_at }}</span>
+            </div>
+            <div class="approve-card-result">
+              {% if p.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+              {% elif p.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+              {% elif p.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+              {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+              {% if p.notes %}<span style="font-size:0.82rem;color:#90a4ae;margin-left:8px;">{{ p.notes }}</span>{% endif %}
+            </div>
+          </div>
+          <form method="POST" style="margin:0;">
+            <input type="hidden" name="action" value="approve">
+            <input type="hidden" name="inspection_id" value="{{ p.id }}">
+            <button type="submit" class="btn btn-primary"
+                    style="width:auto;padding:9px 20px;font-size:0.88rem;">승인 확인</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif is_approver %}
+      <div class="approve-section" style="text-align:center;color:#546e7a;padding:20px;">
+        ✅ 현재 승인 대기 중인 점검이 없습니다.
+      </div>
+      {% endif %}
+
+      <!-- ── 점검자: 점검 입력 폼 ───────────────────────────── -->
+      {% if is_inspector %}
+      <hr class="divider">
+
+      <form method="POST" id="inspect-form">
+        <input type="hidden" name="action" value="submit">
+
+        {% if tmpl_rows %}
+        <!-- ════ Excel 연동 점검표 ════ -->
+        <div class="section-title">
+          📋 설비점검표
+          <span style="font-size:0.78rem;color:#546e7a;font-weight:400;text-transform:none;">
+            항목별로 점검 결과를 선택하세요
+          </span>
+        </div>
+
+        <div class="tmpl-table-wrap">
+          <table class="tmpl-table">
+            <tbody>
+              {% for idx in range(tmpl_rows | length) %}
+              {% set row = tmpl_rows[idx] %}
+              {% if row.is_item %}
+              <!-- 점검 항목 행 -->
+              <tr class="tmpl-item-row">
+                {% for cell in row.cells %}
+                <td class="tmpl-cell">{{ cell }}</td>
+                {% endfor %}
+                <!-- 빈 셀 패딩 -->
+                {% for _ in range(tmpl_max_cols - row.cells | length) %}
+                <td class="tmpl-cell"></td>
+                {% endfor %}
+                <!-- 결과 입력 열 -->
+                <td class="tmpl-result-cell">
+                  <div class="item-result-group">
+                    <label class="item-radio item-normal">
+                      <input type="radio" name="result_{{ idx }}" value="정상" checked>
+                      <span>정상</span>
+                    </label>
+                    <label class="item-radio item-abnormal">
+                      <input type="radio" name="result_{{ idx }}" value="이상">
+                      <span>이상</span>
+                    </label>
+                    <label class="item-radio item-na">
+                      <input type="radio" name="result_{{ idx }}" value="해당없음">
+                      <span>해당없음</span>
+                    </label>
+                  </div>
+                  <input type="text" name="notes_{{ idx }}"
+                         placeholder="비고"
+                         class="item-notes-input">
+                </td>
+              </tr>
+              {% else %}
+              <!-- 헤더/분류 행 -->
+              <tr class="tmpl-header-row">
+                {% for cell in row.cells %}
+                <td class="tmpl-header-cell" colspan="1">{{ cell }}</td>
+                {% endfor %}
+                {% for _ in range(tmpl_max_cols - row.cells | length) %}
+                <td class="tmpl-header-cell"></td>
+                {% endfor %}
+                <td class="tmpl-header-cell" style="color:#42a5f5;font-weight:700;">점검결과</td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="form-group" style="margin-top:20px;">
+          <label>종합 특이사항</label>
+          <textarea name="notes" rows="2"
+            style="width:100%;padding:10px 14px;background:#0f1923;
+                   border:1px solid rgba(255,255,255,0.1);border-radius:8px;
+                   color:#e0e6ed;font-size:0.9rem;resize:vertical;outline:none;"
+            placeholder="전체 점검에 대한 특이사항을 입력하세요 (선택)"></textarea>
+        </div>
+
+        {% else %}
+        <!-- ════ 기본 점검 폼 ════ -->
+        <div class="section-title">점검 결과 입력</div>
+        <div class="form-group">
+          <label>점검 결과 *</label>
+          <div class="result-radio-group">
+            <label class="result-radio result-normal">
+              <input type="radio" name="result" value="정상" required>
+              <span class="result-radio-box"><span class="result-radio-icon">✅</span><span>정 상</span></span>
+            </label>
+            <label class="result-radio result-abnormal">
+              <input type="radio" name="result" value="이상">
+              <span class="result-radio-box"><span class="result-radio-icon">⚠️</span><span>이 상</span></span>
+            </label>
+            <label class="result-radio result-repair">
+              <input type="radio" name="result" value="수리필요">
+              <span class="result-radio-box"><span class="result-radio-icon">🔴</span><span>수리필요</span></span>
+            </label>
+            <label class="result-radio result-idle">
+              <input type="radio" name="result" value="휴동">
+              <span class="result-radio-box"><span class="result-radio-icon">⏸</span><span>휴 동</span></span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>특이사항 / 메모</label>
+          <textarea name="notes" rows="3"
+            style="width:100%;padding:12px 16px;background:#0f1923;
+                   border:1px solid rgba(255,255,255,0.1);border-radius:8px;
+                   color:#e0e6ed;font-size:0.95rem;resize:vertical;outline:none;"
+            placeholder="이상 내용, 조치사항 등을 입력하세요 (선택)"></textarea>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+          ✔ 점검완료
+        </button>
+      </form>
+      {% endif %}
+
+      <!-- ── 점검 이력 ─────────────────────────────────────── -->
+      {% if history %}
+      <hr class="divider">
+      <div class="section-title">점검 이력</div>
+      <table>
+        <thead>
+          <tr>
+            <th>점검일시</th><th>점검자</th><th>결과</th>
+            <th>상태</th><th>승인자</th><th>특이사항</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+          <tr>
+            <td style="font-size:0.8rem;color:#78909c;white-space:nowrap;">{{ h.inspected_at }}</td>
+            <td>{{ h.inspector_name }}</td>
+            <td>
+              {% if h.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+              {% elif h.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+              {% elif h.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+              {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+            </td>
+            <td>
+              {% if h.status == '승인완료' %}
+                <span class="badge badge-approved">승인완료</span>
+              {% else %}
+                <span class="badge badge-pending">승인대기</span>
+              {% endif %}
+            </td>
+            <td style="font-size:0.82rem;">{{ h.approved_name or '-' }}</td>
+            <td style="font-size:0.82rem;color:#90a4ae;">{{ h.notes or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>
+    // 이상 항목 선택 시 행 강조
+    document.querySelectorAll('.tmpl-item-row input[type=radio]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const row = this.closest('tr');
+        row.classList.remove('row-abnormal', 'row-na');
+        if (this.value === '이상') row.classList.add('row-abnormal');
+        if (this.value === '해당없음') row.classList.add('row-na');
+      });
+    });
+  </script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

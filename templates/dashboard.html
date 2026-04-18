@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대시보드 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link active">홈</a>
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="card-header" style="text-align:left; margin-bottom:20px;">
+        <div class="card-title">안녕하세요, {{ session.user_name }} 님</div>
+        <div class="card-desc">INTOPS 설비점검 시스템에 오신 것을 환영합니다.</div>
+      </div>
+
+      <!-- 요약 카드 -->
+      <div class="dash-grid">
+        <div class="dash-card">
+          <div class="dash-card-icon">🔍</div>
+          <div class="dash-card-label">오늘 점검</div>
+          <div class="dash-card-value">{{ today_count }} 건</div>
+        </div>
+        <a href="/equipment-list" class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div class="dash-card-icon">⚙️</div>
+          <div class="dash-card-label">전체 설비</div>
+          <div class="dash-card-value">{{ total_eq }} 대</div>
+          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">목록 보기 →</div>
+        </a>
+        {% if session.role == '승인자' or session.is_admin %}
+        <div class="dash-card" style="border-color:{% if pending_list %}rgba(249,115,22,0.35){% else %}var(--border){% endif %};">
+          <div class="dash-card-icon">⏳</div>
+          <div class="dash-card-label">승인 대기</div>
+          <div class="dash-card-value" style="color:{% if pending_list %}#c2410c{% else %}var(--orange){% endif %};">
+            {{ pending_list | length }} 건
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 승인자: 승인 대기 목록 -->
+      {% if pending_list %}
+      <hr class="divider">
+      <div class="section-title" style="color:#c2410c;">
+        ⏳ 승인 대기 목록
+        <span class="badge badge-pending">{{ pending_list | length }}</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>설비명</th>
+            <th>점검자</th>
+            <th>결과</th>
+            <th>점검일시</th>
+            <th>바로가기</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pending_list %}
+          <tr>
+            <td><strong style="color:var(--text);">{{ p.eq_name }}</strong></td>
+            <td>{{ p.inspector_name }}</td>
+            <td>
+              {% if p.result == '정상' %}
+                <span class="result-tag tag-normal">✅ 정상</span>
+              {% elif p.result == '이상' %}
+                <span class="result-tag tag-abnormal">⚠️ 이상</span>
+              {% elif p.result == '수리필요' %}
+                <span class="result-tag tag-repair">🔴 수리필요</span>
+              {% else %}
+                <span class="result-tag tag-idle">⏸ 휴동</span>
+              {% endif %}
+            </td>
+            <td style="font-size:0.82rem; color:var(--text-sub);">{{ p.inspected_at }}</td>
+            <td>
+              <a href="/inspect/{{ p.eq_id }}" class="btn btn-primary btn-sm">승인하기</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% elif session.role == '승인자' or session.is_admin %}
+      <hr class="divider">
+      <div style="text-align:center; color:var(--text-sub); padding:16px; font-size:0.88rem;">
+        ✅ 현재 승인 대기 중인 점검이 없습니다.
+      </div>
+      {% endif %}
+
+      {% if session.role == '점검자' %}
+      <hr class="divider">
+      <div style="text-align:center; color:var(--text-sub); font-size:0.88rem; padding:8px;">
+        QR 코드를 스캔하여 설비 점검을 시작하세요.
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

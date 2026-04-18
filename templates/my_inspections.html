@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 점검 결과 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/my-inspections" class="nav-link active">내 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      <div class="card-header" style="text-align:left; margin-bottom:24px;">
+        <div class="card-title">내 점검 결과</div>
+        <div class="card-desc">{{ session.user_name }} 님의 전체 점검 이력입니다.</div>
+      </div>
+
+      <!-- 통계 카드 -->
+      <div class="dash-grid" style="grid-template-columns:repeat(6,1fr); margin-bottom:28px;">
+        <div class="dash-card">
+          <div class="dash-card-icon">📋</div>
+          <div class="dash-card-label">전체 점검</div>
+          <div class="dash-card-value">{{ stats.total }}</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-icon">✅</div>
+          <div class="dash-card-label">정상</div>
+          <div class="dash-card-value" style="color:#a5d6a7;">{{ stats.normal }}</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-icon">⚠️</div>
+          <div class="dash-card-label">이상</div>
+          <div class="dash-card-value" style="color:#ffe082;">{{ stats.abnormal }}</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-icon">🔴</div>
+          <div class="dash-card-label">수리필요</div>
+          <div class="dash-card-value" style="color:#ef9a9a;">{{ stats.repair }}</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-icon">⏸</div>
+          <div class="dash-card-label">휴동</div>
+          <div class="dash-card-value" style="color:#b0bec5;">{{ stats.idle }}</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-icon">🔏</div>
+          <div class="dash-card-label">승인완료</div>
+          <div class="dash-card-value" style="color:#90caf9;">{{ stats.approved }}</div>
+        </div>
+      </div>
+
+      <!-- 필터 -->
+      <form method="GET" action="/my-inspections" class="filter-form">
+        <div class="filter-group">
+          <label>시작일</label>
+          <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="filter-group">
+          <label>종료일</label>
+          <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="filter-group">
+          <label>점검 결과</label>
+          <select name="result">
+            <option value="">전체</option>
+            <option value="정상"    {% if result_filter=='정상'    %}selected{% endif %}>✅ 정상</option>
+            <option value="이상"    {% if result_filter=='이상'    %}selected{% endif %}>⚠️ 이상</option>
+            <option value="수리필요" {% if result_filter=='수리필요' %}selected{% endif %}>🔴 수리필요</option>
+            <option value="휴동"    {% if result_filter=='휴동'    %}selected{% endif %}>⏸ 휴동</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary"
+                style="width:auto; padding:10px 20px; align-self:flex-end;">검색</button>
+        <a href="/my-inspections" class="btn btn-outline"
+           style="width:auto; padding:10px 16px; align-self:flex-end; margin-top:0;">초기화</a>
+      </form>
+
+      <hr class="divider">
+
+      <!-- 결과 테이블 -->
+      {% if records %}
+      <div style="font-size:0.82rem; color:#546e7a; margin-bottom:10px;">
+        총 <strong style="color:#e0e6ed;">{{ records | length }}</strong> 건
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>점검일시</th>
+              <th>설비명</th>
+              <th>위치</th>
+              <th>담당부서</th>
+              <th>점검 결과</th>
+              <th>승인 상태</th>
+              <th>승인자</th>
+              <th>특이사항</th>
+              <th>상세</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in records %}
+            <tr>
+              <td style="white-space:nowrap; font-size:0.82rem; color:#78909c;">
+                {{ r.inspected_at }}
+              </td>
+              <td><strong style="color:#e0e6ed;">{{ r.eq_name }}</strong></td>
+              <td style="font-size:0.85rem;">{{ r.eq_location or '-' }}</td>
+              <td style="font-size:0.85rem;">{{ r.eq_dept or '-' }}</td>
+              <td>
+                {% if r.result == '정상' %}
+                  <span class="result-tag tag-normal">✅ 정상</span>
+                {% elif r.result == '이상' %}
+                  <span class="result-tag tag-abnormal">⚠️ 이상</span>
+                {% elif r.result == '수리필요' %}
+                  <span class="result-tag tag-repair">🔴 수리필요</span>
+                {% else %}
+                  <span class="result-tag tag-idle">⏸ 휴동</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.status == '승인완료' %}
+                  <span class="badge badge-approved">✔ 승인완료</span>
+                {% else %}
+                  <span class="badge badge-pending">⏳ 승인대기</span>
+                {% endif %}
+              </td>
+              <td style="font-size:0.85rem;">{{ r.approved_name or '-' }}</td>
+              <td style="font-size:0.82rem; color:#90a4ae; max-width:160px;">
+                {{ r.notes or '-' }}
+              </td>
+              <td>
+                <a href="/inspect/{{ r.equipment_id }}"
+                   class="btn btn-outline btn-sm" style="margin-top:0; white-space:nowrap;">
+                  점검표 보기
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% else %}
+      <div class="empty-row" style="padding:48px;">
+        {% if date_from or date_to or result_filter %}
+          해당 조건의 점검 결과가 없습니다.
+        {% else %}
+          아직 점검 기록이 없습니다.<br>
+          <span style="font-size:0.85rem; color:#546e7a;">QR 코드를 스캔하여 설비 점검을 시작하세요.</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/admin" class="nav-link active">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link">설비 관리</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- 승인 대기 -->
+      <div class="section-title">
+        승인 대기
+        <span class="badge badge-pending">{{ pending | length }}</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>성명</th><th>사번</th><th>이메일</th><th>핸드폰</th><th>소속팀</th><th>신청일시</th><th>역할 지정 및 처리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if pending %}
+            {% for u in pending %}
+            <tr>
+              <td><strong style="color:#e0e6ed;">{{ u.name }}</strong></td>
+              <td>{{ u.employee_id }}</td>
+              <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
+              <td>{{ u.phone }}</td>
+              <td>{{ u.team }}</td>
+              <td style="font-size:0.82rem; color:#78909c;">{{ u.created_at }}</td>
+              <td>
+                <form method="POST" action="/admin/approve/{{ u.id }}" style="display:inline-flex; gap:6px; align-items:center;">
+                  <select name="role" class="role-select">
+                    <option value="점검자">점검자</option>
+                    <option value="승인자">승인자</option>
+                  </select>
+                  <button type="submit" class="btn btn-success" style="padding:7px 14px; font-size:0.82rem;">승인</button>
+                </form>
+                <a href="/admin/reject/{{ u.id }}"
+                   onclick="return confirm('{{ u.name }} 님의 신청을 거부하시겠습니까?')"
+                   class="btn btn-danger" style="width:auto; padding:7px 14px; font-size:0.82rem; margin-left:4px;">거부</a>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="7" class="empty-row">대기 중인 신청이 없습니다.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      <hr class="divider">
+
+      <!-- 승인 완료 -->
+      <div class="section-title">
+        승인된 사용자
+        <span class="badge badge-approved">{{ approved | length }}</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if approved %}
+            {% for u in approved %}
+            <tr>
+              <td><strong style="color:#e0e6ed;">{{ u.name }}</strong></td>
+              <td>{{ u.employee_id }}</td>
+              <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
+              <td>{{ u.team }}</td>
+              <td>
+                {% if u.role == '승인자' %}
+                  <span class="badge" style="background:rgba(30,136,229,0.2);color:#90caf9;">승인자</span>
+                {% else %}
+                  <span class="badge badge-approved">점검자</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="POST" action="/admin/change-role/{{ u.id }}" style="display:inline-flex; gap:6px;">
+                  <select name="role" class="role-select">
+                    <option value="점검자" {% if u.role == '점검자' %}selected{% endif %}>점검자</option>
+                    <option value="승인자" {% if u.role == '승인자' %}selected{% endif %}>승인자</option>
+                  </select>
+                  <button type="submit" class="btn btn-outline" style="width:auto; padding:6px 12px; font-size:0.8rem; margin-top:0;">변경</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" class="empty-row">승인된 사용자가 없습니다.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

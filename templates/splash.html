@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+  <div class="splash-container">
+
+    <div class="splash-logo">
+      <img src="/static/logo.png" alt="INTOPS">
+    </div>
+
+    <div class="splash-title">INTOPS 설비점검 시스템</div>
+    <div class="splash-subtitle">FACILITY INSPECTION SYSTEM</div>
+
+    <div class="splash-bar-wrap">
+      <div class="splash-bar"></div>
+    </div>
+    <div class="splash-countdown" id="countdown">3초 후 로그인 화면으로 이동합니다...</div>
+
+  </div>
+
+  <script>
+    let sec = 3;
+    const el = document.getElementById('countdown');
+    const timer = setInterval(() => {
+      sec--;
+      if (sec > 0) {
+        el.textContent = sec + '초 후 로그인 화면으로 이동합니다...';
+      } else {
+        clearInterval(timer);
+        window.location.href = '/login';
+      }
+    }, 1000);
+  </script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

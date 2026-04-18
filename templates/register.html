@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회원가입 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="card">
+
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        </div>
+        <div class="card-title">회원가입 신청</div>
+        <div class="card-desc">정보를 입력하면 관리자 승인 후 이용 가능합니다</div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="/register">
+
+        <div class="form-group">
+          <label>성 명 *</label>
+          <input type="text" name="name" placeholder="이름을 입력하세요" required>
+        </div>
+
+        <div class="form-group">
+          <label>사 번 *</label>
+          <input type="text" name="employee_id" placeholder="사번을 입력하세요" required>
+        </div>
+
+        <div class="form-group">
+          <label>이메일 주소 *</label>
+          <input type="text" name="email" placeholder="example@company.com" required>
+        </div>
+
+        <div class="form-group">
+          <label>핸드폰 번호 *</label>
+          <input type="tel" name="phone" placeholder="010-0000-0000" required>
+        </div>
+
+        <div class="form-group">
+          <label>소속 팀 *</label>
+          <select name="team" required>
+            <option value="" disabled selected>소속 팀을 선택하세요</option>
+            {% for team in teams %}
+            <option value="{{ team }}">{{ team }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>비밀번호 *</label>
+          <input type="password" name="password" placeholder="비밀번호를 입력하세요" required minlength="4">
+        </div>
+
+        <div class="form-group">
+          <label>비밀번호 확인 *</label>
+          <input type="password" name="password_confirm" placeholder="비밀번호를 다시 입력하세요" required minlength="4">
+        </div>
+
+        <button type="submit" class="btn btn-primary">회원가입 신청</button>
+      </form>
+
+      <hr class="divider">
+      <a href="/login" class="btn btn-outline">로그인으로 돌아가기</a>
+
+    </div>
+  </div>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>
