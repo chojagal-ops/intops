@@ -287,6 +287,17 @@
             {% endfor %}
           </tr>
 
+          <!-- 승인자 행 -->
+          <tr class="tr-insp tr-label">
+            <td class="col-item" style="background:#f0fdf4; color:#15803d;">승인자</td>
+            <td style="background:#f0fdf4;"></td>
+            {% for d in range(1, days_in_month+1) %}
+            <td style="background:#f0fdf4; font-size:0.65rem; color:#15803d;">
+              {{ insp_by_day[d].approved_name if d in insp_by_day and insp_by_day[d].approved_name else '' }}
+            </td>
+            {% endfor %}
+          </tr>
+
           <!-- 종합결과 행 -->
           <tr class="tr-sum">
             <td class="col-item" style="font-weight:700; color:var(--text);">종합결과</td>

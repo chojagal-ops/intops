@@ -1036,9 +1036,11 @@ def monthly_results(eq_id):
 
     inspections = conn.execute(f'''
         SELECT i.*, u.name AS inspector_name,
+               a.name AS approved_name,
                {date_col("i.inspected_at")} AS insp_date
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
+        LEFT JOIN users a ON i.approved_by = a.id
         WHERE i.equipment_id = ? AND {ym_expr} = ?
         ORDER BY i.inspected_at
     ''', (eq_id, ym)).fetchall()
