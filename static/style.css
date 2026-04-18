@@ -829,3 +829,131 @@ td { padding: 12px 14px; color: var(--text); }
   outline: none;
 }
 .item-notes-input:focus { border-color: var(--orange); color: var(--text); }
+
+/* ══════════════════════════════════════════════
+   모바일 반응형 (768px 이하)
+══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* 기본 폰트 축소 */
+  body { font-size: 13px; }
+
+  /* 상단바 */
+  .topbar {
+    padding: 0 12px;
+    height: 48px;
+    gap: 8px;
+  }
+  .topbar-title {
+    font-size: 0.78rem;
+    letter-spacing: 0;
+  }
+  .topbar-title img { width: 22px; height: 22px; margin-right: 5px; }
+  .topbar-nav { display: none; }          /* 네비 숨김 – 홈/로그아웃만 표시 */
+  .topbar-user { font-size: 0.72rem; gap: 8px; }
+  .role-badge-sm { display: none; }
+
+  /* 페이지 패딩 */
+  .page-wrap { padding: 12px; padding-top: 16px !important; }
+
+  /* 카드 */
+  .card { padding: 20px 16px; border-radius: 12px; }
+  .card-wide { max-width: 100%; }
+
+  /* 대시보드 그리드 */
+  .dash-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
+  .dash-card { padding: 16px 10px; }
+  .dash-card-icon  { font-size: 1.5rem; margin-bottom: 8px; }
+  .dash-card-value { font-size: 1.1rem; }
+  .dash-card-label { font-size: 0.75rem; }
+
+  /* 설비 정보 박스 */
+  .eq-info-box { flex-direction: column; gap: 10px; padding: 14px; }
+  .eq-info-name { font-size: 1rem; }
+  .eq-info-meta { font-size: 0.76rem; gap: 8px; }
+
+  /* ── 점검 테이블 핵심 수정 ── */
+  .tmpl-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+  }
+
+  .tmpl-table {
+    font-size: 0.72rem;
+    min-width: 480px;          /* 최소 너비 유지 → 가로 스크롤 */
+    table-layout: fixed;
+  }
+
+  .tmpl-header-cell {
+    padding: 6px 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .tmpl-cell {
+    padding: 6px 6px;
+    font-size: 0.72rem;
+    word-break: break-all;
+    max-width: 120px;
+  }
+
+  .tmpl-result-cell {
+    padding: 6px 6px;
+    min-width: 130px;
+  }
+
+  /* 라디오 버튼 – 작게 */
+  .item-result-group { gap: 4px; }
+  .item-radio span {
+    padding: 2px 6px;
+    font-size: 0.68rem;
+  }
+  .item-notes-input {
+    font-size: 0.68rem;
+    padding: 4px 6px;
+  }
+
+  /* 결과 선택 4버튼 → 2열 */
+  .result-radio-group {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .result-radio-box { padding: 12px 4px; font-size: 0.78rem; }
+  .result-radio-icon { font-size: 1.3rem; }
+
+  /* 승인 카드 */
+  .approve-card { flex-direction: column; gap: 10px; }
+
+  /* 필터 폼 */
+  .filter-form { padding: 12px; gap: 8px; }
+  .filter-group input[type="date"],
+  .filter-group select { min-width: 100px; font-size: 0.8rem; padding: 7px 8px; }
+
+  /* 일반 테이블 (이력 등) */
+  table { font-size: 0.72rem; }
+  thead th { padding: 7px 6px; font-size: 0.68rem; }
+  td { padding: 7px 6px; }
+
+  /* 버튼 */
+  .btn { font-size: 0.85rem; padding: 11px 18px; }
+  .btn-sm { padding: 5px 10px; font-size: 0.72rem; }
+
+  /* 섹션 타이틀 */
+  .section-title { font-size: 0.78rem; }
+
+  /* 내보내기 박스 */
+  .export-box { flex-direction: column; align-items: flex-start !important; }
+
+  /* 탭 */
+  .tab-btn { padding: 8px 4px; font-size: 0.78rem; }
+}
+
+/* 아주 작은 화면 (390px 이하) */
+@media (max-width: 390px) {
+  .tmpl-table { font-size: 0.65rem; min-width: 420px; }
+  .tmpl-cell  { font-size: 0.65rem; padding: 5px 4px; }
+  .tmpl-header-cell { font-size: 0.62rem; padding: 5px 4px; }
+  .item-radio span  { padding: 2px 5px; font-size: 0.62rem; }
+  .tmpl-result-cell { min-width: 110px; }
+}

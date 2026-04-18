@@ -11,7 +11,10 @@
 <body>
 
   <div class="topbar">
-    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
     <div class="topbar-user">
       <span class="role-badge-sm">{{ session.role }}</span>
       {{ session.user_name }} 님
@@ -25,7 +28,7 @@
   </div>
 
   <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
-    <div class="card" style="max-width:900px; width:100%;">
+    <div class="card" style="max-width:960px; width:100%;">
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -44,22 +47,48 @@
           </div>
           <div class="eq-info-meta" style="margin-top:4px;">
             <span>👤 승인자:
-              <strong style="color:{% if eq.approver_name %}#90caf9{% else %}#ef9a9a{% endif %};">
+              <strong style="color:{% if eq.approver_name %}var(--orange){% else %}#ef4444{% endif %};">
                 {{ eq.approver_name or '미지정' }}
               </strong>
             </span>
             {% if tmpl_rows %}
-            <span>📋 점검표: <strong style="color:#a5d6a7;">Excel 연동</strong></span>
+            <span>📋 점검표: <strong style="color:#16a34a;">Excel 연동</strong></span>
             {% endif %}
           </div>
           {% if eq.description %}<div class="eq-info-desc">{{ eq.description }}</div>{% endif %}
         </div>
       </div>
 
+      <!-- ── 월별 결과 내보내기 ─────────────────────────────── -->
+      {% if tmpl_rows %}
+      <div class="export-box" style="background:var(--orange-faint); border:1px solid rgba(249,115,22,0.2);
+                  border-radius:10px; padding:14px 18px; margin-top:12px;
+                  display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span style="font-size:0.88rem; font-weight:700; color:var(--orange);">📊 월별 점검결과 엑셀 다운로드</span>
+        <form method="GET" action="/export/monthly/{{ eq.id }}"
+              style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0;">
+          <select name="year" style="padding:7px 10px; font-size:0.85rem; width:auto; border-radius:6px;">
+            {% for y in range(2024, 2028) %}
+            <option value="{{ y }}" {% if y == now_year %}selected{% endif %}>{{ y }}년</option>
+            {% endfor %}
+          </select>
+          <select name="month" style="padding:7px 10px; font-size:0.85rem; width:auto; border-radius:6px;">
+            {% for m in range(1, 13) %}
+            <option value="{{ m }}" {% if m == now_month %}selected{% endif %}>{{ m }}월</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary"
+                  style="width:auto; padding:8px 18px; font-size:0.85rem;">
+            ⬇ 다운로드
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
       <!-- ── 승인자: 승인 대기 목록 ─────────────────────────── -->
       {% if is_approver and pending_approvals %}
-      <div class="approve-section">
-        <div class="section-title" style="color:#ffe082;">
+      <div class="approve-section" style="margin-top:16px;">
+        <div class="section-title" style="color:#c2410c;">
           ⏳ 승인 대기
           <span class="badge badge-pending">{{ pending_approvals | length }}</span>
         </div>
@@ -75,7 +104,7 @@
               {% elif p.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
               {% elif p.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
               {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
-              {% if p.notes %}<span style="font-size:0.82rem;color:#90a4ae;margin-left:8px;">{{ p.notes }}</span>{% endif %}
+              {% if p.notes %}<span style="font-size:0.82rem;color:var(--text-sub);margin-left:8px;">{{ p.notes }}</span>{% endif %}
             </div>
           </div>
           <form method="POST" style="margin:0;">
@@ -88,7 +117,7 @@
         {% endfor %}
       </div>
       {% elif is_approver %}
-      <div class="approve-section" style="text-align:center;color:#546e7a;padding:20px;">
+      <div class="approve-section" style="text-align:center;color:var(--text-sub);padding:20px;margin-top:16px;">
         ✅ 현재 승인 대기 중인 점검이 없습니다.
       </div>
       {% endif %}
@@ -97,18 +126,24 @@
       {% if is_inspector %}
       <hr class="divider">
 
+      <!-- 오늘 날짜 표시 -->
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+        <div class="section-title" style="margin-bottom:0;">
+          📋 일일 점검표
+          <span style="font-size:0.78rem; color:var(--text-sub); font-weight:400; text-transform:none; margin-left:6px;">
+            오늘: <strong style="color:var(--orange);" id="today-label"></strong>
+          </span>
+        </div>
+        {% if tmpl_rows %}
+        <span style="font-size:0.8rem; color:var(--text-sub);">각 항목의 점검 결과를 선택하고 점검완료를 누르세요</span>
+        {% endif %}
+      </div>
+
       <form method="POST" id="inspect-form">
         <input type="hidden" name="action" value="submit">
 
         {% if tmpl_rows %}
         <!-- ════ Excel 연동 점검표 ════ -->
-        <div class="section-title">
-          📋 설비점검표
-          <span style="font-size:0.78rem;color:#546e7a;font-weight:400;text-transform:none;">
-            항목별로 점검 결과를 선택하세요
-          </span>
-        </div>
-
         <div class="tmpl-table-wrap">
           <table class="tmpl-table">
             <tbody>
@@ -120,11 +155,10 @@
                 {% for cell in row.cells %}
                 <td class="tmpl-cell">{{ cell }}</td>
                 {% endfor %}
-                <!-- 빈 셀 패딩 -->
                 {% for _ in range(tmpl_max_cols - row.cells | length) %}
                 <td class="tmpl-cell"></td>
                 {% endfor %}
-                <!-- 결과 입력 열 -->
+                <!-- 결과 입력 -->
                 <td class="tmpl-result-cell">
                   <div class="item-result-group">
                     <label class="item-radio item-normal">
@@ -146,7 +180,7 @@
                 </td>
               </tr>
               {% else %}
-              <!-- 헤더/분류 행 -->
+              <!-- 섹션 헤더 행 -->
               <tr class="tmpl-header-row">
                 {% for cell in row.cells %}
                 <td class="tmpl-header-cell" colspan="1">{{ cell }}</td>
@@ -154,7 +188,7 @@
                 {% for _ in range(tmpl_max_cols - row.cells | length) %}
                 <td class="tmpl-header-cell"></td>
                 {% endfor %}
-                <td class="tmpl-header-cell" style="color:#42a5f5;font-weight:700;">점검결과</td>
+                <td class="tmpl-header-cell" style="color:var(--orange); font-weight:700;">점검결과</td>
               </tr>
               {% endif %}
               {% endfor %}
@@ -162,18 +196,17 @@
           </table>
         </div>
 
-        <div class="form-group" style="margin-top:20px;">
-          <label>종합 특이사항</label>
+        <div class="form-group" style="margin-top:16px;">
+          <label>종합 특이사항 (선택)</label>
           <textarea name="notes" rows="2"
-            style="width:100%;padding:10px 14px;background:#0f1923;
-                   border:1px solid rgba(255,255,255,0.1);border-radius:8px;
-                   color:#e0e6ed;font-size:0.9rem;resize:vertical;outline:none;"
-            placeholder="전체 점검에 대한 특이사항을 입력하세요 (선택)"></textarea>
+            style="width:100%; padding:10px 14px; background:var(--bg);
+                   border:1px solid var(--border-mid); border-radius:8px;
+                   color:var(--text); font-size:0.9rem; resize:vertical; outline:none;"
+            placeholder="전체 점검에 대한 특이사항을 입력하세요"></textarea>
         </div>
 
         {% else %}
         <!-- ════ 기본 점검 폼 ════ -->
-        <div class="section-title">점검 결과 입력</div>
         <div class="form-group">
           <label>점검 결과 *</label>
           <div class="result-radio-group">
@@ -198,15 +231,15 @@
         <div class="form-group">
           <label>특이사항 / 메모</label>
           <textarea name="notes" rows="3"
-            style="width:100%;padding:12px 16px;background:#0f1923;
-                   border:1px solid rgba(255,255,255,0.1);border-radius:8px;
-                   color:#e0e6ed;font-size:0.95rem;resize:vertical;outline:none;"
+            style="width:100%; padding:12px 16px; background:var(--bg);
+                   border:1px solid var(--border-mid); border-radius:8px;
+                   color:var(--text); font-size:0.95rem; resize:vertical; outline:none;"
             placeholder="이상 내용, 조치사항 등을 입력하세요 (선택)"></textarea>
         </div>
         {% endif %}
 
         <button type="submit" class="btn btn-primary" style="margin-top:8px;">
-          ✔ 점검완료
+          ✔ 점검완료 제출
         </button>
       </form>
       {% endif %}
@@ -214,44 +247,56 @@
       <!-- ── 점검 이력 ─────────────────────────────────────── -->
       {% if history %}
       <hr class="divider">
-      <div class="section-title">점검 이력</div>
-      <table>
-        <thead>
-          <tr>
-            <th>점검일시</th><th>점검자</th><th>결과</th>
-            <th>상태</th><th>승인자</th><th>특이사항</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for h in history %}
-          <tr>
-            <td style="font-size:0.8rem;color:#78909c;white-space:nowrap;">{{ h.inspected_at }}</td>
-            <td>{{ h.inspector_name }}</td>
-            <td>
-              {% if h.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
-              {% elif h.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
-              {% elif h.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
-              {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
-            </td>
-            <td>
-              {% if h.status == '승인완료' %}
-                <span class="badge badge-approved">승인완료</span>
-              {% else %}
-                <span class="badge badge-pending">승인대기</span>
-              {% endif %}
-            </td>
-            <td style="font-size:0.82rem;">{{ h.approved_name or '-' }}</td>
-            <td style="font-size:0.82rem;color:#90a4ae;">{{ h.notes or '-' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="section-title">점검 이력 (최근 20건)</div>
+      <div class="tmpl-table-wrap">
+        <table class="tmpl-table">
+          <thead>
+            <tr class="tmpl-header-row">
+              <th class="tmpl-header-cell">점검일시</th>
+              <th class="tmpl-header-cell">점검자</th>
+              <th class="tmpl-header-cell">결과</th>
+              <th class="tmpl-header-cell">상태</th>
+              <th class="tmpl-header-cell">승인자</th>
+              <th class="tmpl-header-cell">특이사항</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in history %}
+            <tr class="tmpl-item-row">
+              <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub); white-space:nowrap;">{{ h.inspected_at }}</td>
+              <td class="tmpl-cell">{{ h.inspector_name }}</td>
+              <td class="tmpl-cell">
+                {% if h.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                {% elif h.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                {% elif h.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+                {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+              </td>
+              <td class="tmpl-cell">
+                {% if h.status == '승인완료' %}
+                  <span class="badge badge-approved">승인완료</span>
+                {% else %}
+                  <span class="badge badge-pending">승인대기</span>
+                {% endif %}
+              </td>
+              <td class="tmpl-cell" style="font-size:0.82rem;">{{ h.approved_name or '-' }}</td>
+              <td class="tmpl-cell" style="font-size:0.82rem; color:var(--text-sub);">{{ h.notes or '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% endif %}
 
     </div>
   </div>
 
   <script>
+    // 오늘 날짜 표시
+    const today = new Date();
+    const label = today.getFullYear() + '년 ' + (today.getMonth()+1) + '월 ' + today.getDate() + '일';
+    const el = document.getElementById('today-label');
+    if (el) el.textContent = label;
+
     // 이상 항목 선택 시 행 강조
     document.querySelectorAll('.tmpl-item-row input[type=radio]').forEach(radio => {
       radio.addEventListener('change', function() {
