@@ -756,10 +756,25 @@ def inspect(eq_id):
         (eq_id,)
     ).fetchall()
 
+    # 오늘 이미 점검됐는지 확인
+    today_insp = conn.execute(f'''
+        SELECT i.*, u.name AS inspector_name
+        FROM inspections i
+        JOIN users u ON i.inspector_id = u.id
+        WHERE i.equipment_id=? AND {date_col("i.inspected_at")}={TODAY}
+        AND i.status IN ('점검완료','승인완료')
+        ORDER BY i.inspected_at DESC LIMIT 1
+    ''', (eq_id,)).fetchone()
+
     if request.method == 'POST':
         action = request.form.get('action')
 
         if action == 'submit' and is_inspector:
+            # 중복 점검 방지
+            if today_insp:
+                flash('오늘 이미 점검이 진행되었습니다. 중복 점검은 불가합니다.', 'warning')
+                return redirect(url_for('inspect', eq_id=eq_id))
+
             overall_notes = request.form.get('notes', '').strip()
 
             if db_items:
@@ -877,7 +892,7 @@ def inspect(eq_id):
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
                            tmpl_rows=tmpl_rows, tmpl_max_cols=tmpl_max_cols,
-                           db_items=db_items,
+                           db_items=db_items, today_insp=today_insp,
                            now_year=now.year, now_month=now.month)
 
 

@@ -144,6 +144,25 @@
         {% endif %}
       </div>
 
+      {% if today_insp %}
+      <!-- 오늘 이미 점검 완료 -->
+      <div style="background:rgba(249,115,22,0.08); border:1.5px solid rgba(249,115,22,0.3);
+                  border-radius:12px; padding:24px 20px; text-align:center; margin-bottom:12px;">
+        <div style="font-size:1.5rem; margin-bottom:8px;">✅</div>
+        <div style="font-size:1rem; font-weight:700; color:var(--orange); margin-bottom:6px;">
+          오늘 이미 점검이 진행되었습니다
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:12px;">
+          점검자: <strong>{{ today_insp.inspector_name }}</strong> &nbsp;·&nbsp;
+          시각: <strong>{{ today_insp.inspected_at[11:16] }}</strong> &nbsp;·&nbsp;
+          상태: <strong>{% if today_insp.status == '승인완료' %}승인완료{% else %}승인 대기중{% endif %}</strong>
+        </div>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+          동일 설비의 중복 점검은 허용되지 않습니다. 오류가 있을 경우 관리자에게 문의하세요.
+        </div>
+      </div>
+
+      {% else %}
       <form method="POST" id="inspect-form">
         <input type="hidden" name="action" value="submit">
 
@@ -309,7 +328,8 @@
           ✔ 점검완료 제출
         </button>
       </form>
-      {% endif %}
+      {% endif %}{# today_insp else #}
+      {% endif %}{# is_inspector #}
 
       <!-- ── 점검 이력 ─────────────────────────────────────── -->
       {% if history %}
