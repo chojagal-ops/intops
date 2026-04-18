@@ -91,11 +91,18 @@
         <table class="monthly-table">
           <thead>
             <tr>
-              <th class="item-col">점검항목</th>
-              <th style="min-width:60px;">기준</th>
-              <th style="min-width:30px;">단위</th>
+              <th class="item-col" rowspan="2">점검항목</th>
+              <th style="min-width:60px;" rowspan="2">기준</th>
+              <th style="min-width:30px;" rowspan="2">단위</th>
               {% for d in range(1, days_in_month+1) %}
               <th class="day-col" style="{% if d in insp_by_day %}color:var(--orange);{% endif %}">{{ d }}</th>
+              {% endfor %}
+            </tr>
+            <tr>
+              {% for d in range(1, days_in_month+1) %}
+              <th class="day-col" style="font-size:0.62rem; font-weight:400; color:var(--text-muted); padding:3px 2px;">
+                {% if d in insp_by_day %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% endif %}
+              </th>
               {% endfor %}
             </tr>
           </thead>
