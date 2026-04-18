@@ -3,28 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>월별 점검결과 - {{ eq.name }}</title>
+  <title>월별 점검표 – {{ eq.name }} {{ year }}년 {{ month }}월</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
   <style>
-    .monthly-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:10px; border:1px solid var(--border); }
-    .monthly-table { border-collapse:collapse; font-size:0.8rem; white-space:nowrap; }
-    .monthly-table th, .monthly-table td { border:1px solid var(--border); padding:7px 8px; text-align:center; vertical-align:middle; }
-    .monthly-table thead th { background:var(--orange-faint); color:var(--text-sub); font-size:0.75rem; font-weight:700; }
-    .monthly-table th.item-col { text-align:left; min-width:130px; max-width:180px; white-space:normal; word-break:keep-all; }
-    .monthly-table td.item-col { text-align:left; }
-    .monthly-table th.day-col  { min-width:32px; width:32px; }
-    .c-ok   { background:rgba(22,163,74,0.12);  color:#15803d; font-weight:700; }
-    .c-ng   { background:rgba(220,38,38,0.12);   color:#dc2626; font-weight:700; }
-    .c-na   { background:rgba(107,114,128,0.10); color:#6b7280; }
-    .c-none { background:var(--bg-subtle); }
-    .c-insp { background:var(--orange-faint); font-size:0.68rem; color:var(--text-sub); }
-    .month-nav { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    /* ── 페이지 레이아웃 ── */
+    .mr-page { max-width:1400px; margin:0 auto; padding:20px 16px 40px; }
+
+    /* ── 상단 제목 박스 ── */
+    .mr-title-box {
+      background:var(--bg); border:2px solid var(--orange);
+      border-radius:14px; padding:20px 24px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:14px; margin-bottom:20px;
+    }
+    .mr-title-left { display:flex; align-items:center; gap:14px; }
+    .mr-title-logo { width:44px; height:44px; border-radius:10px; object-fit:cover; }
+    .mr-title-text h1 { font-size:1.2rem; font-weight:800; color:var(--text); margin:0 0 3px; }
+    .mr-title-text p  { font-size:0.82rem; color:var(--text-sub); margin:0; }
+    .mr-title-badge {
+      background:var(--orange); color:#fff;
+      font-size:1rem; font-weight:800; padding:8px 20px;
+      border-radius:10px; white-space:nowrap;
+    }
+
+    /* ── 컨트롤 바 ── */
+    .mr-ctrl {
+      display:flex; align-items:center; gap:10px;
+      flex-wrap:wrap; margin-bottom:20px;
+    }
+
+    /* ── 요약 뱃지 ── */
+    .mr-summary { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+    .sum-badge {
+      padding:5px 16px; border-radius:20px;
+      font-size:0.82rem; font-weight:700;
+    }
+    .sum-ok  { background:rgba(22,163,74,0.12); color:#15803d; }
+    .sum-ng  { background:rgba(249,115,22,0.12); color:#c2410c; }
+
+    /* ── 테이블 ── */
+    .mr-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch;
+               border:1.5px solid var(--border); border-radius:12px; }
+    .mr-table { border-collapse:collapse; font-size:0.82rem; white-space:nowrap; min-width:100%; }
+    .mr-table th, .mr-table td {
+      border:1px solid var(--border); padding:0; text-align:center;
+      vertical-align:middle;
+    }
+    /* 헤더 */
+    .mr-table thead th {
+      background:var(--orange-faint); color:var(--text-sub);
+      font-size:0.75rem; font-weight:700; padding:8px 6px;
+    }
+    .mr-table th.col-item {
+      text-align:left; min-width:140px; max-width:200px;
+      white-space:normal; word-break:keep-all; padding:8px 10px;
+    }
+    .mr-table th.col-std  { min-width:80px; }
+    .mr-table th.col-day  { min-width:34px; width:34px; }
+    .th-day-num  { display:block; font-size:0.8rem; font-weight:700; padding:6px 4px 2px; }
+    .th-day-time { display:block; font-size:0.62rem; font-weight:400;
+                   color:var(--text-muted); padding:0 2px 5px; min-height:14px; }
+
+    /* 데이터 셀 */
+    .mr-table td { height:38px; }
+    .mr-table td.col-item {
+      text-align:left; padding:8px 10px;
+      font-size:0.8rem; white-space:normal; word-break:keep-all; max-width:200px;
+    }
+    .mr-table td.col-std {
+      font-size:0.72rem; color:var(--text-sub);
+      text-align:left; padding:6px 8px; white-space:normal;
+    }
+
+    /* O / X 마크 */
+    .mark-ok   { display:inline-block; width:26px; height:26px; line-height:26px;
+                 border-radius:50%; font-size:0.95rem; font-weight:900;
+                 background:rgba(22,163,74,0.15); color:#15803d; }
+    .mark-ng   { display:inline-block; width:26px; height:26px; line-height:26px;
+                 border-radius:50%; font-size:0.95rem; font-weight:900;
+                 background:rgba(220,38,38,0.15); color:#dc2626; }
+    .mark-na   { display:inline-block; width:26px; height:26px; line-height:26px;
+                 font-size:0.8rem; color:var(--text-muted); }
+    .td-ok     { background:rgba(22,163,74,0.07); }
+    .td-ng     { background:rgba(220,38,38,0.07); }
+    .td-none   { background:var(--bg-subtle); }
+
+    /* 점검자 / 종합결과 행 */
+    .tr-insp td  { background:var(--orange-faint); font-size:0.68rem;
+                   color:var(--text-sub); padding:5px 3px; height:28px; }
+    .tr-sum  td  { background:var(--bg-subtle); font-weight:700; height:34px; }
+    .tr-label td { font-weight:700; color:var(--orange-dark); text-align:left; padding:6px 10px; }
+
+    /* 카테고리 행 */
+    .tr-cat td { background:var(--orange-faint); color:var(--orange-dark);
+                 font-weight:700; text-align:left; font-size:0.78rem;
+                 padding:6px 10px; }
+
+    /* 인쇄 버튼 */
+    .btn-print {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 16px; border-radius:8px; font-size:0.85rem; font-weight:700;
+      background:#fff; border:1.5px solid var(--border); color:var(--text-sub);
+      cursor:pointer; transition:background 0.15s;
+    }
+    .btn-print:hover { background:var(--bg-subtle); }
+
     @media(max-width:768px){
-      .monthly-table { font-size:0.68rem; }
-      .monthly-table th, .monthly-table td { padding:5px 4px; }
-      .monthly-table th.item-col { min-width:90px; }
+      .mr-table { font-size:0.7rem; }
+      .mr-table th, .mr-table td { padding:4px 3px; }
+      .mr-table th.col-item { min-width:90px; }
+      .mark-ok, .mark-ng, .mark-na { width:22px; height:22px; line-height:22px; font-size:0.82rem; }
+    }
+    @media print {
+      .topbar, .mr-ctrl, .btn-print { display:none !important; }
+      .mr-page { padding:10px; }
+      .mr-title-box { border-color:#999; }
+      body { background:#fff; }
     }
   </style>
 </head>
@@ -35,164 +131,195 @@
       <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
       INTOPS 설비점검 시스템
     </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/equipment-list" class="nav-link">전체 설비</a>
+    </div>
     <div class="topbar-user">
       <span class="role-badge-sm">{{ session.role }}</span>
       {{ session.user_name }} 님
-      <a href="/inspect/{{ eq.id }}">점검페이지</a>
+      <a href="/inspect/{{ eq.id }}">점검하기</a>
       <a href="/logout">로그아웃</a>
     </div>
   </div>
 
-  <div class="page-wrap" style="align-items:flex-start; padding-top:24px;">
-    <div class="card card-wide">
+  <div class="mr-page">
 
-      <!-- 헤더 -->
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
-        <div>
-          <div class="card-title" style="text-align:left;">{{ eq.name }}</div>
-          <div class="card-desc">{{ eq.location or '' }} {% if eq.department %}· {{ eq.department }}{% endif %} {% if eq.inspection_cycle %}· 점검주기: <strong style="color:var(--orange);">{{ eq.inspection_cycle }}</strong>{% endif %}</div>
-        </div>
-        <div class="month-nav">
-          <form method="GET" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:0;">
-            <select name="year" style="padding:7px 10px; font-size:0.85rem; border-radius:6px;">
-              {% for y in range(2024, 2028) %}
-              <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
-              {% endfor %}
-            </select>
-            <select name="month" style="padding:7px 10px; font-size:0.85rem; border-radius:6px;">
-              {% for m in range(1, 13) %}
-              <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary" style="width:auto; padding:8px 16px; font-size:0.85rem;">조회</button>
-          </form>
-          <a href="/export/monthly/{{ eq.id }}?year={{ year }}&month={{ month }}"
-             class="btn btn-outline" style="width:auto; padding:8px 16px; font-size:0.85rem; color:var(--orange); border-color:var(--orange);">
-            ⬇ 엑셀
-          </a>
+    <!-- 제목 박스 -->
+    <div class="mr-title-box">
+      <div class="mr-title-left">
+        <img src="/static/logo.png" alt="INTOPS" class="mr-title-logo">
+        <div class="mr-title-text">
+          <h1>{{ eq.name }} – 월별 점검표</h1>
+          <p>
+            {% if eq.location %}📍 {{ eq.location }}{% endif %}
+            {% if eq.department %}&nbsp;·&nbsp;🏭 {{ eq.department }}{% endif %}
+            {% if eq.inspection_cycle %}&nbsp;·&nbsp;점검주기: <strong style="color:var(--orange);">{{ eq.inspection_cycle }}</strong>{% endif %}
+          </p>
         </div>
       </div>
+      <div class="mr-title-badge">{{ year }}년 {{ month }}월</div>
+    </div>
 
-      <!-- 요약 -->
-      {% set total_days = insp_by_day | length %}
-      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-        <span style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:700; background:rgba(22,163,74,0.12); color:#15803d;">
-          ✅ 점검완료 {{ total_days }}일
-        </span>
-        <span style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:700; background:rgba(249,115,22,0.12); color:#c2410c;">
-          ⚠️ 미점검 {{ days_in_month - total_days }}일
-        </span>
-      </div>
+    <!-- 컨트롤 바 -->
+    <div class="mr-ctrl">
+      <form method="GET" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:0;">
+        <select name="year" style="padding:7px 10px; font-size:0.85rem; border-radius:6px;">
+          {% for y in range(2024, 2028) %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
+          {% endfor %}
+        </select>
+        <select name="month" style="padding:7px 10px; font-size:0.85rem; border-radius:6px;">
+          {% for m in range(1, 13) %}
+          <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary" style="width:auto; padding:8px 16px; font-size:0.85rem;">조회</button>
+      </form>
+      <a href="/export/monthly/{{ eq.id }}?year={{ year }}&month={{ month }}"
+         class="btn btn-outline" style="width:auto; padding:8px 16px; font-size:0.85rem; color:var(--orange); border-color:var(--orange);">
+        ⬇ 엑셀 다운로드
+      </a>
+      <button class="btn-print" onclick="window.print()">🖨 인쇄</button>
+    </div>
 
-      {% set items = db_items if db_items else tmpl_rows %}
+    <!-- 요약 -->
+    {% set total_days = insp_by_day | length %}
+    <div class="mr-summary">
+      <span class="sum-badge sum-ok">✅ 점검완료 {{ total_days }}일</span>
+      <span class="sum-badge sum-ng">⚠️ 미점검 {{ days_in_month - total_days }}일</span>
+    </div>
 
-      {% if items %}
-      <div class="monthly-wrap">
-        <table class="monthly-table">
-          <thead>
-            <tr>
-              <th class="item-col" rowspan="2">점검항목</th>
-              <th style="min-width:60px;" rowspan="2">기준</th>
-              <th style="min-width:30px;" rowspan="2">단위</th>
-              {% for d in range(1, days_in_month+1) %}
-              <th class="day-col" style="{% if d in insp_by_day %}color:var(--orange);{% endif %}">{{ d }}</th>
-              {% endfor %}
-            </tr>
-            <tr>
-              {% for d in range(1, days_in_month+1) %}
-              <th class="day-col" style="font-size:0.62rem; font-weight:400; color:var(--text-muted); padding:3px 2px;">
-                {% if d in insp_by_day %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% endif %}
-              </th>
-              {% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% if db_items %}
-              {% set ns = namespace(num=0, cat='') %}
-              {% for item in db_items %}
-                {% if item.category and item.category != ns.cat %}
-                  {% set ns.cat = item.category %}
-                  <tr>
-                    <td colspan="{{ 3 + days_in_month }}"
-                        style="background:var(--orange-faint); color:var(--orange-dark); font-weight:700; text-align:left; font-size:0.78rem;">
-                      {{ item.category }}
-                    </td>
-                  </tr>
-                {% endif %}
-                {% set ns.num = ns.num + 1 %}
-                <tr>
-                  <td class="item-col">{{ ns.num }}. {{ item.item_name }}</td>
-                  <td style="font-size:0.72rem; color:var(--text-sub); text-align:left;">{{ item.criteria or '-' }}</td>
-                  <td>{{ item.unit or '-' }}</td>
-                  {% for d in range(1, days_in_month+1) %}
-                  <td class="{% if d in insp_by_day %}{% set det = details_by_insp.get(insp_by_day[d].id, {}).get(item.id) %}{% if det %}{% if det.result == '정상' %}c-ok{% elif det.result == '이상' %}c-ng{% else %}c-na{% endif %}{% else %}c-none{% endif %}{% else %}c-none{% endif %}">
-                    {% if d in insp_by_day %}
-                      {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(item.id) %}
-                      {% if det %}
-                        {% if det.result == '정상' %}O{% elif det.result == '이상' %}X{% else %}-{% endif %}
+    {% set items = db_items if db_items else tmpl_rows %}
+
+    {% if items %}
+    <div class="mr-wrap">
+      <table class="mr-table">
+        <thead>
+          <tr>
+            <th class="col-item" rowspan="2">점검항목</th>
+            <th class="col-std" rowspan="2">판단기준</th>
+            {% for d in range(1, days_in_month+1) %}
+            <th class="col-day">
+              <span class="th-day-num" style="{% if d in insp_by_day %}color:var(--orange);{% endif %}">{{ d }}</span>
+              <span class="th-day-time">{% if d in insp_by_day %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% endif %}</span>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {# ── DB 등록 항목 ── #}
+          {% if db_items %}
+            {% set ns = namespace(num=0, cat='') %}
+            {% for item in db_items %}
+              {% if item.category and item.category != ns.cat %}
+                {% set ns.cat = item.category %}
+                <tr class="tr-cat"><td colspan="{{ 2 + days_in_month }}">{{ item.category }}</td></tr>
+              {% endif %}
+              {% set ns.num = ns.num + 1 %}
+              <tr>
+                <td class="col-item">{{ ns.num }}. {{ item.item_name }}
+                  {% if item.unit %}<span style="font-size:0.7rem;color:var(--text-muted);margin-left:4px;">({{ item.unit }})</span>{% endif %}
+                </td>
+                <td class="col-std">{{ item.criteria or '-' }}</td>
+                {% for d in range(1, days_in_month+1) %}
+                  {% if d in insp_by_day %}
+                    {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(item.id) %}
+                    {% if det %}
+                      {% if det.result == '정상' %}
+                        <td class="td-ok"><span class="mark-ok">O</span></td>
+                      {% elif det.result == '이상' %}
+                        <td class="td-ng"><span class="mark-ng">X</span></td>
+                      {% else %}
+                        <td><span class="mark-na">–</span></td>
                       {% endif %}
+                    {% else %}
+                      <td class="td-none"></td>
                     {% endif %}
-                  </td>
+                  {% else %}
+                    <td class="td-none"></td>
+                  {% endif %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+
+          {# ── Excel 템플릿 항목 ── #}
+          {% else %}
+            {% set ns2 = namespace(num=0) %}
+            {% for row in tmpl_rows %}
+              {% if row.is_item %}
+                {% set ns2.num = ns2.num + 1 %}
+                {% set row_idx = loop.index0 %}
+                <tr>
+                  <td class="col-item">{{ ns2.num }}. {{ row.cells[1] if row.cells|length > 1 else row.cells[0] }}</td>
+                  <td class="col-std">{{ row.cells[2] if row.cells|length > 2 else '-' }}</td>
+                  {% for d in range(1, days_in_month+1) %}
+                    {% if d in insp_by_day %}
+                      {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(row_idx) %}
+                      {% if det %}
+                        {% if det.result == '정상' %}
+                          <td class="td-ok"><span class="mark-ok">O</span></td>
+                        {% elif det.result == '이상' %}
+                          <td class="td-ng"><span class="mark-ng">X</span></td>
+                        {% else %}
+                          <td><span class="mark-na">–</span></td>
+                        {% endif %}
+                      {% else %}
+                        <td class="td-none"></td>
+                      {% endif %}
+                    {% else %}
+                      <td class="td-none"></td>
+                    {% endif %}
                   {% endfor %}
                 </tr>
-              {% endfor %}
-            {% else %}
-              {% set ns2 = namespace(num=0) %}
-              {% for row in tmpl_rows %}
-                {% if row.is_item %}
-                  {% set ns2.num = ns2.num + 1 %}
-                  {% set row_idx = loop.index0 %}
-                  <tr>
-                    <td class="item-col">{{ ns2.num }}. {{ row.cells[1] if row.cells|length > 1 else row.cells[0] }}</td>
-                    <td style="font-size:0.72rem; color:var(--text-sub); text-align:left;">{{ row.cells[2] if row.cells|length > 2 else '-' }}</td>
-                    <td>{{ row.cells[3] if row.cells|length > 3 else '-' }}</td>
-                    {% for d in range(1, days_in_month+1) %}
-                    <td class="{% if d in insp_by_day %}{% set det = details_by_insp.get(insp_by_day[d].id, {}).get(row_idx) %}{% if det %}{% if det.result == '정상' %}c-ok{% elif det.result == '이상' %}c-ng{% else %}c-na{% endif %}{% else %}c-none{% endif %}{% else %}c-none{% endif %}">
-                      {% if d in insp_by_day %}
-                        {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(row_idx) %}
-                        {% if det %}{% if det.result == '정상' %}O{% elif det.result == '이상' %}X{% else %}-{% endif %}{% endif %}
-                      {% endif %}
-                    </td>
-                    {% endfor %}
-                  </tr>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+
+          <!-- 점검자 행 -->
+          <tr class="tr-insp tr-label">
+            <td class="col-item" style="background:var(--orange-faint);">점검자</td>
+            <td style="background:var(--orange-faint);"></td>
+            {% for d in range(1, days_in_month+1) %}
+            <td style="background:var(--orange-faint); font-size:0.65rem; color:var(--text-sub);">
+              {{ insp_by_day[d].inspector_name if d in insp_by_day else '' }}
+            </td>
+            {% endfor %}
+          </tr>
+
+          <!-- 종합결과 행 -->
+          <tr class="tr-sum">
+            <td class="col-item" style="font-weight:700; color:var(--text);">종합결과</td>
+            <td></td>
+            {% for d in range(1, days_in_month+1) %}
+              {% if d in insp_by_day %}
+                {% if insp_by_day[d].result == '정상' %}
+                  <td class="td-ok"><span class="mark-ok">O</span></td>
+                {% else %}
+                  <td class="td-ng"><span class="mark-ng">X</span></td>
                 {% endif %}
-              {% endfor %}
-            {% endif %}
-
-            <!-- 점검자 행 -->
-            <tr style="background:var(--orange-faint);">
-              <td class="item-col" style="font-weight:700; color:var(--orange-dark);">점검자</td>
-              <td colspan="2"></td>
-              {% for d in range(1, days_in_month+1) %}
-              <td class="c-insp">{{ insp_by_day[d].inspector_name if d in insp_by_day else '' }}</td>
-              {% endfor %}
-            </tr>
-
-            <!-- 결과 요약 행 -->
-            <tr style="background:var(--bg-subtle);">
-              <td class="item-col" style="font-weight:700;">종합결과</td>
-              <td colspan="2"></td>
-              {% for d in range(1, days_in_month+1) %}
-              <td class="{% if d in insp_by_day %}{% if insp_by_day[d].result == '정상' %}c-ok{% else %}c-ng{% endif %}{% else %}c-none{% endif %}">
-                {% if d in insp_by_day %}
-                  {% if insp_by_day[d].result == '정상' %}O{% else %}X{% endif %}
-                {% endif %}
-              </td>
-              {% endfor %}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:12px; font-size:0.78rem; color:var(--text-muted);">
-        ※ O: 정상 &nbsp; X: 이상 &nbsp; -: 해당없음 &nbsp; 빈칸: 미점검
-      </div>
-
-      {% else %}
-      <div class="empty-row">등록된 점검항목이 없습니다. 설비 등록 시 항목을 추가하거나 Excel 점검표를 업로드하세요.</div>
-      {% endif %}
-
+              {% else %}
+                <td class="td-none"></td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+        </tbody>
+      </table>
     </div>
+
+    <div style="margin-top:12px; font-size:0.78rem; color:var(--text-muted);">
+      ※&nbsp;<span class="mark-ok" style="font-size:0.75rem;">O</span> 양호&ensp;
+         <span class="mark-ng" style="font-size:0.75rem;">X</span> 이상&ensp;
+         <span class="mark-na">–</span> 해당없음&ensp;
+         빈칸 미점검
+    </div>
+
+    {% else %}
+    <div class="empty-row" style="padding:40px; text-align:center;">
+      등록된 점검항목이 없습니다. 설비 등록 시 항목을 추가하거나 Excel 점검표를 업로드하세요.
+    </div>
+    {% endif %}
+
   </div>
 
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
