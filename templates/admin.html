@@ -103,12 +103,12 @@
                 {% endif %}
               </td>
               <td>
-                <form method="POST" action="/admin/change-role/{{ u.id }}" style="display:inline-flex; gap:6px;">
-                  <select name="role" class="role-select">
+                <form method="POST" action="/admin/change-role/{{ u.id }}" style="display:inline-flex; flex-direction:row; align-items:center; gap:6px; flex-wrap:nowrap;">
+                  <select name="role" class="role-select" style="width:auto;">
                     <option value="점검자" {% if u.role == '점검자' %}selected{% endif %}>점검자</option>
                     <option value="승인자" {% if u.role == '승인자' %}selected{% endif %}>승인자</option>
                   </select>
-                  <button type="submit" class="btn btn-outline" style="width:auto; padding:6px 12px; font-size:0.8rem; margin-top:0;">변경</button>
+                  <button type="submit" class="btn btn-outline" style="width:auto; padding:6px 12px; font-size:0.8rem; margin:0; white-space:nowrap;">변경</button>
                 </form>
               </td>
             </tr>
