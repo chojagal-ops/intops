@@ -347,25 +347,18 @@
             {% endfor %}
           </tr>
 
-          <!-- 비고 행 -->
+          <!-- 비고 행 (월 전체 병합) -->
           <tr>
-            <td class="col-item" style="font-weight:700; color:var(--text-sub);">비고</td>
-            <td></td>
-            {% for d in range(1, days_in_month+1) %}
-              {% if d in insp_by_day %}
-                <td style="padding:2px 3px;">
-                  <textarea
-                    style="width:100%; min-width:60px; height:48px; font-size:0.65rem;
-                           border:1px solid var(--border); border-radius:4px;
-                           background:var(--bg); color:var(--text); resize:none; padding:2px 4px;"
-                    placeholder=""
-                    onchange="saveNote({{ insp_by_day[d].id }}, this.value)"
-                  >{{ insp_by_day[d].notes or '' }}</textarea>
-                </td>
-              {% else %}
-                <td class="td-none"></td>
-              {% endif %}
-            {% endfor %}
+            <td class="col-item" style="font-weight:700; color:var(--text-sub); white-space:nowrap;">비고</td>
+            <td colspan="{{ days_in_month + 1 }}" style="padding:6px 8px; vertical-align:top;">
+              <textarea id="monthly-note-input"
+                style="width:100%; height:60px; font-size:0.82rem;
+                       border:1px solid var(--border); border-radius:6px;
+                       background:var(--bg); color:var(--text); resize:vertical;
+                       padding:6px 8px; box-sizing:border-box;"
+                placeholder="이 달의 특이사항을 입력하세요..."
+              >{{ monthly_note }}</textarea>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -391,13 +384,26 @@
   <script>
     if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
 
-    function saveNote(inspId, value) {
-      fetch('/inspection/update-notes', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({inspection_id: inspId, notes: value})
+    (function(){
+      const ta = document.getElementById('monthly-note-input');
+      if(!ta) return;
+      let timer;
+      ta.addEventListener('input', function(){
+        clearTimeout(timer);
+        timer = setTimeout(function(){
+          fetch('/monthly-note/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              equipment_id: {{ eq.id }},
+              year: {{ year }},
+              month: {{ month }},
+              notes: ta.value
+            })
+          });
+        }, 800);
       });
-    }
+    })();
   </script>
 </body>
 </html>

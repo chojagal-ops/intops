@@ -370,6 +370,18 @@ def init_db():
         )
     ''')
 
+    conn.execute(f'''
+        CREATE TABLE IF NOT EXISTS monthly_notes (
+            id           {_pk},
+            equipment_id INTEGER NOT NULL,
+            year         INTEGER NOT NULL,
+            month        INTEGER NOT NULL,
+            notes        TEXT DEFAULT '',
+            updated_at   TEXT DEFAULT ({_now}),
+            UNIQUE(equipment_id, year, month)
+        )
+    ''')
+
     # 마이그레이션
     if conn._pg:
         migrations = [
@@ -1342,6 +1354,13 @@ def monthly_results(eq_id):
         'SELECT COUNT(*) AS cnt FROM equipment WHERE id <= ?', (eq_id,)
     ).fetchone()['cnt']
 
+    # 월별 비고
+    mn = conn.execute(
+        'SELECT notes FROM monthly_notes WHERE equipment_id=? AND year=? AND month=?',
+        (eq_id, year, month)
+    ).fetchone()
+    monthly_note = mn['notes'] if mn else ''
+
     conn.close()
     days_in_month = calendar.monthrange(year, month)[1]
 
@@ -1350,7 +1369,34 @@ def monthly_results(eq_id):
         insp_by_day=insp_by_day, details_by_insp=details_by_insp,
         year=year, month=month, days_in_month=days_in_month,
         now_year=now.year, now_month=now.month,
-        serial_no=f'{serial_no:04d}')
+        serial_no=f'{serial_no:04d}',
+        monthly_note=monthly_note)
+
+
+# ── 월별 비고 저장 ───────────────────────────────────────────────────────────
+@app.route('/monthly-note/save', methods=['POST'])
+@login_required
+def save_monthly_note():
+    data = request.get_json()
+    eq_id = data.get('equipment_id')
+    year  = data.get('year')
+    month = data.get('month')
+    notes = data.get('notes', '')
+    conn  = get_db()
+    if conn._pg:
+        conn.execute('''
+            INSERT INTO monthly_notes (equipment_id, year, month, notes)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (equipment_id, year, month) DO UPDATE SET notes=EXCLUDED.notes
+        ''', (eq_id, year, month, notes))
+    else:
+        conn.execute('''
+            INSERT INTO monthly_notes (equipment_id, year, month, notes) VALUES (?,?,?,?)
+            ON CONFLICT(equipment_id, year, month) DO UPDATE SET notes=excluded.notes
+        ''', (eq_id, year, month, notes))
+    conn.commit()
+    conn.close()
+    return {'ok': True}
 
 
 # ── 비고 저장 ─────────────────────────────────────────────────────────────────
