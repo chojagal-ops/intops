@@ -200,7 +200,7 @@
                     {% for ap in approvers %}
                     <option value="{{ ap.id }}"
                       {% if eq.approver_id == ap.id %}selected{% endif %}>
-                      {{ ap.name }} ({{ ap.team }})
+                      {{ ap.name }}
                     </option>
                     {% endfor %}
                   </select>
