@@ -175,7 +175,7 @@
                 <th class="tmpl-header-cell" style="width:36px;">번호</th>
                 <th class="tmpl-header-cell">점검항목</th>
                 <th class="tmpl-header-cell">판단기준</th>
-                <th class="tmpl-header-cell" style="width:60px;">단위</th>
+                <th class="tmpl-header-cell" style="width:70px; white-space:nowrap;">단위</th>
                 <th class="tmpl-header-cell" style="color:var(--orange);">점검결과</th>
               </tr>
             </thead>
@@ -194,7 +194,7 @@
                   <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                   <td class="tmpl-cell"><strong>{{ item.item_name }}</strong></td>
                   <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">{{ item.criteria or '-' }}</td>
-                  <td class="tmpl-cell" style="text-align:center; color:var(--text-sub);">{{ item.unit or '-' }}</td>
+                  <td class="tmpl-cell" style="text-align:center; color:var(--text-sub); white-space:nowrap;">{{ item.unit or '-' }}</td>
                   <td class="tmpl-result-cell">
                     <div class="item-result-group">
                       <label class="item-radio item-normal">
