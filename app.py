@@ -1292,10 +1292,18 @@ def my_inspections():
 def dashboard():
     conn = get_db()
 
-    today_count = conn.execute(f'''
-        SELECT COUNT(*) AS cnt FROM inspections
-        WHERE inspector_id=? AND {conn.date_col("inspected_at")}={conn.today}
-    ''', (session['user_id'],)).fetchone()['cnt']
+    today_list = conn.execute(f'''
+        SELECT i.id, i.result, i.status, i.inspected_at, i.notes,
+               e.id AS equipment_id, e.name AS eq_name, e.location AS eq_location,
+               a.name AS approved_name
+        FROM inspections i
+        JOIN equipment e ON i.equipment_id = e.id
+        LEFT JOIN users a ON i.approved_by = a.id
+        WHERE i.inspector_id=? AND {conn.date_col("i.inspected_at")}={conn.today}
+        ORDER BY i.inspected_at DESC
+    ''', (session['user_id'],)).fetchall()
+
+    today_count = len(today_list)
 
     total_eq = conn.execute(
         'SELECT COUNT(*) AS cnt FROM equipment'
@@ -1316,6 +1324,7 @@ def dashboard():
 
     conn.close()
     return render_template('dashboard.html', today_count=today_count,
+                           today_list=today_list,
                            total_eq=total_eq, pending_list=pending_list)
 
 

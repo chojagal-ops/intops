@@ -39,10 +39,17 @@
 
       <!-- 요약 카드 -->
       <div class="dash-grid">
-        <div class="dash-card">
+        <div class="dash-card" id="today-card"
+             onclick="toggleToday()"
+             style="cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">🔍</div>
           <div class="dash-card-label">오늘 점검</div>
           <div class="dash-card-value">{{ today_count }} 건</div>
+          {% if today_count > 0 %}
+          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">내역 보기 →</div>
+          {% endif %}
         </div>
         <a href="/equipment-list" class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⚙️</div>
@@ -60,6 +67,53 @@
         </div>
         {% endif %}
       </div>
+
+      <!-- 오늘 점검 상세 목록 (토글) -->
+      {% if today_list %}
+      <div id="today-detail" style="display:none; margin-top:16px;">
+        <hr class="divider" style="margin-top:0;">
+        <div class="section-title" style="margin-bottom:12px;">🔍 오늘 점검 내역</div>
+        <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
+            <thead>
+              <tr>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">설비명</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">위치</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검 결과</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">승인 상태</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">승인자</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검시간</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">점검표</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in today_list %}
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:10px 14px;"><strong>{{ r.eq_name }}</strong></td>
+                <td style="padding:10px 14px; color:var(--text-sub);">{{ r.eq_location or '-' }}</td>
+                <td style="padding:10px 14px;">
+                  {% if r.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                  {% elif r.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                  {% elif r.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                  {% elif r.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+                  {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+                </td>
+                <td style="padding:10px 14px;">
+                  {% if r.status == '승인완료' %}<span class="badge badge-approved">✔ 승인완료</span>
+                  {% else %}<span class="badge badge-pending">⏳ 승인대기</span>{% endif %}
+                </td>
+                <td style="padding:10px 14px; color:var(--text-sub);">{{ r.approved_name or '-' }}</td>
+                <td style="padding:10px 14px; color:var(--text-sub);">{{ r.inspected_at[11:16] }}</td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <a href="/inspect/{{ r.equipment_id }}" class="btn btn-outline btn-sm" style="margin-top:0;">보기</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
 
       <!-- 승인자: 승인 대기 목록 -->
       {% if pending_list %}
@@ -122,6 +176,15 @@
   </div>
 
   <script src="/static/nav.js"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
+    function toggleToday() {
+      const el = document.getElementById('today-detail');
+      if (!el) return;
+      const open = el.style.display !== 'none';
+      el.style.display = open ? 'none' : 'block';
+      document.getElementById('today-card').style.borderColor = open ? '' : 'var(--orange)';
+    }
+  </script>
 </body>
 </html>
