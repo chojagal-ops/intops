@@ -136,6 +136,15 @@ body {
 .nav-link:hover { color: var(--text); background: var(--bg-subtle); }
 .nav-link.active { color: var(--orange); background: var(--orange-light); }
 
+/* 이전/다음 페이지 이동 버튼 */
+.hist-nav { display:flex; gap:4px; align-items:center; }
+.hist-btn {
+  background:none; border:1px solid var(--border);
+  color:var(--text-sub); padding:5px 11px; border-radius:6px;
+  font-size:0.78rem; cursor:pointer; transition:all 0.15s; white-space:nowrap;
+}
+.hist-btn:hover { background:var(--bg-subtle); color:var(--orange); border-color:var(--orange); }
+
 .topbar-user {
   font-size: 0.85rem;
   color: var(--text-sub);
