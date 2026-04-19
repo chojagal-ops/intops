@@ -860,18 +860,26 @@ def _make_qr_label(eq_name, qr_url, serial_no):
     canvas.paste(qr_img, (0, pad_top))
     draw = ImageDraw.Draw(canvas)
 
-    # 기본 폰트 사용 (환경에 따라 크기 조절 불가, 적당한 크기로 그림)
-    try:
-        # 시스템에 truetype 폰트가 있으면 사용
-        font_name = ImageFont.truetype("arial.ttf", 22)
-        font_sn   = ImageFont.truetype("arial.ttf", 28)
-    except Exception:
+    # 한글 지원 폰트 우선 탐색 (Windows / Linux Render 모두 지원)
+    _FONT_CANDIDATES = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",   # Linux - fonts-nanum
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "malgunbd.ttf",   # Windows - 맑은 고딕 Bold
+        "malgun.ttf",     # Windows - 맑은 고딕
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # 영문 폴백
+        "arial.ttf",
+    ]
+    font_name = font_sn = None
+    for _fp in _FONT_CANDIDATES:
         try:
-            font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
-            font_sn   = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+            font_name = ImageFont.truetype(_fp, 22)
+            font_sn   = ImageFont.truetype(_fp, 28)
+            break
         except Exception:
-            font_name = ImageFont.load_default()
-            font_sn   = font_name
+            continue
+    if font_name is None:
+        font_name = ImageFont.load_default()
+        font_sn   = font_name
 
     # 설비명 (상단)
     bbox = draw.textbbox((0, 0), eq_name, font=font_name)

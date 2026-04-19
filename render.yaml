@@ -2,7 +2,7 @@ services:
   - type: web
     name: intops
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: apt-get install -y fonts-nanum && pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
     envVars:
       - key: DATABASE_URL
