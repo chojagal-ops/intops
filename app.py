@@ -1638,12 +1638,14 @@ def equipment_list():
                latest.status        AS last_status,
                latest.inspected_at  AS last_inspected,
                u.name               AS inspector_name,
+               a.name               AS approver_name,
                {today_cmp}          AS inspected_today
         FROM equipment e
         LEFT JOIN inspections latest ON latest.id = (
             SELECT id FROM inspections WHERE equipment_id = e.id ORDER BY inspected_at DESC LIMIT 1
         )
         LEFT JOIN users u ON latest.inspector_id = u.id
+        LEFT JOIN users a ON e.approver_id = a.id
         ORDER BY e.name
     ''').fetchall()
     conn.close()
@@ -1660,7 +1662,12 @@ def monthly_results(eq_id):
     ym    = f"{year}-{month:02d}"
 
     conn = get_db()
-    eq = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    eq = conn.execute('''
+        SELECT e.*, a.name AS approver_name
+        FROM equipment e
+        LEFT JOIN users a ON e.approver_id = a.id
+        WHERE e.id=?
+    ''', (eq_id,)).fetchone()
     if not eq:
         conn.close()
         flash('설비를 찾을 수 없습니다.', 'error')

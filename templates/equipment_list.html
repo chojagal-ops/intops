@@ -172,6 +172,7 @@
 
             <th><div class="th-inner">관리번호</div></th>
             <th><div class="th-inner">담당자(정/부)</div></th>
+            <th><div class="th-inner">승인자</div></th>
             <th><div class="th-inner" style="justify-content:center;">오늘 점검</div></th>
             <th><div class="th-inner">최근 결과</div></th>
             <th><div class="th-inner">최근 점검일시</div></th>
@@ -195,6 +196,7 @@
                 {{ eq.manager_primary or '-' }} / {{ eq.manager_secondary or '-' }}
               {% else %}-{% endif %}
             </td>
+            <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.approver_name or '-' }}</td>
             <td style="text-align:center;">
               {% if eq.inspected_today %}<span class="st-done">✅ 점검</span>
               {% else %}<span class="st-todo">⚠️ 미점검</span>{% endif %}
@@ -243,6 +245,7 @@
           <div class="eq-card-row">부서 <span>{{ eq.department or '-' }}</span></div>
           <div class="eq-card-row">관리번호 <span>{{ eq.mgmt_no or '-' }}</span></div>
           <div class="eq-card-row">담당자 <span>{{ eq.manager_primary or '-' }} / {{ eq.manager_secondary or '-' }}</span></div>
+          <div class="eq-card-row">승인자 <span>{{ eq.approver_name or '-' }}</span></div>
           <div class="eq-card-row">최근결과
             <span>{% if eq.last_result == '정상' %}✅ 정상{% elif eq.last_result == '이상' %}⚠️ 이상{% elif eq.last_result %}기타{% else %}기록 없음{% endif %}</span>
           </div>

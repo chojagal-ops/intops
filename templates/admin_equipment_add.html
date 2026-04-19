@@ -125,7 +125,7 @@
           <select name="approver_id">
             <option value="">미지정</option>
             {% for ap in approvers %}
-            <option value="{{ ap.id }}">{{ ap.name }} ({{ ap.team }})</option>
+            <option value="{{ ap.id }}">{{ ap.name }}</option>
             {% endfor %}
           </select>
         </div>

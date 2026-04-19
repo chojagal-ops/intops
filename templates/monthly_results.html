@@ -193,6 +193,11 @@
             👷 담당자: <strong>{{ eq.manager_primary or '-' }}</strong> (정) &nbsp;/&nbsp; <strong>{{ eq.manager_secondary or '-' }}</strong> (부)
           </p>
           {% endif %}
+          {% if eq.approver_name %}
+          <p style="margin-top:3px;">
+            ✅ 승인자: <strong>{{ eq.approver_name }}</strong>
+          </p>
+          {% endif %}
         </div>
       </div>
       <div class="mr-title-badge">{{ year }}년 {{ month }}월</div>
