@@ -270,8 +270,9 @@ def _send_mail(to_email, subject, html_body):
         print(f'[이메일] 발송 완료 → {to_email}')
         return True
     except Exception as e:
-        print(f'[이메일] 발송 실패: {e}')
-        return False
+        print(f'[이메일] 발송 실패: {e}', flush=True)
+        import sys; sys.stderr.write(f'[이메일] 발송 실패: {e}\n'); sys.stderr.flush()
+        return str(e)  # 에러 메시지 반환
 
 
 def send_approval_request(to_email, approver_name, inspector_name,
@@ -386,10 +387,12 @@ def init_db():
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS password_reset_requests (
-            id         {_pk},
-            user_id    INTEGER NOT NULL,
-            status     TEXT DEFAULT '대기중',
-            created_at TEXT DEFAULT ({_now})
+            id           {_pk},
+            user_id      INTEGER NOT NULL,
+            status       TEXT DEFAULT '대기중',
+            reset_code   TEXT DEFAULT '',
+            reset_expires TEXT DEFAULT '',
+            created_at   TEXT DEFAULT ({_now})
         )
     ''')
 
@@ -407,6 +410,8 @@ def init_db():
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS mgmt_no TEXT DEFAULT ''",
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_primary TEXT DEFAULT ''",
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_secondary TEXT DEFAULT ''",
+            "ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_code TEXT DEFAULT ''",
+            "ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_expires TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -426,6 +431,8 @@ def init_db():
             "ALTER TABLE equipment ADD COLUMN mgmt_no TEXT DEFAULT ''",
             "ALTER TABLE equipment ADD COLUMN manager_primary TEXT DEFAULT ''",
             "ALTER TABLE equipment ADD COLUMN manager_secondary TEXT DEFAULT ''",
+            "ALTER TABLE password_reset_requests ADD COLUMN reset_code TEXT DEFAULT ''",
+            "ALTER TABLE password_reset_requests ADD COLUMN reset_expires TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -570,11 +577,13 @@ def forgot_password():
     if request.method == 'POST':
         emp_id = request.form.get('employee_id', '').strip()
         name   = request.form.get('name', '').strip()
+        print(f'[비번찾기] 입력값: emp_id={emp_id!r}, name={name!r}', flush=True)
         conn   = get_db()
         user   = conn.execute(
             'SELECT id, name, email FROM users WHERE TRIM(employee_id)=? AND TRIM(name)=?',
             (emp_id.strip(), name.strip())
         ).fetchone()
+        print(f'[비번찾기] 조회결과: {dict(user) if user else None}', flush=True)
         conn.close()
 
         if not user:
@@ -594,6 +603,7 @@ def forgot_password():
             }
 
         mail_sent = False
+        print(f'[이메일] ENABLED={email_config.ENABLED}, SENDER={email_config.SENDER_EMAIL!r}, 대상이메일={user["email"]!r}')
         if email_config.ENABLED and user['email']:
             # 동기 발송으로 성공 여부 즉시 확인
             subject = '[INTOPS] 비밀번호 재설정 인증번호'
@@ -618,7 +628,7 @@ def forgot_password():
   </div></body></html>'''
             mail_sent = _send_mail(user['email'], subject, html)
 
-        if mail_sent:
+        if mail_sent is True:
             masked = user['email']
             if '@' in masked:
                 local, domain = masked.split('@', 1)
@@ -627,6 +637,8 @@ def forgot_password():
             return redirect(url_for('verify_reset_code', emp_id=key))
         else:
             # 이메일 발송 실패 or 미설정 → 관리자 요청 화면 (emp_id 전달)
+            err_msg = mail_sent if isinstance(mail_sent, str) else '미설정'
+            flash(f'이메일 발송 오류: {err_msg}', 'error')
             return render_template('forgot_password.html',
                                    need_request=True,
                                    user_id=user['id'],
@@ -682,8 +694,11 @@ def approve_reset_request(req_id):
         return redirect(url_for('admin'))
 
     from datetime import timedelta
-    code = f'{random.randint(0, 999999):06d}'
-    key  = req['employee_id']
+    code    = f'{random.randint(0, 999999):06d}'
+    key     = req['employee_id']
+    expires = (datetime.now() + timedelta(minutes=30)).strftime('%Y-%m-%d %H:%M:%S')
+
+    # 메모리 + DB 양쪽에 저장 (앱 재시작 후에도 유지)
     _clean_expired_codes()
     with _reset_lock:
         _reset_store[key] = {
@@ -692,7 +707,8 @@ def approve_reset_request(req_id):
             'expires': datetime.now() + timedelta(minutes=30),
         }
     conn.execute(
-        "UPDATE password_reset_requests SET status='승인완료' WHERE id=?", (req_id,)
+        "UPDATE password_reset_requests SET status='승인완료', reset_code=?, reset_expires=? WHERE id=?",
+        (code, expires, req_id)
     )
     conn.commit()
     conn.close()
@@ -722,6 +738,23 @@ def verify_reset_code():
         with _reset_lock:
             entry = _reset_store.get(emp_id)
 
+        # 메모리에 없으면 DB에서 조회 (Render 재시작 대비)
+        if not entry:
+            conn = get_db()
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            db_req = conn.execute(
+                "SELECT r.user_id, r.reset_code, r.reset_expires "
+                "FROM password_reset_requests r "
+                "JOIN users u ON r.user_id = u.id "
+                "WHERE u.employee_id=? AND r.status='승인완료' "
+                "AND r.reset_code IS NOT NULL AND r.reset_code != '' "
+                "AND r.reset_expires > ?",
+                (emp_id, now_str)
+            ).fetchone()
+            conn.close()
+            if db_req:
+                entry = {'code': db_req['reset_code'], 'user_id': db_req['user_id']}
+
         if not entry:
             flash('인증번호가 만료됐거나 존재하지 않습니다. 다시 시도하세요.', 'error')
             return redirect(url_for('forgot_password'))
@@ -734,6 +767,15 @@ def verify_reset_code():
         session['_reset_user_id'] = entry['user_id']
         with _reset_lock:
             _reset_store.pop(emp_id, None)
+        # DB 코드도 무효화
+        conn = get_db()
+        conn.execute(
+            "UPDATE password_reset_requests SET reset_code=NULL, reset_expires=NULL "
+            "WHERE user_id=? AND status='승인완료'",
+            (entry['user_id'],)
+        )
+        conn.commit()
+        conn.close()
         return redirect(url_for('reset_password'))
 
     return render_template('verify_reset_code.html', emp_id=emp_id)
@@ -1548,13 +1590,25 @@ def monthly_results(eq_id):
     conn.close()
     days_in_month = calendar.monthrange(year, month)[1]
 
+    # 요일 정보 (0=월 ~ 6=일)
+    import datetime as _dt
+    weekday_names = ['월', '화', '수', '목', '금', '토', '일']
+    day_weekday = {}
+    weekend_days = set()
+    for d in range(1, days_in_month + 1):
+        wd = _dt.date(year, month, d).weekday()  # 0=월, 6=일
+        day_weekday[d] = weekday_names[wd]
+        if wd >= 5:  # 토(5), 일(6)
+            weekend_days.add(d)
+
     return render_template('monthly_results.html',
         eq=eq, db_items=db_items, tmpl_rows=tmpl_rows,
         insp_by_day=insp_by_day, details_by_insp=details_by_insp,
         year=year, month=month, days_in_month=days_in_month,
         now_year=now.year, now_month=now.month,
         serial_no=f'{serial_no:04d}',
-        monthly_note=monthly_note)
+        monthly_note=monthly_note,
+        day_weekday=day_weekday, weekend_days=weekend_days)
 
 
 # ── 월별 비고 저장 ───────────────────────────────────────────────────────────

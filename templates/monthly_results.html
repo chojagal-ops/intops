@@ -62,9 +62,13 @@
     }
     .mr-table th.col-std  { min-width:100px; white-space:nowrap; }
     .mr-table th.col-day  { min-width:34px; width:34px; }
-    .th-day-num  { display:block; font-size:0.8rem; font-weight:700; padding:6px 4px 2px; }
-    .th-day-time { display:block; font-size:0.62rem; font-weight:400;
-                   color:var(--text-muted); padding:0 2px 5px; min-height:14px; }
+    .th-day-num  { display:block; font-size:0.8rem; font-weight:700; padding:4px 4px 1px; }
+    .th-day-dow  { display:block; font-size:0.65rem; font-weight:700; padding:0 2px 1px; }
+    .th-day-dow.sat { color:#2563eb; }
+    .th-day-dow.sun { color:#dc2626; }
+    .th-day-time { display:block; font-size:0.58rem; font-weight:400;
+                   color:var(--text-muted); padding:0 2px 4px; min-height:12px; }
+    .td-weekend  { background:rgba(107,114,128,0.06); }
 
     /* 데이터 셀 */
     .mr-table td { height:38px; }
@@ -140,6 +144,7 @@
       .mr-table th.col-std  { min-width:55px; }
       .mr-table th.col-day  { min-width:18px; width:18px; }
       .th-day-num  { font-size:0.6rem; padding:3px 1px 1px; }
+      .th-day-dow  { font-size:0.5rem; padding:0 1px 1px; }
       .th-day-time { font-size:0.5rem; padding:0 1px 2px; }
       .mark-ok, .mark-ng, .mark-na { width:16px; height:16px; line-height:16px; font-size:0.65rem; }
       .mr-table td { height:22px; }
@@ -228,10 +233,12 @@
         <thead>
           <tr>
             <th class="col-item" rowspan="2">점검항목</th>
-            <th class="col-std" rowspan="2">판단기준</th>
+            <th class="col-std" rowspan="2">기준</th>
             {% for d in range(1, days_in_month+1) %}
-            <th class="col-day">
-              <span class="th-day-num" style="{% if d in insp_by_day %}color:var(--orange);{% endif %}">{{ d }}</span>
+            {% set dow = day_weekday[d] %}
+            <th class="col-day" style="{% if d in weekend_days %}background:rgba(107,114,128,0.08);{% endif %}">
+              <span class="th-day-num" style="{% if d in insp_by_day %}color:var(--orange);{% elif d in weekend_days %}color:#6b7280;{% endif %}">{{ d }}</span>
+              <span class="th-day-dow {% if dow == '토' %}sat{% elif dow == '일' %}sun{% endif %}">{{ dow }}</span>
               <span class="th-day-time">{% if d in insp_by_day %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% endif %}</span>
             </th>
             {% endfor %}
@@ -270,6 +277,8 @@
                     {% else %}
                       <td class="td-none"></td>
                     {% endif %}
+                  {% elif d in weekend_days %}
+                    <td class="td-idle"><span class="mark-idle">P</span></td>
                   {% else %}
                     <td class="td-none"></td>
                   {% endif %}
@@ -305,6 +314,8 @@
                       {% else %}
                         <td class="td-none"></td>
                       {% endif %}
+                    {% elif d in weekend_days %}
+                      <td class="td-idle"><span class="mark-idle">P</span></td>
                     {% else %}
                       <td class="td-none"></td>
                     {% endif %}
@@ -319,7 +330,7 @@
             <td class="col-item" style="background:var(--orange-faint);">점검자</td>
             <td style="background:var(--orange-faint);"></td>
             {% for d in range(1, days_in_month+1) %}
-            <td style="background:var(--orange-faint); font-size:0.65rem; color:var(--text-sub);">
+            <td style="background:{% if d in weekend_days and d not in insp_by_day %}rgba(107,114,128,0.07){% else %}var(--orange-faint){% endif %}; font-size:0.65rem; color:var(--text-sub);">
               {{ insp_by_day[d].inspector_name if d in insp_by_day else '' }}
             </td>
             {% endfor %}
@@ -330,7 +341,7 @@
             <td class="col-item" style="background:#f0fdf4; color:#15803d;">승인자</td>
             <td style="background:#f0fdf4;"></td>
             {% for d in range(1, days_in_month+1) %}
-            <td style="background:#f0fdf4; font-size:0.65rem; color:#15803d;">
+            <td style="background:{% if d in weekend_days and d not in insp_by_day %}rgba(107,114,128,0.07){% else %}#f0fdf4{% endif %}; font-size:0.65rem; color:#15803d;">
               {{ insp_by_day[d].approved_name if d in insp_by_day and insp_by_day[d].approved_name else '' }}
             </td>
             {% endfor %}
@@ -347,6 +358,8 @@
                 {% else %}
                   <td class="td-ng"><span class="mark-ng">X</span></td>
                 {% endif %}
+              {% elif d in weekend_days %}
+                <td class="td-idle"><span class="mark-idle">P</span></td>
               {% else %}
                 <td class="td-none"></td>
               {% endif %}
