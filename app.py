@@ -129,6 +129,18 @@ class DBConn:
     def commit(self): self._conn.commit()
     def close(self):  self._conn.close()
 
+    # 연결 타입에 맞는 SQL 방언 헬퍼
+    def date_col(self, col):
+        return f"DATE({col} AT TIME ZONE 'Asia/Seoul')" if self._pg else f"date({col})"
+
+    @property
+    def today(self):
+        return 'CURRENT_DATE' if self._pg else "date('now','localtime')"
+
+    @property
+    def now_fn(self):
+        return 'NOW()' if self._pg else "datetime('now','localtime')"
+
 
 def get_db():
     return DBConn()
@@ -977,7 +989,7 @@ def inspect(eq_id):
         SELECT i.*, u.name AS inspector_name
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
-        WHERE i.equipment_id=? AND {date_col("i.inspected_at")}={TODAY}
+        WHERE i.equipment_id=? AND {conn.date_col("i.inspected_at")}={conn.today}
         AND i.status IN ('점검완료','승인완료')
         ORDER BY i.inspected_at DESC LIMIT 1
     ''', (eq_id,)).fetchone()
@@ -1074,7 +1086,7 @@ def inspect(eq_id):
             ins_id = request.form.get('inspection_id')
             conn.execute(
                 f'''UPDATE inspections
-                   SET status='승인완료', approved_by=?, approved_at={NOW_FN}
+                   SET status='승인완료', approved_by=?, approved_at={conn.now_fn}
                    WHERE id=? AND status='점검완료' ''',
                 (session['user_id'], ins_id)
             )
@@ -1120,6 +1132,8 @@ def my_inspections():
     date_to       = request.args.get('date_to', '')
     result_filter = request.args.get('result', '')
 
+    conn = get_db()
+
     query = '''
         SELECT i.*,
                e.name       AS eq_name,
@@ -1134,18 +1148,16 @@ def my_inspections():
     params = [session['user_id']]
 
     if date_from:
-        query += f' AND {date_col("i.inspected_at")} >= ?'
+        query += f' AND {conn.date_col("i.inspected_at")} >= ?'
         params.append(date_from)
     if date_to:
-        query += f' AND {date_col("i.inspected_at")} <= ?'
+        query += f' AND {conn.date_col("i.inspected_at")} <= ?'
         params.append(date_to)
     if result_filter:
         query += ' AND i.result = ?'
         params.append(result_filter)
 
     query += ' ORDER BY i.inspected_at DESC'
-
-    conn = get_db()
     records = conn.execute(query, params).fetchall()
 
     stats = conn.execute('''
@@ -1173,7 +1185,7 @@ def dashboard():
 
     today_count = conn.execute(f'''
         SELECT COUNT(*) AS cnt FROM inspections
-        WHERE inspector_id=? AND {date_col("inspected_at")}={TODAY}
+        WHERE inspector_id=? AND {conn.date_col("inspected_at")}={conn.today}
     ''', (session['user_id'],)).fetchone()['cnt']
 
     total_eq = conn.execute(
@@ -1203,7 +1215,7 @@ def dashboard():
 @login_required
 def equipment_list():
     conn = get_db()
-    today_cmp = f"({date_col('latest.inspected_at')} = {TODAY})"
+    today_cmp = f"({conn.date_col('latest.inspected_at')} = {conn.today})"
     equipments = conn.execute(f'''
         SELECT e.*,
                latest.result        AS last_result,
@@ -1245,7 +1257,7 @@ def monthly_results(eq_id):
     tmpl = conn.execute('SELECT * FROM inspection_templates WHERE equipment_id=?', (eq_id,)).fetchone()
     tmpl_rows = json.loads(tmpl['rows']) if tmpl and not db_items else []
 
-    if USE_PG:
+    if conn._pg:
         ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
     else:
         ym_expr = "strftime('%Y-%m', inspected_at)"
@@ -1253,7 +1265,7 @@ def monthly_results(eq_id):
     inspections = conn.execute(f'''
         SELECT i.*, u.name AS inspector_name,
                a.name AS approved_name,
-               {date_col("i.inspected_at")} AS insp_date
+               {conn.date_col("i.inspected_at")} AS insp_date
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
@@ -1310,14 +1322,14 @@ def export_monthly(eq_id):
     tmpl_rows = json.loads(tmpl['rows']) if tmpl else []
 
     # 해당 월 점검 목록
-    if USE_PG:
+    if conn._pg:
         ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
     else:
         ym_expr = "strftime('%Y-%m', inspected_at)"
 
     inspections = conn.execute(f'''
         SELECT i.*, u.name AS inspector_name,
-               {date_col("i.inspected_at")} AS insp_date
+               {conn.date_col("i.inspected_at")} AS insp_date
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
         WHERE i.equipment_id = ? AND {ym_expr} = ?
