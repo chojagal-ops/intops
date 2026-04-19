@@ -561,8 +561,8 @@ def forgot_password():
         name   = request.form.get('name', '').strip()
         conn   = get_db()
         user   = conn.execute(
-            'SELECT id, name, email FROM users WHERE employee_id=? AND name=? AND is_approved=1',
-            (emp_id, name)
+            'SELECT id, name, email FROM users WHERE TRIM(employee_id)=? AND TRIM(name)=?',
+            (emp_id.strip(), name.strip())
         ).fetchone()
         conn.close()
 
