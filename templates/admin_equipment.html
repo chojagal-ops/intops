@@ -155,7 +155,13 @@
               <div class="col-dropdown" id="dd-approver"></div>
             </th>
 
-            <th>관리번호</th>
+            <th style="position:relative;">
+              <div class="th-inner">
+                관리번호
+                <button class="col-filter-btn" id="btn-mgmt" onclick="toggleDD('mgmt',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-mgmt"></div>
+            </th>
             <th>담당자(정/부)</th>
             <th class="col-center">점검횟수</th>
 
@@ -179,6 +185,7 @@
                 data-loc="{{ eq.location or '' }}"
                 data-dept="{{ eq.department or '' }}"
                 data-approver="{{ ap_name }}"
+                data-mgmt="{{ eq.mgmt_no or '' }}"
                 data-date="{{ eq.created_at[:10] }}">
               <td style="text-align:center; font-weight:700; color:var(--orange);">{{ '%04d' % eq.serial_no }}</td>
               <td><strong style="color:var(--text);">{{ eq.name }}</strong></td>
@@ -199,14 +206,14 @@
                   </select>
                 </form>
               </td>
-              <td style="text-align:center;">
-                <span class="badge badge-approved">{{ eq.inspection_count }} 회</span>
-              </td>
               <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.mgmt_no or '-' }}</td>
               <td style="font-size:0.82rem; color:var(--text-sub);">
                 {% if eq.manager_primary or eq.manager_secondary %}
                   {{ eq.manager_primary or '-' }} / {{ eq.manager_secondary or '-' }}
                 {% else %}-{% endif %}
+              </td>
+              <td style="text-align:center;">
+                <span class="badge badge-approved">{{ eq.inspection_count }} 회</span>
               </td>
               <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.created_at[:10] }}</td>
               <td style="text-align:center;">
@@ -249,7 +256,7 @@
   </div>
 
   <script>
-    const colFilters = { sn: new Set(), name: new Set(), loc: new Set(), dept: new Set(), approver: new Set(), date: new Set() };
+    const colFilters = { sn: new Set(), name: new Set(), loc: new Set(), dept: new Set(), approver: new Set(), mgmt: new Set(), date: new Set() };
 
     function buildDropdowns() {
       const rows = [...document.querySelectorAll('#eqManageTable tbody tr[data-name]')];
@@ -259,6 +266,7 @@
         { id:'loc',      key:'loc'      },
         { id:'dept',     key:'dept'     },
         { id:'approver', key:'approver' },
+        { id:'mgmt',     key:'mgmt'     },
         { id:'date',     key:'date'     },
       ].forEach(({id, key}) => {
         const vals = [...new Set(rows.map(r => r.dataset[key]).filter(v => v))].sort();
@@ -317,6 +325,7 @@
           (colFilters.loc.size      === 0 || colFilters.loc.has(row.dataset.loc))           &&
           (colFilters.dept.size     === 0 || colFilters.dept.has(row.dataset.dept))         &&
           (colFilters.approver.size === 0 || colFilters.approver.has(row.dataset.approver)) &&
+          (colFilters.mgmt.size     === 0 || colFilters.mgmt.has(row.dataset.mgmt))         &&
           (colFilters.date.size     === 0 || colFilters.date.has(row.dataset.date));
         row.style.display = ok ? '' : 'none';
         if (ok) visible++;
