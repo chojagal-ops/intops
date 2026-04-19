@@ -1311,6 +1311,11 @@ def monthly_results(eq_id):
         else:
             details_by_insp[ins['id']] = {d['row_index']: d for d in rows}
 
+    # 시리얼 번호 (등록순 rank)
+    serial_no = conn.execute(
+        'SELECT COUNT(*) AS cnt FROM equipment WHERE id <= ?', (eq_id,)
+    ).fetchone()['cnt']
+
     conn.close()
     days_in_month = calendar.monthrange(year, month)[1]
 
@@ -1318,7 +1323,22 @@ def monthly_results(eq_id):
         eq=eq, db_items=db_items, tmpl_rows=tmpl_rows,
         insp_by_day=insp_by_day, details_by_insp=details_by_insp,
         year=year, month=month, days_in_month=days_in_month,
-        now_year=now.year, now_month=now.month)
+        now_year=now.year, now_month=now.month,
+        serial_no=f'{serial_no:04d}')
+
+
+# ── 비고 저장 ─────────────────────────────────────────────────────────────────
+@app.route('/inspection/update-notes', methods=['POST'])
+@login_required
+def update_inspection_notes():
+    data  = request.get_json()
+    ins_id = data.get('inspection_id')
+    notes  = data.get('notes', '')
+    conn = get_db()
+    conn.execute('UPDATE inspections SET notes=? WHERE id=?', (notes, ins_id))
+    conn.commit()
+    conn.close()
+    return {'ok': True}
 
 
 # ── 월별 점검결과 엑셀 내보내기 ───────────────────────────────────────────────

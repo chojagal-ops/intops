@@ -155,6 +155,7 @@
             {% if eq.location %}📍 {{ eq.location }}{% endif %}
             {% if eq.department %}&nbsp;·&nbsp;🏭 {{ eq.department }}{% endif %}
             {% if eq.inspection_cycle %}&nbsp;·&nbsp;점검주기: <strong style="color:var(--orange);">{{ eq.inspection_cycle }}</strong>{% endif %}
+            &nbsp;·&nbsp;S/N: <strong style="color:var(--orange);">{{ serial_no }}</strong>
           </p>
         </div>
       </div>
@@ -314,6 +315,27 @@
               {% endif %}
             {% endfor %}
           </tr>
+
+          <!-- 비고 행 -->
+          <tr>
+            <td class="col-item" style="font-weight:700; color:var(--text-sub);">비고</td>
+            <td></td>
+            {% for d in range(1, days_in_month+1) %}
+              {% if d in insp_by_day %}
+                <td style="padding:2px 3px;">
+                  <textarea
+                    style="width:100%; min-width:60px; height:48px; font-size:0.65rem;
+                           border:1px solid var(--border); border-radius:4px;
+                           background:var(--bg); color:var(--text); resize:none; padding:2px 4px;"
+                    placeholder=""
+                    onchange="saveNote({{ insp_by_day[d].id }}, this.value)"
+                  >{{ insp_by_day[d].notes or '' }}</textarea>
+                </td>
+              {% else %}
+                <td class="td-none"></td>
+              {% endif %}
+            {% endfor %}
+          </tr>
         </tbody>
       </table>
     </div>
@@ -333,6 +355,16 @@
 
   </div>
 
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
+
+    function saveNote(inspId, value) {
+      fetch('/inspection/update-notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({inspection_id: inspId, notes: value})
+      });
+    }
+  </script>
 </body>
 </html>
