@@ -99,57 +99,43 @@
         총 <strong style="color:#e0e6ed;">{{ records | length }}</strong> 건
       </div>
 
-      <div style="overflow-x:auto;">
-        <table>
+      <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
           <thead>
             <tr>
-              <th>점검일시</th>
-              <th>설비명</th>
-              <th>위치</th>
-              <th>담당부서</th>
-              <th>점검 결과</th>
-              <th>승인 상태</th>
-              <th>승인자</th>
-              <th>특이사항</th>
-              <th>상세</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">점검일시</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">설비명</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">위치</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">담당부서</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">점검 결과</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">승인 상태</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">승인자</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">특이사항</th>
+              <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;text-align:center;border-bottom:1px solid var(--border);">상세</th>
             </tr>
           </thead>
           <tbody>
             {% for r in records %}
-            <tr>
-              <td style="white-space:nowrap; font-size:0.82rem; color:#78909c;">
-                {{ r.inspected_at }}
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:10px 12px; font-size:0.82rem; color:var(--text-sub);">{{ r.inspected_at }}</td>
+              <td style="padding:10px 12px;"><strong>{{ r.eq_name }}</strong></td>
+              <td style="padding:10px 12px; color:var(--text-sub);">{{ r.eq_location or '-' }}</td>
+              <td style="padding:10px 12px; color:var(--text-sub);">{{ r.eq_dept or '-' }}</td>
+              <td style="padding:10px 12px;">
+                {% if r.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                {% elif r.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                {% elif r.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                {% elif r.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+                {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
               </td>
-              <td><strong style="color:#e0e6ed;">{{ r.eq_name }}</strong></td>
-              <td style="font-size:0.85rem;">{{ r.eq_location or '-' }}</td>
-              <td style="font-size:0.85rem;">{{ r.eq_dept or '-' }}</td>
-              <td>
-                {% if r.result == '정상' %}
-                  <span class="result-tag tag-normal">✅ 정상</span>
-                {% elif r.result == '이상' %}
-                  <span class="result-tag tag-abnormal">⚠️ 이상</span>
-                {% elif r.result == '수리필요' %}
-                  <span class="result-tag tag-repair">🔴 수리필요</span>
-                {% else %}
-                  <span class="result-tag tag-idle">⏸ 휴동</span>
-                {% endif %}
+              <td style="padding:10px 12px;">
+                {% if r.status == '승인완료' %}<span class="badge badge-approved">✔ 승인완료</span>
+                {% else %}<span class="badge badge-pending">⏳ 승인대기</span>{% endif %}
               </td>
-              <td>
-                {% if r.status == '승인완료' %}
-                  <span class="badge badge-approved">✔ 승인완료</span>
-                {% else %}
-                  <span class="badge badge-pending">⏳ 승인대기</span>
-                {% endif %}
-              </td>
-              <td style="font-size:0.85rem;">{{ r.approved_name or '-' }}</td>
-              <td style="font-size:0.82rem; color:#90a4ae; max-width:160px;">
-                {{ r.notes or '-' }}
-              </td>
-              <td>
-                <a href="/inspect/{{ r.equipment_id }}"
-                   class="btn btn-outline btn-sm" style="margin-top:0; white-space:nowrap;">
-                  점검표 보기
-                </a>
+              <td style="padding:10px 12px; color:var(--text-sub);">{{ r.approved_name or '-' }}</td>
+              <td style="padding:10px 12px; color:var(--text-sub); max-width:200px; overflow:hidden; text-overflow:ellipsis;">{{ r.notes or '-' }}</td>
+              <td style="padding:10px 12px; text-align:center;">
+                <a href="/inspect/{{ r.equipment_id }}" class="btn btn-outline btn-sm" style="margin-top:0;">점검표 보기</a>
               </td>
             </tr>
             {% endfor %}
