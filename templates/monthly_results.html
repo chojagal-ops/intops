@@ -179,7 +179,13 @@
             {% if eq.department %}&nbsp;·&nbsp;🏭 {{ eq.department }}{% endif %}
             {% if eq.inspection_cycle %}&nbsp;·&nbsp;점검주기: <strong style="color:var(--orange);">{{ eq.inspection_cycle }}</strong>{% endif %}
             &nbsp;·&nbsp;S/N: <strong style="color:var(--orange);">{{ serial_no }}</strong>
+            {% if eq.mgmt_no %}&nbsp;·&nbsp;관리번호: <strong style="color:var(--orange);">{{ eq.mgmt_no }}</strong>{% endif %}
           </p>
+          {% if eq.manager_primary or eq.manager_secondary %}
+          <p style="margin-top:3px;">
+            👷 담당자: <strong>{{ eq.manager_primary or '-' }}</strong> (정) &nbsp;/&nbsp; <strong>{{ eq.manager_secondary or '-' }}</strong> (부)
+          </p>
+          {% endif %}
         </div>
       </div>
       <div class="mr-title-badge">{{ year }}년 {{ month }}월</div>
