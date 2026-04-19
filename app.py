@@ -462,6 +462,14 @@ def send_reset_code(to_email, user_name, code):
 # gunicorn 포함 모든 실행 환경에서 DB 초기화 보장
 with app.app_context():
     init_db()
+    # 시작 시 DB 연결 상태 명확히 출력
+    _chk = get_db()
+    if _chk._pg:
+        print("✅ [DB] PostgreSQL 연결 성공 - 데이터 영구 보존됩니다.", flush=True)
+    else:
+        print("⚠️  [DB] SQLite 사용 중 - Render 재배포 시 데이터가 초기화됩니다!", flush=True)
+        print(f"⚠️  [DB] DATABASE_URL 확인 필요: {DATABASE_URL[:40]}..." if DATABASE_URL else "⚠️  [DB] DATABASE_URL 미설정", flush=True)
+    _chk.close()
 
 
 # ── 데코레이터 ────────────────────────────────────────────────────────────────
