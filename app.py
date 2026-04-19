@@ -16,11 +16,11 @@ try:
     import email_config
 except ImportError:
     class email_config:
-        ENABLED = False
-        SMTP_SERVER = 'smtp.gmail.com'
-        SMTP_PORT = 587
-        SENDER_EMAIL = ''
-        SENDER_PASSWORD = ''
+        SMTP_SERVER   = os.environ.get('SMTP_SERVER',   'smtp.gmail.com')
+        SMTP_PORT     = int(os.environ.get('SMTP_PORT', '587'))
+        SENDER_EMAIL  = os.environ.get('SMTP_EMAIL',    '')
+        SENDER_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+        ENABLED       = bool(SENDER_EMAIL and SENDER_PASSWORD)
 
 try:
     import openpyxl
@@ -508,10 +508,6 @@ def forgot_password():
             flash('등록된 이메일 주소가 없습니다.', 'error')
             return render_template('forgot_password.html')
 
-        if not email_config.ENABLED:
-            flash('이메일 발송 서비스가 설정되지 않았습니다. 관리자에게 문의하세요.', 'error')
-            return render_template('forgot_password.html')
-
         import random
         from datetime import timedelta
         code = f'{random.randint(0, 999999):06d}'
@@ -522,8 +518,14 @@ def forgot_password():
                 'user_id': user['id'],
                 'expires': datetime.now() + timedelta(minutes=10),
             }
-        send_reset_code(user['email'], user['name'], code)
-        flash(f'{email} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
+
+        if email_config.ENABLED:
+            send_reset_code(user['email'], user['name'], code)
+            flash(f'{email} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
+        else:
+            # 이메일 미설정 시 화면에 코드 직접 표시 (내부망 전용)
+            flash(f'인증번호: {code}  (이메일 미설정 — 이 번호를 복사해 입력하세요. 10분 유효)', 'warning')
+
         return redirect(url_for('verify_reset_code', email=email))
 
     return render_template('forgot_password.html')
