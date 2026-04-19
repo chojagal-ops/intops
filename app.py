@@ -62,7 +62,7 @@ TODAY         = 'CURRENT_DATE'                if USE_PG else "date('now','localt
 NOW_FN        = 'NOW()'                       if USE_PG else "datetime('now','localtime')"
 
 def date_col(col):
-    return f"DATE({col} AT TIME ZONE 'Asia/Seoul')" if USE_PG else f"date({col})"
+    return f"DATE(({col})::timestamp AT TIME ZONE 'Asia/Seoul')" if USE_PG else f"date({col})"
 
 
 # ── DB 연결 래퍼 ──────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ class DBConn:
 
     # 연결 타입에 맞는 SQL 방언 헬퍼
     def date_col(self, col):
-        return f"DATE({col} AT TIME ZONE 'Asia/Seoul')" if self._pg else f"date({col})"
+        return f"DATE(({col})::timestamp AT TIME ZONE 'Asia/Seoul')" if self._pg else f"date({col})"
 
     @property
     def today(self):
