@@ -626,11 +626,12 @@ def forgot_password():
             flash(f'{masked} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
             return redirect(url_for('verify_reset_code', emp_id=key))
         else:
-            # 이메일 발송 실패 or 미설정 → 관리자 요청 화면
+            # 이메일 발송 실패 or 미설정 → 관리자 요청 화면 (emp_id 전달)
             return render_template('forgot_password.html',
                                    need_request=True,
                                    user_id=user['id'],
-                                   user_name=user['name'])
+                                   user_name=user['name'],
+                                   emp_id=key)
 
     return render_template('forgot_password.html')
 
@@ -639,10 +640,12 @@ def forgot_password():
 @app.route('/forgot-password/request', methods=['POST'])
 def submit_reset_request():
     user_id = request.form.get('user_id', type=int)
+    emp_id  = request.form.get('emp_id', '').strip()
     if not user_id:
         flash('잘못된 요청입니다.', 'error')
         return redirect(url_for('forgot_password'))
     conn = get_db()
+    user = conn.execute('SELECT name FROM users WHERE id=?', (user_id,)).fetchone()
     # 이미 대기 중인 요청이 있으면 중복 생성 방지
     existing = conn.execute(
         "SELECT id FROM password_reset_requests WHERE user_id=? AND status='대기중'",
@@ -654,8 +657,13 @@ def submit_reset_request():
         )
         conn.commit()
     conn.close()
-    flash('관리자에게 비밀번호 재설정 요청이 접수되었습니다. 관리자 승인 후 인증번호를 받으세요.', 'success')
-    return redirect(url_for('forgot_password'))
+    # 요청 후에도 emp_id를 유지해 인증번호 입력 링크 정상 작동
+    return render_template('forgot_password.html',
+                           need_request=True,
+                           request_sent=True,
+                           user_id=user_id,
+                           user_name=user['name'] if user else '',
+                           emp_id=emp_id)
 
 
 # ── 관리자: 비밀번호 재설정 요청 승인 ────────────────────────────────────────
