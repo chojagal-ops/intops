@@ -1,3 +1,9 @@
+import sys
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ('utf-8', 'utf8'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr.encoding and sys.stderr.encoding.lower() not in ('utf-8', 'utf8'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import hashlib
 import uuid
@@ -897,11 +903,16 @@ def _make_qr_label(eq_name, qr_url, serial_no):
 
     # 한글 지원 폰트 우선 탐색 (Windows / Linux Render 모두 지원)
     _FONT_CANDIDATES = [
+        "C:/Windows/Fonts/malgunbd.ttf",   # Windows 맑은 고딕 Bold (전체 경로)
+        "C:/Windows/Fonts/malgun.ttf",     # Windows 맑은 고딕 (전체 경로)
+        "C:/Windows/Fonts/gulim.ttc",      # Windows 굴림
+        "C:/Windows/Fonts/batang.ttc",     # Windows 바탕
+        "C:/Windows/Fonts/arial.ttf",
         "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",   # Linux - fonts-nanum
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "malgunbd.ttf",   # Windows - 맑은 고딕 Bold
-        "malgun.ttf",     # Windows - 맑은 고딕
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # 영문 폴백
+        "malgunbd.ttf",
+        "malgun.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "arial.ttf",
     ]
     font_name = font_sn = None
@@ -1016,6 +1027,18 @@ def inspect(eq_id):
         AND i.status IN ('점검완료','승인완료')
         ORDER BY i.inspected_at DESC LIMIT 1
     ''', (eq_id,)).fetchone()
+
+    # 오늘 점검 세부항목 조회
+    today_insp_details = []
+    if today_insp:
+        today_insp_details = conn.execute('''
+            SELECT d.row_index, d.result, d.detail_notes, d.item_id,
+                   ii.item_name, ii.category, ii.criteria, ii.unit
+            FROM inspection_details d
+            LEFT JOIN inspection_items ii ON d.item_id = ii.id
+            WHERE d.inspection_id = ?
+            ORDER BY d.row_index
+        ''', (today_insp['id'],)).fetchall()
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -1144,6 +1167,7 @@ def inspect(eq_id):
                            is_approver=is_approver, is_inspector=is_inspector,
                            tmpl_rows=tmpl_rows, tmpl_max_cols=tmpl_max_cols,
                            db_items=db_items, today_insp=today_insp,
+                           today_insp_details=today_insp_details,
                            now_year=now.year, now_month=now.month)
 
 

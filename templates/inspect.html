@@ -147,19 +147,93 @@
       {% if today_insp %}
       <!-- 오늘 이미 점검 완료 -->
       <div style="background:rgba(249,115,22,0.08); border:1.5px solid rgba(249,115,22,0.3);
-                  border-radius:12px; padding:24px 20px; text-align:center; margin-bottom:12px;">
-        <div style="font-size:1.5rem; margin-bottom:8px;">✅</div>
-        <div style="font-size:1rem; font-weight:700; color:var(--orange); margin-bottom:6px;">
-          오늘 이미 점검이 진행되었습니다
+                  border-radius:12px; padding:20px; margin-bottom:12px;">
+        <div style="text-align:center; margin-bottom:{% if today_insp_details %}14px{% else %}0{% endif %};">
+          <div style="font-size:1.5rem; margin-bottom:8px;">✅</div>
+          <div style="font-size:1rem; font-weight:700; color:var(--orange); margin-bottom:6px;">
+            오늘 이미 점검이 진행되었습니다
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:{% if today_insp_details %}4px{% else %}12px{% endif %};">
+            점검자: <strong>{{ today_insp.inspector_name }}</strong> &nbsp;·&nbsp;
+            시각: <strong>{{ today_insp.inspected_at[11:16] }}</strong> &nbsp;·&nbsp;
+            상태: <strong>{% if today_insp.status == '승인완료' %}승인완료{% else %}승인 대기중{% endif %}</strong>
+          </div>
+          {% if not today_insp_details %}
+          <div style="font-size:0.8rem; color:var(--text-muted);">
+            동일 설비의 중복 점검은 허용되지 않습니다. 오류가 있을 경우 관리자에게 문의하세요.
+          </div>
+          {% endif %}
         </div>
-        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:12px;">
-          점검자: <strong>{{ today_insp.inspector_name }}</strong> &nbsp;·&nbsp;
-          시각: <strong>{{ today_insp.inspected_at[11:16] }}</strong> &nbsp;·&nbsp;
-          상태: <strong>{% if today_insp.status == '승인완료' %}승인완료{% else %}승인 대기중{% endif %}</strong>
+
+        {% if today_insp_details %}
+        <!-- 세부 항목 결과 -->
+        <div class="tmpl-table-wrap" style="border-radius:8px; overflow:hidden; border:1px solid rgba(249,115,22,0.2);">
+          <table class="tmpl-table" style="font-size:0.83rem;">
+            <thead>
+              <tr class="tmpl-header-row">
+                {% if db_items %}
+                  <th class="tmpl-header-cell" style="width:32px; text-align:center;">#</th>
+                  <th class="tmpl-header-cell">점검항목</th>
+                  <th class="tmpl-header-cell">판단기준</th>
+                  <th class="tmpl-header-cell" style="width:60px;">단위</th>
+                {% else %}
+                  <th class="tmpl-header-cell">점검항목</th>
+                {% endif %}
+                <th class="tmpl-header-cell" style="width:110px;">결과</th>
+                <th class="tmpl-header-cell">비고</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set ns = namespace(num=0, cat='') %}
+              {% for d in today_insp_details %}
+                {% if db_items %}
+                  {% if d.category and d.category != ns.cat %}
+                    {% set ns.cat = d.category %}
+                    <tr class="tmpl-header-row">
+                      <td colspan="6" class="tmpl-header-cell" style="color:var(--orange-dark); font-weight:700;">{{ d.category }}</td>
+                    </tr>
+                  {% endif %}
+                  {% set ns.num = ns.num + 1 %}
+                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '해당없음' %} row-na{% endif %}">
+                    <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
+                    <td class="tmpl-cell"><strong>{{ d.item_name }}</strong></td>
+                    <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.8rem;">{{ d.criteria or '-' }}</td>
+                    <td class="tmpl-cell" style="text-align:center; color:var(--text-sub);">{{ d.unit or '-' }}</td>
+                    <td class="tmpl-cell">
+                      {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                      {% elif d.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                      {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
+                    </td>
+                    <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">{{ d.detail_notes or '-' }}</td>
+                  </tr>
+                {% elif tmpl_rows and d.row_index < tmpl_rows|length %}
+                  {% set row = tmpl_rows[d.row_index] %}
+                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '해당없음' %} row-na{% endif %}">
+                    <td class="tmpl-cell">
+                      {% for cell in row.cells %}{{ cell }}{% if not loop.last %}&nbsp;|&nbsp;{% endif %}{% endfor %}
+                    </td>
+                    <td class="tmpl-cell">
+                      {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                      {% elif d.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                      {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
+                    </td>
+                    <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">{{ d.detail_notes or '-' }}</td>
+                  </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
-        <div style="font-size:0.8rem; color:var(--text-muted);">
+        {% if today_insp.notes %}
+        <div style="margin-top:8px; padding:9px 14px; background:rgba(0,0,0,0.04);
+                    border-radius:8px; font-size:0.82rem; color:var(--text-sub);">
+          <strong>종합 특이사항:</strong> {{ today_insp.notes }}
+        </div>
+        {% endif %}
+        <div style="text-align:center; margin-top:10px; font-size:0.78rem; color:var(--text-muted);">
           동일 설비의 중복 점검은 허용되지 않습니다. 오류가 있을 경우 관리자에게 문의하세요.
         </div>
+        {% endif %}
       </div>
 
       {% else %}

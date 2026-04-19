@@ -8,19 +8,55 @@
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
   <style>
-    /* ── 설비 테이블 고정 너비 ── */
-    .eq-table { width:100%; border-collapse:collapse; font-size:0.85rem; min-width:780px; }
+    .eq-wrap { max-width:none; width:100%; margin:0; padding:24px 32px 40px; box-sizing:border-box; }
+
+    .eq-table { width:100%; border-collapse:collapse; font-size:0.85rem; table-layout:auto; }
     .eq-table th {
       background:var(--orange-faint); color:var(--text-sub);
-      font-size:0.78rem; font-weight:700; letter-spacing:0.3px;
-      padding:10px 10px; border-bottom:1px solid var(--border);
-      white-space:nowrap; text-align:left;
+      font-size:0.78rem; font-weight:700;
+      padding:0; border-bottom:1px solid var(--border);
+      white-space:nowrap; text-align:left; position:relative;
+    }
+    .eq-table th .th-inner {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:6px; padding:10px 10px;
     }
     .eq-table td {
       padding:10px 10px; border-bottom:1px solid var(--border);
       white-space:nowrap; vertical-align:middle;
     }
     .eq-table tbody tr:hover { background:var(--bg-subtle); }
+
+    /* 필터 버튼 */
+    .col-filter-btn {
+      background:none; border:none; cursor:pointer;
+      color:var(--text-muted); font-size:0.72rem; padding:2px 4px;
+      border-radius:4px; line-height:1; transition:background 0.15s;
+      flex-shrink:0;
+    }
+    .col-filter-btn:hover { background:rgba(249,115,22,0.15); color:var(--orange); }
+    .col-filter-btn.active { color:var(--orange); background:rgba(249,115,22,0.15); }
+
+    /* 드롭다운 */
+    .col-dropdown {
+      display:none; position:absolute; top:100%; left:0; z-index:200;
+      background:var(--bg); border:1.5px solid var(--orange);
+      border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+      min-width:160px; max-height:240px; overflow-y:auto; padding:6px 0;
+    }
+    .col-dropdown.open { display:block; }
+    .col-dropdown label {
+      display:flex; align-items:center; gap:8px;
+      padding:6px 14px; font-size:0.82rem; color:var(--text);
+      cursor:pointer; transition:background 0.1s;
+    }
+    .col-dropdown label:hover { background:var(--bg-subtle); }
+    .col-dropdown label input[type=checkbox] { accent-color:var(--orange); }
+    .col-dropdown .dd-search {
+      margin:4px 10px 6px; padding:5px 8px; font-size:0.8rem;
+      border:1px solid var(--border); border-radius:6px;
+      background:var(--bg-subtle); color:var(--text); width:calc(100% - 20px);
+    }
 
     /* 상태 뱃지 */
     .st-done { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
@@ -30,38 +66,18 @@
                border-radius:20px;font-size:0.75rem;font-weight:700;
                background:rgba(249,115,22,0.12);color:#c2410c;white-space:nowrap; }
 
-    /* ── 모바일: 카드형 ── */
+    /* 모바일: 카드형 */
     .eq-card-list { display:none; }
-
     @media (max-width:768px) {
       .eq-table-wrap { display:none; }
       .eq-card-list  { display:flex; flex-direction:column; gap:10px; }
-
-      .eq-card {
-        background:var(--bg); border:1px solid var(--border);
-        border-radius:12px; padding:14px 16px;
-        box-shadow:var(--shadow-sm);
-      }
-      .eq-card-top {
-        display:flex; align-items:center;
-        justify-content:space-between; margin-bottom:8px;
-      }
+      .eq-card { background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+      .eq-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
       .eq-card-name { font-size:0.95rem; font-weight:700; color:var(--text); }
       .eq-card-body { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; margin-bottom:10px; }
       .eq-card-row  { font-size:0.75rem; color:var(--text-sub); }
       .eq-card-row span { color:var(--text); font-weight:600; }
-      .eq-card-btn  {
-        display:block; width:100%; text-align:center;
-        padding:10px; border-radius:8px; font-size:0.85rem;
-        font-weight:700; background:var(--orange);
-        color:white; text-decoration:none; transition:opacity 0.2s;
-      }
-      .eq-card-btn:hover { opacity:0.85; }
-
-      /* 검색/필터도 세로로 */
-      .eq-filter { flex-direction:column !important; }
-      .eq-filter input,
-      .eq-filter select { max-width:100% !important; width:100% !important; }
+      .eq-card-btn  { display:block; width:100%; text-align:center; padding:10px; border-radius:8px; font-size:0.85rem; font-weight:700; background:var(--orange); color:white; text-decoration:none; }
     }
   </style>
 </head>
@@ -84,170 +100,271 @@
     </div>
   </div>
 
-  <div class="page-wrap" style="align-items:flex-start; padding-top:24px;">
-    <div class="card card-wide">
+  <div class="eq-wrap">
+    <div style="background:red;color:white;padding:10px;font-size:1.2rem;font-weight:bold;">테스트: 이 문구가 보이면 변경 반영 중</div>
 
-      <!-- 헤더 -->
-      <div class="admin-header" style="margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <div>
-          <div class="card-title" style="text-align:left;">전체 설비 현황</div>
-          <div class="card-desc">오늘 점검 여부와 최근 점검 결과를 확인합니다.</div>
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          {% set ins_list = equipments | selectattr('inspected_today') | list %}
-          {% set mis_list = equipments | rejectattr('inspected_today') | list %}
-          <span class="st-done">✅ 오늘 점검 {{ ins_list | length }}대</span>
-          <span class="st-todo">⚠️ 미점검 {{ mis_list | length }}대</span>
-        </div>
+    <!-- 헤더 -->
+    <div class="admin-header" style="margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div class="card-title" style="text-align:left;">전체 설비 현황</div>
+        <div class="card-desc">오늘 점검 여부와 최근 점검 결과를 확인합니다.</div>
       </div>
-
-      <!-- 검색/필터 -->
-      <div class="eq-filter" style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-        <input type="text" id="searchInput" placeholder="설비명 / 위치 검색..."
-               style="max-width:240px; padding:8px 12px; font-size:0.85rem;"
-               oninput="filterAll()">
-        <select id="statusFilter" onchange="filterAll()"
-                style="max-width:140px; padding:8px 10px; font-size:0.85rem;">
-          <option value="">전체 상태</option>
-          <option value="점검">오늘 점검</option>
-          <option value="미점검">미점검</option>
-        </select>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% set ins_list = equipments | selectattr('inspected_today') | list %}
+        {% set mis_list = equipments | rejectattr('inspected_today') | list %}
+        <span class="st-done">✅ 오늘 점검 {{ ins_list | length }}대</span>
+        <span class="st-todo">⚠️ 미점검 {{ mis_list | length }}대</span>
       </div>
-
-      {% if equipments %}
-
-      <!-- ── PC: 테이블 뷰 ── -->
-      <div class="eq-table-wrap tmpl-table-wrap">
-        <table class="eq-table" id="eqTable">
-          <thead>
-            <tr>
-              <th style="width:36px;">#</th>
-              <th style="min-width:130px;">설비명</th>
-              <th style="min-width:110px;">위치</th>
-              <th style="min-width:70px;">부서</th>
-              <th style="min-width:80px; text-align:center;">오늘 점검</th>
-              <th style="min-width:80px;">최근 결과</th>
-              <th style="min-width:130px;">최근 점검일시</th>
-              <th style="min-width:70px;">점검자</th>
-              <th style="min-width:130px; text-align:center;">바로가기</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for eq in equipments %}
-            <tr data-name="{{ eq.name }}" data-loc="{{ eq.location or '' }}"
-                data-status="{{ '점검' if eq.inspected_today else '미점검' }}">
-              <td style="color:var(--text-muted); font-size:0.78rem;">{{ loop.index }}</td>
-              <td><strong>{{ eq.name }}</strong></td>
-              <td style="color:var(--text-sub); font-size:0.82rem;">{{ eq.location or '-' }}</td>
-              <td style="color:var(--text-sub); font-size:0.82rem;">{{ eq.department or '-' }}</td>
-              <td style="text-align:center;">
-                {% if eq.inspected_today %}
-                  <span class="st-done">✅ 점검</span>
-                {% else %}
-                  <span class="st-todo">⚠️ 미점검</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if eq.last_result %}
-                  {% if eq.last_result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
-                  {% elif eq.last_result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
-                  {% elif eq.last_result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
-                  {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
-                {% else %}
-                  <span style="color:var(--text-muted); font-size:0.8rem;">기록 없음</span>
-                {% endif %}
-              </td>
-              <td style="font-size:0.78rem; color:var(--text-sub);">{{ eq.last_inspected or '-' }}</td>
-              <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.inspector_name or '-' }}</td>
-              <td style="text-align:center;">
-                <div style="display:flex; gap:6px; justify-content:center;">
-                  <a href="/inspect/{{ eq.id }}" class="btn btn-primary btn-sm"
-                     style="white-space:nowrap;">점검하기</a>
-                  <a href="/monthly/{{ eq.id }}" class="btn btn-sm"
-                     style="white-space:nowrap; background:var(--orange-faint); color:var(--orange);
-                            border:1px solid rgba(249,115,22,0.3); border-radius:6px;
-                            padding:5px 10px; font-size:0.78rem; font-weight:700; text-decoration:none;">
-                    📋 월별
-                  </a>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- ── 모바일: 카드 뷰 ── -->
-      <div class="eq-card-list" id="cardList">
-        {% for eq in equipments %}
-        <div class="eq-card"
-             data-name="{{ eq.name }}" data-loc="{{ eq.location or '' }}"
-             data-status="{{ '점검' if eq.inspected_today else '미점검' }}">
-          <div class="eq-card-top">
-            <div class="eq-card-name">{{ eq.name }}</div>
-            {% if eq.inspected_today %}
-              <span class="st-done">✅ 점검</span>
-            {% else %}
-              <span class="st-todo">⚠️ 미점검</span>
-            {% endif %}
-          </div>
-          <div class="eq-card-body">
-            <div class="eq-card-row">위치 <span>{{ eq.location or '-' }}</span></div>
-            <div class="eq-card-row">부서 <span>{{ eq.department or '-' }}</span></div>
-            <div class="eq-card-row">최근결과
-              <span>
-                {% if eq.last_result == '정상' %}✅ 정상
-                {% elif eq.last_result == '이상' %}⚠️ 이상
-                {% elif eq.last_result == '수리필요' %}🔴 수리필요
-                {% elif eq.last_result %}⏸ 휴동
-                {% else %}기록 없음{% endif %}
-              </span>
-            </div>
-            <div class="eq-card-row">점검자 <span>{{ eq.inspector_name or '-' }}</span></div>
-            {% if eq.last_inspected %}
-            <div class="eq-card-row" style="grid-column:1/-1;">
-              최근점검 <span>{{ eq.last_inspected }}</span>
-            </div>
-            {% endif %}
-          </div>
-          <div style="display:flex; gap:8px;">
-            <a href="/inspect/{{ eq.id }}" class="eq-card-btn">점검하기 →</a>
-            <a href="/monthly/{{ eq.id }}"
-               style="display:block; text-align:center; padding:10px 14px; border-radius:8px;
-                      font-size:0.85rem; font-weight:700; background:var(--orange-faint);
-                      color:var(--orange); text-decoration:none; white-space:nowrap;
-                      border:1px solid rgba(249,115,22,0.3);">📋 월별</a>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-
-      {% else %}
-      <div class="empty-row">등록된 설비가 없습니다.</div>
-      {% endif %}
-
     </div>
+
+    <!-- 상태 필터 + 텍스트 검색 -->
+    <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+      <input type="text" id="searchInput" placeholder="설비명 / 위치 검색..."
+             style="padding:8px 12px; font-size:0.85rem; border-radius:8px;
+                    border:1px solid var(--border); background:var(--bg-subtle); color:var(--text); min-width:200px;"
+             oninput="applyFilters()">
+      <select id="statusFilter" onchange="applyFilters()"
+              style="padding:8px 10px; font-size:0.85rem; border-radius:8px;
+                     border:1px solid var(--border); background:var(--bg-subtle); color:var(--text);">
+        <option value="">전체 상태</option>
+        <option value="점검">오늘 점검</option>
+        <option value="미점검">미점검</option>
+      </select>
+      <button onclick="resetFilters()" class="btn btn-outline"
+              style="width:auto; padding:8px 14px; font-size:0.82rem; white-space:nowrap;">
+        ✕ 필터 초기화
+      </button>
+      <span id="filterCount" style="font-size:0.8rem; color:var(--text-muted);"></span>
+    </div>
+
+    {% if equipments %}
+
+    <!-- PC: 테이블 -->
+    <div class="eq-table-wrap" style="border:1.5px solid var(--border); border-radius:12px; overflow:hidden;">
+      <table class="eq-table" id="eqTable">
+        <thead>
+          <tr>
+            <th style="width:36px;"><div class="th-inner">#</div></th>
+
+            <th id="th-name">
+              <div class="th-inner">
+                설비명
+                <button class="col-filter-btn" id="btn-name" onclick="toggleDropdown('name',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-name"></div>
+            </th>
+
+            <th id="th-loc">
+              <div class="th-inner">
+                위치
+                <button class="col-filter-btn" id="btn-loc" onclick="toggleDropdown('loc',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-loc"></div>
+            </th>
+
+            <th id="th-dept">
+              <div class="th-inner">
+                부서
+                <button class="col-filter-btn" id="btn-dept" onclick="toggleDropdown('dept',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-dept"></div>
+            </th>
+
+            <th><div class="th-inner" style="justify-content:center;">오늘 점검</div></th>
+            <th><div class="th-inner">최근 결과</div></th>
+            <th><div class="th-inner">최근 점검일시</div></th>
+            <th><div class="th-inner">점검자</div></th>
+            <th><div class="th-inner" style="justify-content:center;">바로가기</div></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for eq in equipments %}
+          <tr data-name="{{ eq.name }}"
+              data-loc="{{ eq.location or '' }}"
+              data-dept="{{ eq.department or '' }}"
+              data-status="{{ '점검' if eq.inspected_today else '미점검' }}">
+            <td style="color:var(--text-muted); font-size:0.78rem;">{{ loop.index }}</td>
+            <td><strong>{{ eq.name }}</strong></td>
+            <td style="color:var(--text-sub); font-size:0.82rem;">{{ eq.location or '-' }}</td>
+            <td style="color:var(--text-sub); font-size:0.82rem;">{{ eq.department or '-' }}</td>
+            <td style="text-align:center;">
+              {% if eq.inspected_today %}<span class="st-done">✅ 점검</span>
+              {% else %}<span class="st-todo">⚠️ 미점검</span>{% endif %}
+            </td>
+            <td>
+              {% if eq.last_result %}
+                {% if eq.last_result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                {% elif eq.last_result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                {% elif eq.last_result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
+                {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+              {% else %}<span style="color:var(--text-muted); font-size:0.8rem;">기록 없음</span>{% endif %}
+            </td>
+            <td style="font-size:0.78rem; color:var(--text-sub);">{{ eq.last_inspected or '-' }}</td>
+            <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.inspector_name or '-' }}</td>
+            <td style="text-align:center;">
+              <div style="display:flex; gap:6px; justify-content:center;">
+                <a href="/inspect/{{ eq.id }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">점검하기</a>
+                <a href="/monthly/{{ eq.id }}" class="btn btn-sm"
+                   style="white-space:nowrap; background:var(--orange-faint); color:var(--orange);
+                          border:1px solid rgba(249,115,22,0.3); border-radius:6px;
+                          padding:5px 10px; font-size:0.78rem; font-weight:700; text-decoration:none;">
+                  📋 월별
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 모바일: 카드 -->
+    <div class="eq-card-list" id="cardList">
+      {% for eq in equipments %}
+      <div class="eq-card"
+           data-name="{{ eq.name }}" data-loc="{{ eq.location or '' }}"
+           data-dept="{{ eq.department or '' }}"
+           data-status="{{ '점검' if eq.inspected_today else '미점검' }}">
+        <div class="eq-card-top">
+          <div class="eq-card-name">{{ eq.name }}</div>
+          {% if eq.inspected_today %}<span class="st-done">✅ 점검</span>
+          {% else %}<span class="st-todo">⚠️ 미점검</span>{% endif %}
+        </div>
+        <div class="eq-card-body">
+          <div class="eq-card-row">위치 <span>{{ eq.location or '-' }}</span></div>
+          <div class="eq-card-row">부서 <span>{{ eq.department or '-' }}</span></div>
+          <div class="eq-card-row">최근결과
+            <span>{% if eq.last_result == '정상' %}✅ 정상{% elif eq.last_result == '이상' %}⚠️ 이상{% elif eq.last_result %}기타{% else %}기록 없음{% endif %}</span>
+          </div>
+          <div class="eq-card-row">점검자 <span>{{ eq.inspector_name or '-' }}</span></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <a href="/inspect/{{ eq.id }}" class="eq-card-btn">점검하기 →</a>
+          <a href="/monthly/{{ eq.id }}"
+             style="display:block; text-align:center; padding:10px 14px; border-radius:8px;
+                    font-size:0.85rem; font-weight:700; background:var(--orange-faint);
+                    color:var(--orange); text-decoration:none; white-space:nowrap;
+                    border:1px solid rgba(249,115,22,0.3);">📋 월별</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-row">등록된 설비가 없습니다.</div>
+    {% endif %}
+
   </div>
 
   <script>
-    function filterAll() {
-      const kw = document.getElementById('searchInput').value.toLowerCase();
-      const st = document.getElementById('statusFilter').value;
+    // ── 컬럼 필터 상태 ──
+    const colFilters = { name: new Set(), loc: new Set(), dept: new Set() };
 
-      // 테이블 행 필터
-      document.querySelectorAll('#eqTable tbody tr').forEach(row => {
-        const match = (!kw || row.dataset.name.toLowerCase().includes(kw) || row.dataset.loc.toLowerCase().includes(kw))
-                   && (!st  || row.dataset.status === st);
-        row.style.display = match ? '' : 'none';
-      });
-
-      // 카드 필터
-      document.querySelectorAll('#cardList .eq-card').forEach(card => {
-        const match = (!kw || card.dataset.name.toLowerCase().includes(kw) || card.dataset.loc.toLowerCase().includes(kw))
-                   && (!st  || card.dataset.status === st);
-        card.style.display = match ? '' : 'none';
+    // ── 드롭다운 초기화 ──
+    function buildDropdowns() {
+      const rows = [...document.querySelectorAll('#eqTable tbody tr')];
+      const cols = {
+        name: { key:'name', label:'설비명' },
+        loc:  { key:'loc',  label:'위치' },
+        dept: { key:'dept', label:'부서' }
+      };
+      Object.entries(cols).forEach(([id, {key}]) => {
+        const vals = [...new Set(rows.map(r => r.dataset[key]).filter(v => v))].sort();
+        renderDropdown(id, vals);
       });
     }
+
+    function renderDropdown(id, vals) {
+      const dd = document.getElementById('dd-' + id);
+      dd.innerHTML = `
+        <input class="dd-search" placeholder="검색..." oninput="ddSearch(this,'${id}')">
+        <label><input type="checkbox" checked onchange="ddAll(this,'${id}')"> <em>전체 선택</em></label>
+        ${vals.map(v => `<label><input type="checkbox" value="${v}" checked onchange="ddChange('${id}')"> ${v||'-'}</label>`).join('')}
+      `;
+    }
+
+    function ddSearch(input, id) {
+      const kw = input.value.toLowerCase();
+      const dd = document.getElementById('dd-' + id);
+      dd.querySelectorAll('label').forEach((lbl, i) => {
+        if (i === 0) return; // 전체선택 label 유지
+        lbl.style.display = lbl.textContent.toLowerCase().includes(kw) ? '' : 'none';
+      });
+    }
+
+    function ddAll(cb, id) {
+      const dd = document.getElementById('dd-' + id);
+      dd.querySelectorAll('input[type=checkbox][value]').forEach(c => c.checked = cb.checked);
+      ddChange(id);
+    }
+
+    function ddChange(id) {
+      const dd = document.getElementById('dd-' + id);
+      const checked = [...dd.querySelectorAll('input[type=checkbox][value]:checked')].map(c => c.value);
+      const all = [...dd.querySelectorAll('input[type=checkbox][value]')];
+      colFilters[id] = checked.length === all.length ? new Set() : new Set(checked);
+      // 전체선택 체크박스 상태
+      dd.querySelector('input[type=checkbox]:not([value])').checked = checked.length === all.length;
+      document.getElementById('btn-' + id).classList.toggle('active', colFilters[id].size > 0);
+      applyFilters();
+    }
+
+    // ── 드롭다운 토글 ──
+    function toggleDropdown(id, e) {
+      e.stopPropagation();
+      const dd = document.getElementById('dd-' + id);
+      const isOpen = dd.classList.contains('open');
+      closeAll();
+      if (!isOpen) dd.classList.add('open');
+    }
+    function closeAll() {
+      document.querySelectorAll('.col-dropdown').forEach(d => d.classList.remove('open'));
+    }
+    document.addEventListener('click', closeAll);
+
+    // ── 필터 적용 ──
+    function applyFilters() {
+      const kw = document.getElementById('searchInput').value.toLowerCase();
+      const st = document.getElementById('statusFilter').value;
+      let visible = 0;
+
+      document.querySelectorAll('#eqTable tbody tr').forEach(row => {
+        const nameMatch = colFilters.name.size === 0 || colFilters.name.has(row.dataset.name);
+        const locMatch  = colFilters.loc.size  === 0 || colFilters.loc.has(row.dataset.loc);
+        const deptMatch = colFilters.dept.size === 0 || colFilters.dept.has(row.dataset.dept);
+        const kwMatch   = !kw || row.dataset.name.toLowerCase().includes(kw) || row.dataset.loc.toLowerCase().includes(kw);
+        const stMatch   = !st || row.dataset.status === st;
+        const show = nameMatch && locMatch && deptMatch && kwMatch && stMatch;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      document.querySelectorAll('#cardList .eq-card').forEach(card => {
+        const nameMatch = colFilters.name.size === 0 || colFilters.name.has(card.dataset.name);
+        const locMatch  = colFilters.loc.size  === 0 || colFilters.loc.has(card.dataset.loc);
+        const deptMatch = colFilters.dept.size === 0 || colFilters.dept.has(card.dataset.dept);
+        const kwMatch   = !kw || card.dataset.name.toLowerCase().includes(kw) || card.dataset.loc.toLowerCase().includes(kw);
+        const stMatch   = !st || card.dataset.status === st;
+        card.style.display = (nameMatch && locMatch && deptMatch && kwMatch && stMatch) ? '' : 'none';
+      });
+
+      const total = document.querySelectorAll('#eqTable tbody tr').length;
+      document.getElementById('filterCount').textContent = visible < total ? `${visible} / ${total}개 표시` : '';
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('statusFilter').value = '';
+      Object.keys(colFilters).forEach(id => {
+        colFilters[id] = new Set();
+        document.getElementById('btn-' + id).classList.remove('active');
+        const dd = document.getElementById('dd-' + id);
+        dd.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = true);
+      });
+      applyFilters();
+    }
+
+    buildDropdowns();
   </script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
 </body>
