@@ -553,41 +553,47 @@ def login():
     return render_template('login.html', next_url=next_url)
 
 
-# ── 비밀번호 찾기 1단계: 이메일 입력 ─────────────────────────────────────────
+# ── 비밀번호 찾기 1단계: 사번 + 이름으로 본인 확인 ──────────────────────────
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        conn  = get_db()
-        user  = conn.execute(
-            'SELECT id, name, email FROM users WHERE lower(email)=? AND is_approved=1',
-            (email,)
+        emp_id = request.form.get('employee_id', '').strip()
+        name   = request.form.get('name', '').strip()
+        conn   = get_db()
+        user   = conn.execute(
+            'SELECT id, name, email FROM users WHERE employee_id=? AND name=? AND is_approved=1',
+            (emp_id, name)
         ).fetchone()
         conn.close()
 
         if not user:
-            flash('등록된 이메일 주소가 없습니다.', 'error')
+            flash('사번 또는 이름이 일치하는 계정이 없습니다.', 'error')
             return render_template('forgot_password.html')
 
         import random
         from datetime import timedelta
-        code = f'{random.randint(0, 999999):06d}'
+        code  = f'{random.randint(0, 999999):06d}'
+        key   = emp_id  # store key로 사번 사용
         _clean_expired_codes()
         with _reset_lock:
-            _reset_store[email] = {
+            _reset_store[key] = {
                 'code':    code,
                 'user_id': user['id'],
                 'expires': datetime.now() + timedelta(minutes=10),
             }
 
-        if email_config.ENABLED:
+        if email_config.ENABLED and user['email']:
             send_reset_code(user['email'], user['name'], code)
-            flash(f'{email} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
+            masked = user['email']
+            if '@' in masked:
+                local, domain = masked.split('@', 1)
+                masked = local[:2] + '***@' + domain
+            flash(f'{masked} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
         else:
-            # 이메일 미설정 시 화면에 코드 직접 표시 (내부망 전용)
-            flash(f'인증번호: {code}  (이메일 미설정 — 이 번호를 복사해 입력하세요. 10분 유효)', 'warning')
+            # 이메일 미설정 or SMTP 미설정 → 화면에 직접 표시
+            flash(f'인증번호: {code}  (10분 유효 — 이 번호를 복사해 입력하세요)', 'warning')
 
-        return redirect(url_for('verify_reset_code', email=email))
+        return redirect(url_for('verify_reset_code', emp_id=key))
 
     return render_template('forgot_password.html')
 
@@ -595,12 +601,12 @@ def forgot_password():
 # ── 비밀번호 찾기 2단계: 인증번호 확인 ───────────────────────────────────────
 @app.route('/verify-reset-code', methods=['GET', 'POST'])
 def verify_reset_code():
-    email = request.args.get('email', '') or request.form.get('email', '')
+    emp_id = request.args.get('emp_id', '') or request.form.get('emp_id', '')
     if request.method == 'POST':
-        code  = request.form.get('code', '').strip()
+        code = request.form.get('code', '').strip()
         _clean_expired_codes()
         with _reset_lock:
-            entry = _reset_store.get(email.lower())
+            entry = _reset_store.get(emp_id)
 
         if not entry:
             flash('인증번호가 만료됐거나 존재하지 않습니다. 다시 시도하세요.', 'error')
@@ -608,16 +614,15 @@ def verify_reset_code():
 
         if entry['code'] != code:
             flash('인증번호가 일치하지 않습니다.', 'error')
-            return render_template('verify_reset_code.html', email=email)
+            return render_template('verify_reset_code.html', emp_id=emp_id)
 
         # 인증 성공 → 세션에 임시 저장 후 재설정 페이지로
         session['_reset_user_id'] = entry['user_id']
-        session['_reset_email']   = email.lower()
         with _reset_lock:
-            _reset_store.pop(email.lower(), None)
+            _reset_store.pop(emp_id, None)
         return redirect(url_for('reset_password'))
 
-    return render_template('verify_reset_code.html', email=email)
+    return render_template('verify_reset_code.html', emp_id=emp_id)
 
 
 # ── 비밀번호 찾기 3단계: 새 비밀번호 설정 ────────────────────────────────────

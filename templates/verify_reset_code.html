@@ -12,12 +12,9 @@
     <div class="card">
 
       <div class="card-header">
-        <div class="card-icon" style="font-size:2rem;">📩</div>
+        <div class="card-icon" style="font-size:2rem;">🔐</div>
         <div class="card-title">인증번호 확인</div>
-        <div class="card-desc">
-          6자리 인증번호를 입력하세요 (10분 유효)<br>
-          <span style="font-size:0.8rem; color:var(--text-muted);">대상: {{ email }}</span>
-        </div>
+        <div class="card-desc">6자리 인증번호를 입력하세요 (10분 유효)</div>
       </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -27,7 +24,7 @@
       {% endwith %}
 
       <form method="POST">
-        <input type="hidden" name="email" value="{{ email }}">
+        <input type="hidden" name="emp_id" value="{{ emp_id }}">
         <div class="form-group">
           <label>인증번호 6자리</label>
           <input type="text" name="code" placeholder="000000"
@@ -39,7 +36,7 @@
       </form>
 
       <hr class="divider">
-      <a href="/forgot-password" class="btn btn-outline">이메일 다시 입력</a>
+      <a href="/forgot-password" class="btn btn-outline">처음으로 돌아가기</a>
 
     </div>
   </div>
