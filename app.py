@@ -141,7 +141,7 @@ class DBConn:
 
     @property
     def today(self):
-        return 'CURRENT_DATE' if self._pg else "date('now','localtime')"
+        return "(NOW() AT TIME ZONE 'Asia/Seoul')::date" if self._pg else "date('now','localtime')"
 
     @property
     def now_fn(self):
