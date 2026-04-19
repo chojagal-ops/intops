@@ -1713,18 +1713,17 @@ def my_inspections():
         ORDER BY i.inspected_at DESC
     '''
     records = conn.execute(query, params).fetchall()
-
-    stats = conn.execute('''
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN result='정상'    THEN 1 ELSE 0 END) AS normal,
-            SUM(CASE WHEN result='이상'    THEN 1 ELSE 0 END) AS abnormal,
-            SUM(CASE WHEN result='수리필요' THEN 1 ELSE 0 END) AS repair,
-            SUM(CASE WHEN result='휴동'    THEN 1 ELSE 0 END) AS idle,
-            SUM(CASE WHEN status='승인완료' THEN 1 ELSE 0 END) AS approved
-        FROM inspections WHERE inspector_id = ?
-    ''', (session['user_id'],)).fetchone()
     conn.close()
+
+    # 중복 제거된 records 기준으로 통계 계산
+    stats = {
+        'total':    len(records),
+        'normal':   sum(1 for r in records if r['result'] == '정상'),
+        'abnormal': sum(1 for r in records if r['result'] == '이상'),
+        'repair':   sum(1 for r in records if r['result'] in ('수리필요', '수리중')),
+        'idle':     sum(1 for r in records if r['result'] == '휴동'),
+        'approved': sum(1 for r in records if r['status'] == '승인완료'),
+    }
 
     return render_template('my_inspections.html', records=records, stats=stats,
                            date_from=date_from, date_to=date_to,
