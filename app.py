@@ -603,7 +603,10 @@ def forgot_password():
             }
 
         mail_sent = False
-        print(f'[이메일] ENABLED={email_config.ENABLED}, SENDER={email_config.SENDER_EMAIL!r}, 대상이메일={user["email"]!r}')
+        if not email_config.ENABLED:
+            mail_sent = f'SMTP 환경변수 미설정 (EMAIL={email_config.SENDER_EMAIL!r})'
+        elif not user['email']:
+            mail_sent = '계정에 이메일 주소가 없음'
         if email_config.ENABLED and user['email']:
             # 동기 발송으로 성공 여부 즉시 확인
             subject = '[INTOPS] 비밀번호 재설정 인증번호'
