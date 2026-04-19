@@ -382,6 +382,15 @@ def init_db():
         )
     ''')
 
+    conn.execute(f'''
+        CREATE TABLE IF NOT EXISTS password_reset_requests (
+            id         {_pk},
+            user_id    INTEGER NOT NULL,
+            status     TEXT DEFAULT '대기중',
+            created_at TEXT DEFAULT ({_now})
+        )
+    ''')
+
     # 마이그레이션
     if conn._pg:
         migrations = [
@@ -589,13 +598,84 @@ def forgot_password():
                 local, domain = masked.split('@', 1)
                 masked = local[:2] + '***@' + domain
             flash(f'{masked} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
+            return redirect(url_for('verify_reset_code', emp_id=key))
         else:
-            # 이메일 미설정 or SMTP 미설정 → 화면에 직접 표시
-            flash(f'인증번호: {code}  (10분 유효 — 이 번호를 복사해 입력하세요)', 'warning')
-
-        return redirect(url_for('verify_reset_code', emp_id=key))
+            # 이메일 미설정 → 관리자 요청 페이지로
+            return render_template('forgot_password.html',
+                                   need_request=True,
+                                   user_id=user['id'],
+                                   user_name=user['name'])
 
     return render_template('forgot_password.html')
+
+
+# ── 비밀번호 재설정 관리자 요청 접수 ─────────────────────────────────────────
+@app.route('/forgot-password/request', methods=['POST'])
+def submit_reset_request():
+    user_id = request.form.get('user_id', type=int)
+    if not user_id:
+        flash('잘못된 요청입니다.', 'error')
+        return redirect(url_for('forgot_password'))
+    conn = get_db()
+    # 이미 대기 중인 요청이 있으면 중복 생성 방지
+    existing = conn.execute(
+        "SELECT id FROM password_reset_requests WHERE user_id=? AND status='대기중'",
+        (user_id,)
+    ).fetchone()
+    if not existing:
+        conn.execute(
+            "INSERT INTO password_reset_requests (user_id) VALUES (?)", (user_id,)
+        )
+        conn.commit()
+    conn.close()
+    flash('관리자에게 비밀번호 재설정 요청이 접수되었습니다. 관리자 승인 후 인증번호를 받으세요.', 'success')
+    return redirect(url_for('forgot_password'))
+
+
+# ── 관리자: 비밀번호 재설정 요청 승인 ────────────────────────────────────────
+@app.route('/admin/reset-request/approve/<int:req_id>', methods=['POST'])
+@admin_required
+def approve_reset_request(req_id):
+    import random
+    conn = get_db()
+    req = conn.execute(
+        'SELECT r.*, u.name, u.employee_id, u.email FROM password_reset_requests r JOIN users u ON r.user_id=u.id WHERE r.id=?',
+        (req_id,)
+    ).fetchone()
+    if not req:
+        flash('요청을 찾을 수 없습니다.', 'error')
+        conn.close()
+        return redirect(url_for('admin'))
+
+    from datetime import timedelta
+    code = f'{random.randint(0, 999999):06d}'
+    key  = req['employee_id']
+    _clean_expired_codes()
+    with _reset_lock:
+        _reset_store[key] = {
+            'code':    code,
+            'user_id': req['user_id'],
+            'expires': datetime.now() + timedelta(minutes=30),
+        }
+    conn.execute(
+        "UPDATE password_reset_requests SET status='승인완료' WHERE id=?", (req_id,)
+    )
+    conn.commit()
+    conn.close()
+    flash(f'[{req["name"]}] 승인 완료 — 인증번호: {code}  (30분 유효, 사용자에게 전달하세요)', 'success')
+    return redirect(url_for('admin'))
+
+
+# ── 관리자: 비밀번호 재설정 요청 거절 ────────────────────────────────────────
+@app.route('/admin/reset-request/reject/<int:req_id>', methods=['POST'])
+@admin_required
+def reject_reset_request(req_id):
+    conn = get_db()
+    conn.execute("UPDATE password_reset_requests SET status='거절' WHERE id=?", (req_id,))
+    conn.commit()
+    conn.close()
+    flash('요청을 거절했습니다.', 'info')
+    return redirect(url_for('admin'))
 
 
 # ── 비밀번호 찾기 2단계: 인증번호 확인 ───────────────────────────────────────
@@ -693,8 +773,16 @@ def admin():
     conn = get_db()
     pending  = conn.execute('SELECT * FROM users WHERE is_approved=0 ORDER BY created_at DESC').fetchall()
     approved = conn.execute('SELECT * FROM users WHERE is_approved=1 AND is_admin=0 ORDER BY role, created_at DESC').fetchall()
+    reset_requests = conn.execute('''
+        SELECT r.id, r.status, r.created_at,
+               u.name, u.employee_id, u.email
+        FROM password_reset_requests r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status = '대기중'
+        ORDER BY r.created_at DESC
+    ''').fetchall()
     conn.close()
-    return render_template('admin.html', pending=pending, approved=approved)
+    return render_template('admin.html', pending=pending, approved=approved, reset_requests=reset_requests)
 
 
 @app.route('/admin/approve/<int:user_id>', methods=['POST'])

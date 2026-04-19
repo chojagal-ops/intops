@@ -121,6 +121,52 @@
         </tbody>
       </table>
 
+      <!-- 비밀번호 재설정 요청 -->
+      {% if reset_requests %}
+      <hr class="divider">
+      <div class="section-title" style="color:#c2410c;">
+        🔐 비밀번호 재설정 요청
+        <span class="badge badge-pending">{{ reset_requests | length }}</span>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text-sub); margin-bottom:12px;">
+        승인 버튼을 누르면 인증번호가 생성됩니다. 인증번호를 해당 직원에게 직접 전달하세요.
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>성명</th>
+            <th>사번</th>
+            <th>이메일</th>
+            <th>요청일시</th>
+            <th style="text-align:center;">처리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reset_requests %}
+          <tr>
+            <td><strong style="color:var(--text);">{{ r.name }}</strong></td>
+            <td>{{ r.employee_id }}</td>
+            <td style="font-size:0.82rem;">{{ r.email or '-' }}</td>
+            <td style="font-size:0.82rem; color:var(--text-sub);">{{ r.created_at }}</td>
+            <td style="text-align:center;">
+              <div style="display:flex; gap:6px; justify-content:center;">
+                <form method="POST" action="/admin/reset-request/approve/{{ r.id }}" style="margin:0;">
+                  <button type="submit" class="btn btn-primary btn-sm"
+                          onclick="return confirm('{{ r.name }} 님의 비밀번호 재설정을 승인하시겠습니까?\n인증번호가 화면에 표시됩니다.')">
+                    ✔ 승인 (인증번호 생성)
+                  </button>
+                </form>
+                <form method="POST" action="/admin/reset-request/reject/{{ r.id }}" style="margin:0;">
+                  <button type="submit" class="btn btn-danger btn-sm">✕ 거절</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
     </div>
   </div>
 
