@@ -65,6 +65,9 @@
               <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">승인상태</th>
               <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검시간</th>
               <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">점검표</th>
+              {% if session.is_admin %}
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">초기화</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -105,6 +108,24 @@
               <td style="padding:10px 14px; text-align:center;">
                 <a href="/monthly/{{ r.eq_id }}" class="btn btn-outline btn-sm" style="margin:0;">월별</a>
               </td>
+              {% if session.is_admin %}
+              <td style="padding:10px 14px; text-align:center;">
+                {% if r.insp_id %}
+                <form method="POST" action="/admin/reset-inspection" style="margin:0;"
+                      onsubmit="return confirm('{{ r.eq_name }} {{ selected_date }} 점검 기록을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')">
+                  <input type="hidden" name="equipment_id" value="{{ r.eq_id }}">
+                  <input type="hidden" name="date" value="{{ selected_date }}">
+                  <button type="submit"
+                          style="padding:4px 10px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3);
+                                 border-radius:6px; color:#dc2626; font-size:0.75rem; font-weight:600; cursor:pointer;">
+                    🗑 초기화
+                  </button>
+                </form>
+                {% else %}
+                <span style="color:var(--text-muted); font-size:0.78rem;">-</span>
+                {% endif %}
+              </td>
+              {% endif %}
             </tr>
             {% endfor %}
           </tbody>

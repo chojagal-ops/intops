@@ -12,7 +12,7 @@ import smtplib
 import json
 import os
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from io import BytesIO
@@ -67,8 +67,12 @@ _NOW_DEFAULT  = "to_char(NOW() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS'
 TODAY         = 'CURRENT_DATE'                if USE_PG else "date('now','localtime')"
 NOW_FN        = 'NOW()'                       if USE_PG else "datetime('now','localtime')"
 
+def now_kst():
+    """서버(UTC)와 무관하게 항상 한국 현재 시각(KST = UTC+9) 반환"""
+    return datetime.utcnow() + timedelta(hours=9)
+
 def date_col(col):
-    return f"DATE(({col})::timestamp AT TIME ZONE 'Asia/Seoul')" if USE_PG else f"date({col})"
+    return f"LEFT({col}, 10)" if USE_PG else f"date({col})"
 
 
 # ── DB 연결 래퍼 ──────────────────────────────────────────────────────────────
@@ -137,11 +141,11 @@ class DBConn:
 
     # 연결 타입에 맞는 SQL 방언 헬퍼
     def date_col(self, col):
-        return f"DATE(({col})::timestamp AT TIME ZONE 'Asia/Seoul')" if self._pg else f"date({col})"
+        return f"LEFT({col}, 10)" if self._pg else f"date({col})"
 
     @property
     def today(self):
-        return "(NOW() AT TIME ZONE 'Asia/Seoul')::date" if self._pg else "date('now','localtime')"
+        return "to_char(NOW() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD')" if self._pg else "date('now','localtime')"
 
     @property
     def now_fn(self):
@@ -1501,7 +1505,7 @@ def inspect(eq_id):
     ''', (eq_id,)).fetchall()
     conn.close()
 
-    now = datetime.now()
+    now = now_kst()
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
@@ -1550,22 +1554,69 @@ def approve_inspection(ins_id):
     return redirect(request.referrer or url_for('dashboard'))
 
 
+# ── 점검 초기화 (관리자 전용) ─────────────────────────────────────────────────
+@app.route('/admin/reset-inspection', methods=['POST'])
+@login_required
+def reset_inspection():
+    if not session.get('is_admin'):
+        flash('관리자만 초기화할 수 있습니다.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    equipment_id = request.form.get('equipment_id', type=int)
+    date_str     = request.form.get('date', '')          # 'YYYY-MM-DD'
+
+    if not equipment_id or not date_str:
+        flash('잘못된 요청입니다.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    conn = get_db()
+    eq   = conn.execute('SELECT name FROM equipment WHERE id=?', (equipment_id,)).fetchone()
+    if not eq:
+        conn.close()
+        flash('설비를 찾을 수 없습니다.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    # 해당 날짜의 점검 ID 목록 조회 (세부항목 삭제용)
+    ins_ids = conn.execute(
+        f"SELECT id FROM inspections WHERE equipment_id=? AND {conn.date_col('inspected_at')}=?",
+        (equipment_id, date_str)
+    ).fetchall()
+
+    for row in ins_ids:
+        conn.execute('DELETE FROM inspection_details WHERE inspection_id=?', (row['id'],))
+
+    deleted = conn.execute(
+        f"DELETE FROM inspections WHERE equipment_id=? AND {conn.date_col('inspected_at')}=?",
+        (equipment_id, date_str)
+    )
+    conn.commit()
+    conn.close()
+
+    flash(f'[{eq["name"]}] {date_str} 점검 기록이 초기화되었습니다.', 'success')
+    return redirect(request.referrer or url_for('daily_results'))
+
+
 @app.route('/daily-results')
 @login_required
 def daily_results():
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = now_kst().strftime('%Y-%m-%d')
     selected_date = request.args.get('date', today)
 
     conn = get_db()
-    # 해당 날짜의 점검 현황 (점검된 설비)
-    rows = conn.execute('''
+    # 설비당 해당 날짜 최선 점검 1건 (승인완료 우선, 이후 최신순)
+    rows = conn.execute(f'''
         SELECT e.id AS eq_id, e.name AS eq_name, e.location, e.department,
                e.manager_primary, e.manager_secondary,
                i.id AS insp_id, i.result, i.status, i.inspected_at,
                u.name AS inspector_name, a.name AS approved_name
         FROM equipment e
-        LEFT JOIN inspections i ON i.equipment_id = e.id
-            AND DATE(i.inspected_at) = ?
+        LEFT JOIN inspections i ON i.id = (
+            SELECT id FROM inspections
+            WHERE equipment_id = e.id
+              AND {conn.date_col("inspected_at")} = ?
+            ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
+            LIMIT 1
+        )
         LEFT JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
         ORDER BY e.name
@@ -1701,7 +1752,7 @@ def equipment_list():
 @app.route('/monthly/<int:eq_id>')
 @login_required
 def monthly_results(eq_id):
-    now   = datetime.now()
+    now   = now_kst()
     year  = int(request.args.get('year',  now.year))
     month = int(request.args.get('month', now.month))
     ym    = f"{year}-{month:02d}"
@@ -1726,7 +1777,7 @@ def monthly_results(eq_id):
     tmpl_rows = json.loads(tmpl['rows']) if tmpl and not db_items else []
 
     if conn._pg:
-        ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
+        ym_expr = "LEFT(inspected_at, 7)"
     else:
         ym_expr = "strftime('%Y-%m', inspected_at)"
 
@@ -1840,7 +1891,7 @@ def export_monthly(eq_id):
         flash('openpyxl 패키지가 필요합니다.', 'error')
         return redirect(url_for('inspect', eq_id=eq_id))
 
-    now   = datetime.now()
+    now   = now_kst()
     year  = int(request.args.get('year',  now.year))
     month = int(request.args.get('month', now.month))
     ym    = f"{year}-{month:02d}"
@@ -1857,7 +1908,7 @@ def export_monthly(eq_id):
 
     # 해당 월 점검 목록
     if conn._pg:
-        ym_expr = "TO_CHAR(inspected_at::timestamp AT TIME ZONE 'Asia/Seoul','YYYY-MM')"
+        ym_expr = "LEFT(inspected_at, 7)"
     else:
         ym_expr = "strftime('%Y-%m', inspected_at)"
 
