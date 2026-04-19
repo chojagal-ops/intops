@@ -54,16 +54,18 @@
               <td>{{ u.team }}</td>
               <td style="font-size:0.82rem; color:#78909c;">{{ u.created_at }}</td>
               <td>
-                <form method="POST" action="/admin/approve/{{ u.id }}" style="display:inline-flex; gap:6px; align-items:center;">
-                  <select name="role" class="role-select">
-                    <option value="점검자">점검자</option>
-                    <option value="승인자">승인자</option>
-                  </select>
-                  <button type="submit" class="btn btn-success" style="padding:7px 14px; font-size:0.82rem;">승인</button>
-                </form>
-                <a href="/admin/reject/{{ u.id }}"
-                   onclick="return confirm('{{ u.name }} 님의 신청을 거부하시겠습니까?')"
-                   class="btn btn-danger" style="width:auto; padding:7px 14px; font-size:0.82rem; margin-left:4px;">거부</a>
+                <div style="display:flex; flex-direction:row; align-items:center; gap:6px; flex-wrap:nowrap;">
+                  <form method="POST" action="/admin/approve/{{ u.id }}" style="display:inline-flex; flex-direction:row; align-items:center; gap:6px; margin:0;">
+                    <select name="role" class="role-select" style="width:auto;">
+                      <option value="점검자">점검자</option>
+                      <option value="승인자">승인자</option>
+                    </select>
+                    <button type="submit" class="btn btn-success" style="padding:7px 14px; font-size:0.82rem; white-space:nowrap;">승인</button>
+                  </form>
+                  <a href="/admin/reject/{{ u.id }}"
+                     onclick="return confirm('{{ u.name }} 님의 신청을 거부하시겠습니까?')"
+                     class="btn btn-danger" style="width:auto; padding:7px 14px; font-size:0.82rem; white-space:nowrap;">거부</a>
+                </div>
               </td>
             </tr>
             {% endfor %}
