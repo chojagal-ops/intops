@@ -1469,6 +1469,13 @@ def inspect(eq_id):
                    WHERE id=? AND status='점검완료' ''',
                 (session['user_id'], ins_id)
             )
+            # 같은 날 같은 설비의 나머지 대기 건 삭제
+            conn.execute(
+                f'''DELETE FROM inspections
+                    WHERE equipment_id=? AND status='점검완료' AND id!=?
+                    AND {conn.date_col("inspected_at")}={conn.today}''',
+                (eq_id, ins_id)
+            )
             conn.commit()
             flash('승인이 완료되었습니다.', 'success')
             return redirect(url_for('inspect', eq_id=eq_id))
