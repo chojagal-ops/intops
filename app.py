@@ -392,6 +392,44 @@ def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 
+# ── 비밀번호 재설정 인증코드 임시 저장소 ─────────────────────────────────────
+# { email: {'code': '123456', 'user_id': 1, 'expires': datetime} }
+_reset_store = {}
+_reset_lock  = threading.Lock()
+
+def _clean_expired_codes():
+    now = datetime.now()
+    with _reset_lock:
+        expired = [e for e, v in _reset_store.items() if v['expires'] < now]
+        for e in expired:
+            del _reset_store[e]
+
+
+def send_reset_code(to_email, user_name, code):
+    subject = '[INTOPS] 비밀번호 재설정 인증번호'
+    html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+  <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
+              box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+    <div style="background:#f97316;padding:28px 32px;">
+      <h2 style="color:#fff;margin:0;font-size:1.3rem;">🔐 비밀번호 재설정</h2>
+    </div>
+    <div style="padding:32px;">
+      <p style="color:#374151;margin:0 0 12px;"><strong>{user_name}</strong> 님, 안녕하세요.</p>
+      <p style="color:#6b7280;margin:0 0 24px;">아래 인증번호를 입력하여 비밀번호를 재설정하세요.<br>
+         인증번호는 <strong>10분간</strong> 유효합니다.</p>
+      <div style="text-align:center;background:#fff7ed;border:2px dashed #f97316;
+                  border-radius:12px;padding:24px;margin:24px 0;">
+        <span style="font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#f97316;">{code}</span>
+      </div>
+      <p style="color:#9ca3af;font-size:0.8rem;margin:0;">
+        본인이 요청하지 않은 경우 이 메일을 무시하세요.
+      </p>
+    </div>
+  </div>
+</body></html>'''
+    threading.Thread(target=_send_mail, args=(to_email, subject, html), daemon=True).start()
+
+
 # gunicorn 포함 모든 실행 환경에서 DB 초기화 보장
 with app.app_context():
     init_db()
@@ -452,6 +490,102 @@ def login():
                 return redirect(url_for('admin'))
             return redirect(url_for('dashboard'))
     return render_template('login.html', next_url=next_url)
+
+
+# ── 비밀번호 찾기 1단계: 이메일 입력 ─────────────────────────────────────────
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        conn  = get_db()
+        user  = conn.execute(
+            'SELECT id, name, email FROM users WHERE lower(email)=? AND is_approved=1',
+            (email,)
+        ).fetchone()
+        conn.close()
+
+        if not user:
+            flash('등록된 이메일 주소가 없습니다.', 'error')
+            return render_template('forgot_password.html')
+
+        if not email_config.ENABLED:
+            flash('이메일 발송 서비스가 설정되지 않았습니다. 관리자에게 문의하세요.', 'error')
+            return render_template('forgot_password.html')
+
+        import random
+        from datetime import timedelta
+        code = f'{random.randint(0, 999999):06d}'
+        _clean_expired_codes()
+        with _reset_lock:
+            _reset_store[email] = {
+                'code':    code,
+                'user_id': user['id'],
+                'expires': datetime.now() + timedelta(minutes=10),
+            }
+        send_reset_code(user['email'], user['name'], code)
+        flash(f'{email} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
+        return redirect(url_for('verify_reset_code', email=email))
+
+    return render_template('forgot_password.html')
+
+
+# ── 비밀번호 찾기 2단계: 인증번호 확인 ───────────────────────────────────────
+@app.route('/verify-reset-code', methods=['GET', 'POST'])
+def verify_reset_code():
+    email = request.args.get('email', '') or request.form.get('email', '')
+    if request.method == 'POST':
+        code  = request.form.get('code', '').strip()
+        _clean_expired_codes()
+        with _reset_lock:
+            entry = _reset_store.get(email.lower())
+
+        if not entry:
+            flash('인증번호가 만료됐거나 존재하지 않습니다. 다시 시도하세요.', 'error')
+            return redirect(url_for('forgot_password'))
+
+        if entry['code'] != code:
+            flash('인증번호가 일치하지 않습니다.', 'error')
+            return render_template('verify_reset_code.html', email=email)
+
+        # 인증 성공 → 세션에 임시 저장 후 재설정 페이지로
+        session['_reset_user_id'] = entry['user_id']
+        session['_reset_email']   = email.lower()
+        with _reset_lock:
+            _reset_store.pop(email.lower(), None)
+        return redirect(url_for('reset_password'))
+
+    return render_template('verify_reset_code.html', email=email)
+
+
+# ── 비밀번호 찾기 3단계: 새 비밀번호 설정 ────────────────────────────────────
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    user_id = session.get('_reset_user_id')
+    if not user_id:
+        flash('비밀번호 재설정 세션이 없습니다. 처음부터 다시 시도하세요.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        pw1 = request.form.get('password', '')
+        pw2 = request.form.get('password_confirm', '')
+        if len(pw1) < 6:
+            flash('비밀번호는 6자 이상이어야 합니다.', 'error')
+            return render_template('reset_password.html')
+        if pw1 != pw2:
+            flash('비밀번호가 일치하지 않습니다.', 'error')
+            return render_template('reset_password.html')
+
+        conn = get_db()
+        conn.execute('UPDATE users SET password=? WHERE id=?', (hash_pw(pw1), user_id))
+        conn.commit()
+        conn.close()
+
+        session.pop('_reset_user_id', None)
+        session.pop('_reset_email',   None)
+        flash('비밀번호가 재설정되었습니다. 새 비밀번호로 로그인하세요.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html')
 
 
 # ── 회원가입 ──────────────────────────────────────────────────────────────────

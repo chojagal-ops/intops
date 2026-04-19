@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>인증번호 확인 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="card">
+
+      <div class="card-header">
+        <div class="card-icon" style="font-size:2rem;">📩</div>
+        <div class="card-title">인증번호 확인</div>
+        <div class="card-desc">
+          <strong style="color:var(--orange);">{{ email }}</strong> 으로<br>
+          발송된 6자리 인증번호를 입력하세요 (10분 유효)
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST">
+        <input type="hidden" name="email" value="{{ email }}">
+        <div class="form-group">
+          <label>인증번호 6자리</label>
+          <input type="text" name="code" placeholder="000000"
+                 maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+                 style="font-size:1.6rem; letter-spacing:10px; text-align:center; font-weight:700;"
+                 required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary">확인</button>
+      </form>
+
+      <hr class="divider">
+      <a href="/forgot-password" class="btn btn-outline">이메일 다시 입력</a>
+
+    </div>
+  </div>
+</body>
+</html>
