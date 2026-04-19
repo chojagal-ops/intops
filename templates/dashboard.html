@@ -153,7 +153,13 @@
             </td>
             <td style="font-size:0.82rem; color:var(--text-sub);">{{ p.inspected_at }}</td>
             <td>
-              <a href="/inspect/{{ p.eq_id }}" class="btn btn-primary btn-sm">승인하기</a>
+              <div style="display:flex; gap:6px;">
+                <form method="POST" action="/approve-inspection/{{ p.id }}" style="margin:0;"
+                      onsubmit="return confirm('{{ p.eq_name }} 점검을 승인하시겠습니까?')">
+                  <button type="submit" class="btn btn-primary btn-sm">✔ 승인</button>
+                </form>
+                <a href="/inspect/{{ p.eq_id }}" class="btn btn-outline btn-sm">상세보기</a>
+              </div>
             </td>
           </tr>
           {% endfor %}

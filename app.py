@@ -1512,6 +1512,44 @@ def inspect(eq_id):
 
 
 # ── 일별 점검 결과 (전체 설비) ───────────────────────────────────────────────
+@app.route('/approve-inspection/<int:ins_id>', methods=['POST'])
+@login_required
+def approve_inspection(ins_id):
+    conn = get_db()
+    insp = conn.execute(
+        'SELECT i.*, e.id AS eq_id FROM inspections i JOIN equipment e ON i.equipment_id=e.id WHERE i.id=?',
+        (ins_id,)
+    ).fetchone()
+    if not insp:
+        flash('점검 기록을 찾을 수 없습니다.', 'error')
+        conn.close()
+        return redirect(url_for('dashboard'))
+
+    # 승인자 권한 확인
+    if insp['equipment_id'] and not (session.get('is_admin') or
+       conn.execute('SELECT id FROM equipment WHERE id=? AND approver_id=?',
+                    (insp['equipment_id'], session['user_id'])).fetchone()):
+        flash('승인 권한이 없습니다.', 'error')
+        conn.close()
+        return redirect(url_for('dashboard'))
+
+    conn.execute(
+        f"UPDATE inspections SET status='승인완료', approved_by=?, approved_at={conn.now_fn} WHERE id=?",
+        (session['user_id'], ins_id)
+    )
+    # 같은 날 같은 설비의 나머지 대기 건 삭제
+    conn.execute(
+        f'''DELETE FROM inspections
+            WHERE equipment_id=? AND status='점검완료' AND id!=?
+            AND {conn.date_col("inspected_at")}={conn.today}''',
+        (insp['equipment_id'], ins_id)
+    )
+    conn.commit()
+    conn.close()
+    flash('승인이 완료되었습니다.', 'success')
+    return redirect(request.referrer or url_for('dashboard'))
+
+
 @app.route('/daily-results')
 @login_required
 def daily_results():
