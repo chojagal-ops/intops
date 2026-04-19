@@ -1056,7 +1056,9 @@ def inspect(eq_id):
                     n_val = request.form.get(f'notes_item_{item["id"]}', '')
                     item_results.append((item['id'], r_val, n_val))
                 all_vals = [r for _, r, _ in item_results]
-                overall  = '이상' if '이상' in all_vals else '정상'
+                overall  = ('이상' if '이상' in all_vals else
+                            '수리중' if '수리중' in all_vals else
+                            '휴동' if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
                 ins_id = conn.insert(
                     "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status) VALUES (?,?,?,?,'점검완료')",
                     (eq_id, session['user_id'], overall, overall_notes)
@@ -1079,7 +1081,9 @@ def inspect(eq_id):
                     item_results.append((idx, r_val, n_val))
 
                 all_vals = [r for _, r, _ in item_results]
-                overall  = '이상' if '이상' in all_vals else '정상'
+                overall  = ('이상' if '이상' in all_vals else
+                            '수리중' if '수리중' in all_vals else
+                            '휴동' if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
 
                 ins_id = conn.insert(
                     '''INSERT INTO inspections

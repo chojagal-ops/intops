@@ -84,10 +84,18 @@
     .mark-ng   { display:inline-block; width:26px; height:26px; line-height:26px;
                  border-radius:50%; font-size:0.95rem; font-weight:900;
                  background:rgba(220,38,38,0.15); color:#dc2626; }
+    .mark-fix  { display:inline-block; width:26px; height:26px; line-height:26px;
+                 border-radius:50%; font-size:0.78rem; font-weight:900;
+                 background:rgba(234,179,8,0.15); color:#b45309; }
+    .mark-idle { display:inline-block; width:26px; height:26px; line-height:26px;
+                 border-radius:50%; font-size:0.78rem; font-weight:900;
+                 background:rgba(107,114,128,0.15); color:#6b7280; }
     .mark-na   { display:inline-block; width:26px; height:26px; line-height:26px;
                  font-size:0.8rem; color:var(--text-muted); }
     .td-ok     { background:rgba(22,163,74,0.07); }
     .td-ng     { background:rgba(220,38,38,0.07); }
+    .td-fix    { background:rgba(234,179,8,0.07); }
+    .td-idle   { background:rgba(107,114,128,0.07); }
     .td-none   { background:var(--bg-subtle); }
 
     /* 점검자 / 종합결과 행 */
@@ -246,6 +254,10 @@
                         <td class="td-ok"><span class="mark-ok">O</span></td>
                       {% elif det.result == '이상' %}
                         <td class="td-ng"><span class="mark-ng">X</span></td>
+                      {% elif det.result == '수리중' %}
+                        <td class="td-fix"><span class="mark-fix">R</span></td>
+                      {% elif det.result == '휴동' %}
+                        <td class="td-idle"><span class="mark-idle">P</span></td>
                       {% else %}
                         <td><span class="mark-na">–</span></td>
                       {% endif %}
@@ -277,6 +289,10 @@
                           <td class="td-ok"><span class="mark-ok">O</span></td>
                         {% elif det.result == '이상' %}
                           <td class="td-ng"><span class="mark-ng">X</span></td>
+                        {% elif det.result == '수리중' %}
+                          <td class="td-fix"><span class="mark-fix">R</span></td>
+                        {% elif det.result == '휴동' %}
+                          <td class="td-idle"><span class="mark-idle">P</span></td>
                         {% else %}
                           <td><span class="mark-na">–</span></td>
                         {% endif %}
@@ -358,6 +374,8 @@
     <div style="margin-top:12px; font-size:0.78rem; color:var(--text-muted);">
       ※&nbsp;<span class="mark-ok" style="font-size:0.75rem;">O</span> 양호&ensp;
          <span class="mark-ng" style="font-size:0.75rem;">X</span> 이상&ensp;
+         <span class="mark-fix" style="font-size:0.7rem;">R</span> 수리중&ensp;
+         <span class="mark-idle" style="font-size:0.7rem;">P</span> 휴동&ensp;
          <span class="mark-na">–</span> 해당없음&ensp;
          빈칸 미점검
     </div>

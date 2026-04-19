@@ -775,6 +775,7 @@ td { padding: 12px 14px; color: var(--text); }
 .tmpl-item-row { border-bottom: 1px solid var(--border); transition: background 0.15s; }
 .tmpl-item-row:hover { background: var(--bg-subtle); }
 .tmpl-item-row.row-abnormal { background: rgba(249,115,22,0.05) !important; }
+.tmpl-item-row.row-repair   { background: rgba(234,179,8,0.06)  !important; }
 .tmpl-item-row.row-na       { background: rgba(107,114,128,0.04) !important; }
 
 .tmpl-cell {
@@ -815,9 +816,11 @@ td { padding: 12px 14px; color: var(--text); }
 }
 .item-radio span:hover { border-color: var(--orange); color: var(--orange); }
 
-.item-normal   input:checked ~ span { background: rgba(22,163,74,0.12);   border-color: #16a34a; color: #15803d; }
-.item-abnormal input:checked ~ span { background: var(--orange-light);     border-color: var(--orange); color: #c2410c; }
-.item-na       input:checked ~ span { background: rgba(107,114,128,0.10); border-color: #6b7280; color: #4b5563; }
+.item-normal   input:checked ~ span { background: rgba(22,163,74,0.12);  border-color: #16a34a; color: #15803d; }
+.item-abnormal input:checked ~ span { background: var(--orange-light);    border-color: var(--orange); color: #c2410c; }
+.item-repair   input:checked ~ span { background: rgba(234,179,8,0.15);  border-color: #b45309; color: #b45309; }
+.item-idle     input:checked ~ span { background: rgba(107,114,128,0.12); border-color: #6b7280; color: #4b5563; }
+.item-na       input:checked ~ span { background: rgba(107,114,128,0.10); border-color: #9ca3af; color: #6b7280; }
 
 .item-notes-input {
   width: 100%;

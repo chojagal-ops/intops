@@ -194,7 +194,7 @@
                     </tr>
                   {% endif %}
                   {% set ns.num = ns.num + 1 %}
-                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '해당없음' %} row-na{% endif %}">
+                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '수리중' %} row-repair{% elif d.result == '휴동' %} row-na{% elif d.result == '해당없음' %} row-na{% endif %}">
                     <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                     <td class="tmpl-cell"><strong>{{ d.item_name }}</strong></td>
                     <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.8rem;">{{ d.criteria or '-' }}</td>
@@ -202,19 +202,23 @@
                     <td class="tmpl-cell">
                       {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
                       {% elif d.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                      {% elif d.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                      {% elif d.result == '휴동' %}<span class="result-tag tag-idle">⏸ 휴동</span>
                       {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
                     </td>
                     <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">{{ d.detail_notes or '-' }}</td>
                   </tr>
                 {% elif tmpl_rows and d.row_index < tmpl_rows|length %}
                   {% set row = tmpl_rows[d.row_index] %}
-                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '해당없음' %} row-na{% endif %}">
+                  <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '수리중' %} row-repair{% elif d.result in ('휴동','해당없음') %} row-na{% endif %}">
                     <td class="tmpl-cell">
                       {% for cell in row.cells %}{{ cell }}{% if not loop.last %}&nbsp;|&nbsp;{% endif %}{% endfor %}
                     </td>
                     <td class="tmpl-cell">
                       {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
                       {% elif d.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                      {% elif d.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                      {% elif d.result == '휴동' %}<span class="result-tag tag-idle">⏸ 휴동</span>
                       {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
                     </td>
                     <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">{{ d.detail_notes or '-' }}</td>
@@ -279,6 +283,14 @@
                         <input type="radio" name="result_item_{{ item.id }}" value="이상">
                         <span>이상</span>
                       </label>
+                      <label class="item-radio item-repair">
+                        <input type="radio" name="result_item_{{ item.id }}" value="수리중">
+                        <span>수리중</span>
+                      </label>
+                      <label class="item-radio item-idle">
+                        <input type="radio" name="result_item_{{ item.id }}" value="휴동">
+                        <span>휴동</span>
+                      </label>
                       <label class="item-radio item-na">
                         <input type="radio" name="result_item_{{ item.id }}" value="해당없음">
                         <span>해당없음</span>
@@ -328,6 +340,14 @@
                     <label class="item-radio item-abnormal">
                       <input type="radio" name="result_{{ idx }}" value="이상">
                       <span>이상</span>
+                    </label>
+                    <label class="item-radio item-repair">
+                      <input type="radio" name="result_{{ idx }}" value="수리중">
+                      <span>수리중</span>
+                    </label>
+                    <label class="item-radio item-idle">
+                      <input type="radio" name="result_{{ idx }}" value="휴동">
+                      <span>휴동</span>
                     </label>
                     <label class="item-radio item-na">
                       <input type="radio" name="result_{{ idx }}" value="해당없음">
@@ -458,13 +478,14 @@
     const el = document.getElementById('today-label');
     if (el) el.textContent = label;
 
-    // 이상 항목 선택 시 행 강조
+    // 결과 선택 시 행 강조
     document.querySelectorAll('.tmpl-item-row input[type=radio]').forEach(radio => {
       radio.addEventListener('change', function() {
         const row = this.closest('tr');
-        row.classList.remove('row-abnormal', 'row-na');
-        if (this.value === '이상') row.classList.add('row-abnormal');
-        if (this.value === '해당없음') row.classList.add('row-na');
+        row.classList.remove('row-abnormal', 'row-repair', 'row-na');
+        if (this.value === '이상')    row.classList.add('row-abnormal');
+        if (this.value === '수리중')  row.classList.add('row-repair');
+        if (this.value === '휴동' || this.value === '해당없음') row.classList.add('row-na');
       });
     });
   </script>
