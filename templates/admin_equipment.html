@@ -7,6 +7,17 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
+  <style>
+    /* 설비관리 전용 - 모든 셀/버튼 가로 강제 */
+    #eq-manage-table { width:100%; border-collapse:collapse; min-width:1000px; }
+    #eq-manage-table th,
+    #eq-manage-table td { white-space:nowrap !important; padding:10px 12px; vertical-align:middle; }
+    #eq-manage-table thead th { background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; border-bottom:1px solid var(--border); text-align:left; }
+    #eq-manage-table tbody tr { border-bottom:1px solid var(--border); }
+    #eq-manage-table tbody tr:hover { background:var(--bg-subtle); }
+    .eq-manage-btns { display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; gap:6px; align-items:center; justify-content:center; }
+    .eq-manage-btns a { white-space:nowrap !important; width:auto !important; padding:6px 12px !important; font-size:0.8rem !important; }
+  </style>
 </head>
 <body>
 
@@ -53,7 +64,7 @@
       {% endif %}
 
       <div style="overflow-x:auto; margin-top:20px; border-radius:10px; border:1px solid var(--border);">
-      <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:820px;">
+      <table id="eq-manage-table" style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:820px;">
         <thead>
           <tr>
             <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">설비명</th>
@@ -121,7 +132,7 @@
               </td>
               <td style="padding:10px 12px; white-space:nowrap; font-size:0.82rem; color:var(--text-sub);">{{ eq.created_at[:10] }}</td>
               <td style="padding:10px 12px; white-space:nowrap; text-align:center;">
-                <div style="display:flex; flex-direction:row; align-items:center; gap:6px; justify-content:center; flex-wrap:nowrap;">
+                <div class="eq-manage-btns" style="display:flex; flex-direction:row; align-items:center; gap:6px; justify-content:center; flex-wrap:nowrap;">
                   <a href="/admin/equipment/qr/{{ eq.id }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">QR 다운</a>
                   <a href="/inspect/{{ eq.id }}" class="btn btn-success btn-sm" style="white-space:nowrap;">점검표</a>
                   <a href="/admin/equipment/delete/{{ eq.id }}"
