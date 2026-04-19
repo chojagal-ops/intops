@@ -52,30 +52,32 @@
       </div>
       {% endif %}
 
-      <table style="margin-top:20px;">
+      <div style="overflow-x:auto; margin-top:20px; border-radius:10px; border:1px solid var(--border);">
+      <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:820px;">
         <thead>
           <tr>
-            <th>설비명</th>
-            <th>위치</th>
-            <th>담당부서</th>
-            <th>승인자</th>
-            <th>점검표 (Excel)</th>
-            <th>점검횟수</th>
-            <th>등록일</th>
-            <th>관리</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">설비명</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">위치</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">담당부서</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">승인자</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">점검표 (Excel)</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:center;border-bottom:1px solid var(--border);">점검횟수</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--border);">등록일</th>
+            <th style="background:var(--orange-faint);color:var(--text-sub);font-size:0.78rem;font-weight:700;padding:10px 12px;white-space:nowrap;text-align:center;border-bottom:1px solid var(--border);">관리</th>
           </tr>
         </thead>
         <tbody>
           {% if equipments %}
             {% for eq in equipments %}
-            <tr>
-              <td><strong style="color:#e0e6ed;">{{ eq.name }}</strong></td>
-              <td>{{ eq.location or '-' }}</td>
-              <td>{{ eq.department or '-' }}</td>
-              <td>
-                <form method="POST" action="/admin/equipment/set-approver/{{ eq.id }}">
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:10px 12px; white-space:nowrap;"><strong style="color:var(--text);">{{ eq.name }}</strong></td>
+              <td style="padding:10px 12px; white-space:nowrap; color:var(--text-sub); font-size:0.82rem;">{{ eq.location or '-' }}</td>
+              <td style="padding:10px 12px; white-space:nowrap; color:var(--text-sub); font-size:0.82rem;">{{ eq.department or '-' }}</td>
+              <td style="padding:10px 12px; white-space:nowrap;">
+                <form method="POST" action="/admin/equipment/set-approver/{{ eq.id }}" style="margin:0;">
                   <select name="approver_id" class="role-select"
-                          onchange="this.form.submit()" title="승인자 지정">
+                          onchange="this.form.submit()" title="승인자 지정"
+                          style="width:auto; font-size:0.82rem;">
                     <option value="">미지정</option>
                     {% for ap in approvers %}
                     <option value="{{ ap.id }}"
@@ -86,59 +88,60 @@
                   </select>
                 </form>
               </td>
-              <td>
+              <td style="padding:10px 12px; white-space:nowrap;">
                 {% if eq.template_id %}
-                  <!-- 등록된 점검표 있음 -->
-                  <div style="display:flex; flex-direction:column; gap:5px;">
-                    <span class="badge badge-approved" style="width:fit-content;">
+                  <div style="display:flex; flex-direction:row; align-items:center; gap:8px; flex-wrap:nowrap;">
+                    <span class="badge badge-approved" style="white-space:nowrap;">
                       📋 {{ eq.template_file }}
                     </span>
                     <a href="/admin/equipment/delete-template/{{ eq.id }}"
                        onclick="return confirm('점검표를 삭제하시겠습니까?')"
-                       style="font-size:0.75rem; color:#ef5350; text-decoration:none;">
+                       style="font-size:0.75rem; color:#ef5350; text-decoration:none; white-space:nowrap;">
                       ✕ 삭제
                     </a>
                   </div>
                 {% else %}
-                  <!-- 업로드 폼 -->
                   <form method="POST"
                         action="/admin/equipment/upload-template/{{ eq.id }}"
                         enctype="multipart/form-data"
-                        style="display:flex; flex-direction:column; gap:5px;">
-                    <label class="excel-upload-label">
+                        style="display:flex; flex-direction:row; align-items:center; gap:8px; flex-wrap:nowrap; margin:0;">
+                    <label class="excel-upload-label" style="white-space:nowrap; margin:0;">
                       📂 Excel 선택
                       <input type="file" name="excel_file"
                              accept=".xlsx,.xls,.xlsm"
                              onchange="this.form.submit()"
                              style="display:none;">
                     </label>
-                    <span style="font-size:0.75rem; color:#546e7a;">미등록</span>
+                    <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">미등록</span>
                   </form>
                 {% endif %}
               </td>
-              <td><span class="badge badge-approved">{{ eq.inspection_count }} 회</span></td>
-              <td style="font-size:0.82rem; color:#78909c;">{{ eq.created_at[:10] }}</td>
-              <td>
-                <div class="action-btns">
-                  <a href="/admin/equipment/qr/{{ eq.id }}" class="btn btn-primary btn-sm">QR 다운</a>
-                  <a href="/inspect/{{ eq.id }}" class="btn btn-success btn-sm">점검표</a>
+              <td style="padding:10px 12px; white-space:nowrap; text-align:center;">
+                <span class="badge badge-approved">{{ eq.inspection_count }} 회</span>
+              </td>
+              <td style="padding:10px 12px; white-space:nowrap; font-size:0.82rem; color:var(--text-sub);">{{ eq.created_at[:10] }}</td>
+              <td style="padding:10px 12px; white-space:nowrap; text-align:center;">
+                <div style="display:flex; flex-direction:row; align-items:center; gap:6px; justify-content:center; flex-wrap:nowrap;">
+                  <a href="/admin/equipment/qr/{{ eq.id }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">QR 다운</a>
+                  <a href="/inspect/{{ eq.id }}" class="btn btn-success btn-sm" style="white-space:nowrap;">점검표</a>
                   <a href="/admin/equipment/delete/{{ eq.id }}"
                      onclick="return confirm('{{ eq.name }} 설비를 삭제하시겠습니까?')"
-                     class="btn btn-danger btn-sm">삭제</a>
+                     class="btn btn-danger btn-sm" style="white-space:nowrap;">삭제</a>
                 </div>
               </td>
             </tr>
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="7" class="empty-row">
-                등록된 설비가 없습니다.<br>
-                <a href="/admin/equipment/add" style="color:#42a5f5;">설비를 등록하세요</a>
+              <td colspan="8" class="empty-row" style="padding:40px; text-align:center;">
+                등록된 설비가 없습니다.
+                <a href="/admin/equipment/add" style="color:var(--orange);">설비를 등록하세요</a>
               </td>
             </tr>
           {% endif %}
         </tbody>
       </table>
+      </div>
 
       {% if equipments %}
       <div class="qr-guide">
