@@ -115,9 +115,15 @@
       <table class="eq-manage-table" id="eqManageTable">
         <thead>
           <tr>
-            <th class="col-center" style="width:50px;">S/N</th>
+            <th style="position:relative;">
+              <div class="th-inner">
+                S/N
+                <button class="col-filter-btn" id="btn-sn" onclick="toggleDD('sn',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-sn"></div>
+            </th>
 
-            <th id="th-name" style="position:relative;">
+            <th style="position:relative;">
               <div class="th-inner">
                 설비명
                 <button class="col-filter-btn" id="btn-name" onclick="toggleDD('name',event)">▼</button>
@@ -125,7 +131,7 @@
               <div class="col-dropdown" id="dd-name"></div>
             </th>
 
-            <th id="th-loc" style="position:relative;">
+            <th style="position:relative;">
               <div class="th-inner">
                 위치
                 <button class="col-filter-btn" id="btn-loc" onclick="toggleDD('loc',event)">▼</button>
@@ -133,7 +139,7 @@
               <div class="col-dropdown" id="dd-loc"></div>
             </th>
 
-            <th id="th-dept" style="position:relative;">
+            <th style="position:relative;">
               <div class="th-inner">
                 담당부서
                 <button class="col-filter-btn" id="btn-dept" onclick="toggleDD('dept',event)">▼</button>
@@ -141,18 +147,37 @@
               <div class="col-dropdown" id="dd-dept"></div>
             </th>
 
-            <th>승인자</th>
+            <th style="position:relative;">
+              <div class="th-inner">
+                승인자
+                <button class="col-filter-btn" id="btn-approver" onclick="toggleDD('approver',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-approver"></div>
+            </th>
+
             <th class="col-center">점검횟수</th>
-            <th>등록일</th>
+
+            <th style="position:relative;">
+              <div class="th-inner">
+                등록일
+                <button class="col-filter-btn" id="btn-date" onclick="toggleDD('date',event)">▼</button>
+              </div>
+              <div class="col-dropdown" id="dd-date"></div>
+            </th>
+
             <th class="col-center">관리</th>
           </tr>
         </thead>
         <tbody>
           {% if equipments %}
             {% for eq in equipments %}
-            <tr data-name="{{ eq.name }}"
+            {% set ap_name = (approvers | selectattr('id', 'equalto', eq.approver_id) | map(attribute='name') | first) or '미지정' %}
+            <tr data-sn="{{ '%04d' % eq.serial_no }}"
+                data-name="{{ eq.name }}"
                 data-loc="{{ eq.location or '' }}"
-                data-dept="{{ eq.department or '' }}">
+                data-dept="{{ eq.department or '' }}"
+                data-approver="{{ ap_name }}"
+                data-date="{{ eq.created_at[:10] }}">
               <td style="text-align:center; font-weight:700; color:var(--orange);">{{ '%04d' % eq.serial_no }}</td>
               <td><strong style="color:var(--text);">{{ eq.name }}</strong></td>
               <td style="color:var(--text-sub); font-size:0.82rem;">{{ eq.location or '-' }}</td>
@@ -215,14 +240,17 @@
   </div>
 
   <script>
-    const colFilters = { name: new Set(), loc: new Set(), dept: new Set() };
+    const colFilters = { sn: new Set(), name: new Set(), loc: new Set(), dept: new Set(), approver: new Set(), date: new Set() };
 
     function buildDropdowns() {
       const rows = [...document.querySelectorAll('#eqManageTable tbody tr[data-name]')];
       [
-        { id:'name', key:'name' },
-        { id:'loc',  key:'loc'  },
-        { id:'dept', key:'dept' },
+        { id:'sn',       key:'sn'       },
+        { id:'name',     key:'name'     },
+        { id:'loc',      key:'loc'      },
+        { id:'dept',     key:'dept'     },
+        { id:'approver', key:'approver' },
+        { id:'date',     key:'date'     },
       ].forEach(({id, key}) => {
         const vals = [...new Set(rows.map(r => r.dataset[key]).filter(v => v))].sort();
         const dd = document.getElementById('dd-' + id);
@@ -275,9 +303,12 @@
       let visible = 0;
       document.querySelectorAll('#eqManageTable tbody tr[data-name]').forEach(row => {
         const ok =
-          (colFilters.name.size === 0 || colFilters.name.has(row.dataset.name)) &&
-          (colFilters.loc.size  === 0 || colFilters.loc.has(row.dataset.loc))   &&
-          (colFilters.dept.size === 0 || colFilters.dept.has(row.dataset.dept));
+          (colFilters.sn.size       === 0 || colFilters.sn.has(row.dataset.sn))           &&
+          (colFilters.name.size     === 0 || colFilters.name.has(row.dataset.name))         &&
+          (colFilters.loc.size      === 0 || colFilters.loc.has(row.dataset.loc))           &&
+          (colFilters.dept.size     === 0 || colFilters.dept.has(row.dataset.dept))         &&
+          (colFilters.approver.size === 0 || colFilters.approver.has(row.dataset.approver)) &&
+          (colFilters.date.size     === 0 || colFilters.date.has(row.dataset.date));
         row.style.display = ok ? '' : 'none';
         if (ok) visible++;
       });
