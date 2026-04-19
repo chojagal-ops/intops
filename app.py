@@ -1494,12 +1494,19 @@ def inspect(eq_id):
             ORDER BY i.inspected_at DESC
         ''', (eq_id,)).fetchall()
 
-    history = conn.execute('''
+    history = conn.execute(f'''
         SELECT i.*, u.name AS inspector_name, a.name AS approved_name
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
         WHERE i.equipment_id=?
+          AND i.id = (
+              SELECT id FROM inspections
+              WHERE equipment_id = i.equipment_id
+                AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
+              ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
+              LIMIT 1
+          )
         ORDER BY i.inspected_at DESC
         LIMIT 20
     ''', (eq_id,)).fetchall()
@@ -1637,7 +1644,20 @@ def my_inspections():
 
     conn = get_db()
 
-    query = '''
+    # 설비·날짜별 최선 1건 (승인완료 우선, 이후 최신순)
+    date_filter = ''
+    if date_from:
+        date_filter += f' AND {conn.date_col("i.inspected_at")} >= ?'
+    if date_to:
+        date_filter += f' AND {conn.date_col("i.inspected_at")} <= ?'
+    result_f = ' AND i.result = ?' if result_filter else ''
+
+    params = [session['user_id']]
+    if date_from: params.append(date_from)
+    if date_to:   params.append(date_to)
+    if result_filter: params.append(result_filter)
+
+    query = f'''
         SELECT i.*,
                e.name       AS eq_name,
                e.location   AS eq_location,
@@ -1647,20 +1667,16 @@ def my_inspections():
         JOIN equipment e ON i.equipment_id = e.id
         LEFT JOIN users a ON i.approved_by = a.id
         WHERE i.inspector_id = ?
+          {date_filter}{result_f}
+          AND i.id = (
+              SELECT id FROM inspections
+              WHERE equipment_id = i.equipment_id
+                AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
+              ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
+              LIMIT 1
+          )
+        ORDER BY i.inspected_at DESC
     '''
-    params = [session['user_id']]
-
-    if date_from:
-        query += f' AND {conn.date_col("i.inspected_at")} >= ?'
-        params.append(date_from)
-    if date_to:
-        query += f' AND {conn.date_col("i.inspected_at")} <= ?'
-        params.append(date_to)
-    if result_filter:
-        query += ' AND i.result = ?'
-        params.append(result_filter)
-
-    query += ' ORDER BY i.inspected_at DESC'
     records = conn.execute(query, params).fetchall()
 
     stats = conn.execute('''
@@ -1722,6 +1738,11 @@ def dashboard():
             JOIN equipment e ON i.equipment_id = e.id
             JOIN users u ON i.inspector_id = u.id
             WHERE e.approver_id=? AND i.status='점검완료'
+              AND i.id = (
+                  SELECT id FROM inspections
+                  WHERE equipment_id = i.equipment_id AND status='점검완료'
+                  ORDER BY inspected_at DESC LIMIT 1
+              )
             ORDER BY i.inspected_at DESC
         ''', (session['user_id'],)).fetchall()
 
@@ -1798,13 +1819,15 @@ def monthly_results(eq_id):
         JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
         WHERE i.equipment_id = ? AND {ym_expr} = ?
-        ORDER BY i.inspected_at
+        ORDER BY CASE WHEN i.status='승인완료' THEN 0 ELSE 1 END, i.inspected_at DESC
     ''', (eq_id, ym)).fetchall()
 
+    # 날짜별 최선 1건 (승인완료 우선, 이후 최신순) — 먼저 나온 것이 우선
     insp_by_day = {}
     for ins in inspections:
         day = int(str(ins['insp_date']).split('-')[2])
-        insp_by_day[day] = ins
+        if day not in insp_by_day:
+            insp_by_day[day] = ins
 
     details_by_insp = {}
     for ins in inspections:
@@ -1927,14 +1950,15 @@ def export_monthly(eq_id):
         FROM inspections i
         JOIN users u ON i.inspector_id = u.id
         WHERE i.equipment_id = ? AND {ym_expr} = ?
-        ORDER BY i.inspected_at
+        ORDER BY CASE WHEN i.status='승인완료' THEN 0 ELSE 1 END, i.inspected_at DESC
     ''', (eq_id, ym)).fetchall()
 
-    # day → inspection 매핑 (같은 날 여러 건이면 마지막 기준)
+    # 날짜별 최선 1건 (승인완료 우선, 이후 최신순)
     insp_by_day = {}
     for ins in inspections:
         day = int(str(ins['insp_date']).split('-')[2])
-        insp_by_day[day] = ins
+        if day not in insp_by_day:
+            insp_by_day[day] = ins
 
     # 항목별 결과 로드
     details_by_insp = {}
