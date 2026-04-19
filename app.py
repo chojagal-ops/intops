@@ -41,12 +41,17 @@ if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 USE_PG = bool(DATABASE_URL)
 
+import sqlite3  # 항상 import (PostgreSQL 연결 실패 시 폴백용)
+
 if USE_PG:
-    import psycopg2
-    import psycopg2.extras
-    print(f"[DB] PostgreSQL 사용 (데이터 영구 보존)", flush=True)
+    try:
+        import psycopg2
+        import psycopg2.extras
+        print(f"[DB] PostgreSQL 사용 (데이터 영구 보존)", flush=True)
+    except ImportError:
+        print("[DB] ⚠ psycopg2 없음 → SQLite 폴백", flush=True)
+        USE_PG = False
 else:
-    import sqlite3
     print("[DB] ⚠ SQLite 사용 중 - DATABASE_URL 미설정. Render 재배포 시 데이터 초기화됨!", flush=True)
 
 # SQL 방언 상수
@@ -264,10 +269,14 @@ def send_approval_request(to_email, approver_name, inspector_name,
 # ── DB 초기화 ─────────────────────────────────────────────────────────────────
 def init_db():
     conn = get_db()
+    # 실제 연결 타입(PG vs SQLite) 기반으로 SQL 방언 결정
+    _pk  = 'SERIAL PRIMARY KEY' if conn._pg else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    _now = ("to_char(NOW() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD HH24:MI:SS')"
+            if conn._pg else "datetime('now','localtime')")
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS users (
-            id          {_PK},
+            id          {_pk},
             name        TEXT NOT NULL,
             employee_id TEXT UNIQUE NOT NULL,
             email       TEXT DEFAULT '',
@@ -277,13 +286,13 @@ def init_db():
             role        TEXT DEFAULT '점검자',
             is_admin    INTEGER DEFAULT 0,
             is_approved INTEGER DEFAULT 0,
-            created_at  TEXT DEFAULT ({_NOW_DEFAULT})
+            created_at  TEXT DEFAULT ({_now})
         )
     ''')
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS equipment (
-            id          {_PK},
+            id          {_pk},
             name        TEXT NOT NULL,
             qr_code     TEXT UNIQUE NOT NULL,
             location    TEXT,
@@ -291,13 +300,13 @@ def init_db():
             description TEXT,
             approver_id INTEGER,
             created_by  INTEGER,
-            created_at  TEXT DEFAULT ({_NOW_DEFAULT})
+            created_at  TEXT DEFAULT ({_now})
         )
     ''')
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS inspections (
-            id            {_PK},
+            id            {_pk},
             equipment_id  INTEGER NOT NULL,
             inspector_id  INTEGER NOT NULL,
             result        TEXT NOT NULL,
@@ -305,24 +314,24 @@ def init_db():
             status        TEXT DEFAULT '점검완료',
             approved_by   INTEGER,
             approved_at   TEXT,
-            inspected_at  TEXT DEFAULT ({_NOW_DEFAULT})
+            inspected_at  TEXT DEFAULT ({_now})
         )
     ''')
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS inspection_templates (
-            id           {_PK},
+            id           {_pk},
             equipment_id INTEGER UNIQUE NOT NULL,
             filename     TEXT,
             max_cols     INTEGER DEFAULT 0,
             rows         TEXT,
-            created_at   TEXT DEFAULT ({_NOW_DEFAULT})
+            created_at   TEXT DEFAULT ({_now})
         )
     ''')
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS inspection_details (
-            id            {_PK},
+            id            {_pk},
             inspection_id INTEGER NOT NULL,
             row_index     INTEGER NOT NULL,
             result        TEXT NOT NULL DEFAULT '정상',
@@ -332,14 +341,14 @@ def init_db():
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS inspection_items (
-            id           {_PK},
+            id           {_pk},
             equipment_id INTEGER NOT NULL,
             item_order   INTEGER DEFAULT 0,
             category     TEXT DEFAULT '',
             item_name    TEXT NOT NULL,
             criteria     TEXT DEFAULT '',
             unit         TEXT DEFAULT '',
-            created_at   TEXT DEFAULT ({_NOW_DEFAULT})
+            created_at   TEXT DEFAULT ({_now})
         )
     ''')
 
