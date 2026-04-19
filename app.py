@@ -501,9 +501,108 @@ def send_reset_code(to_email, user_name, code):
     threading.Thread(target=_send_mail, args=(to_email, subject, html), daemon=True).start()
 
 
+# ── 평일 오전 11시 미점검 알림 ───────────────────────────────────────────────
+def _send_inspection_reminders():
+    """평일 오전 11시(KST), 당일 미점검 설비 담당자(정/부)에게 알림 이메일 발송"""
+    if not email_config.ENABLED:
+        print('[알림] SMTP 미설정 - 점검 알림 스킵', flush=True)
+        return
+
+    now = datetime.now()
+    today_str = now.strftime('%Y-%m-%d')
+    print(f'[알림] 미점검 알림 실행 - {today_str}', flush=True)
+
+    conn = get_db()
+    try:
+        # 당일 미점검 설비 목록
+        if conn._pg:
+            rows = conn.execute("""
+                SELECT e.id, e.name, e.manager_primary, e.manager_secondary
+                FROM equipment e
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM inspections i
+                    WHERE i.equipment_id = e.id
+                    AND DATE(i.inspected_at) = %s
+                )
+            """, (today_str,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT e.id, e.name, e.manager_primary, e.manager_secondary
+                FROM equipment e
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM inspections i
+                    WHERE i.equipment_id = e.id
+                    AND DATE(i.inspected_at) = ?
+                )
+            """, (today_str,)).fetchall()
+
+        for eq in rows:
+            recipients = set()
+            for mgr_name in [eq['manager_primary'], eq['manager_secondary']]:
+                if not mgr_name:
+                    continue
+                if conn._pg:
+                    u = conn.execute(
+                        "SELECT email FROM users WHERE TRIM(name)=%s AND is_approved=1",
+                        (mgr_name.strip(),)
+                    ).fetchone()
+                else:
+                    u = conn.execute(
+                        "SELECT email FROM users WHERE TRIM(name)=? AND is_approved=1",
+                        (mgr_name.strip(),)
+                    ).fetchone()
+                if u and u['email']:
+                    recipients.add(u['email'])
+
+            for email in recipients:
+                subject = f'[INTOPS] 점검 알림 - {eq["name"]} 오늘 미점검'
+                html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
+            box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+  <div style="background:#f97316;padding:24px 32px;">
+    <h2 style="color:#fff;margin:0;font-size:1.2rem;">⚠️ 설비 점검 알림</h2>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="color:#374151;margin:0 0 16px;">안녕하세요.</p>
+    <p style="color:#374151;margin:0 0 16px;">
+      오늘 <strong style="color:#f97316;">{now.strftime("%Y년 %m월 %d일")}</strong> 오전 11시까지
+      아래 설비의 점검이 완료되지 않았습니다.
+    </p>
+    <div style="background:#fff7ed;border:2px solid #f97316;border-radius:10px;
+                padding:16px 20px;margin:0 0 20px;">
+      <div style="font-size:1.1rem;font-weight:800;color:#c2410c;">{eq["name"]}</div>
+    </div>
+    <p style="color:#6b7280;font-size:0.85rem;margin:0;">
+      점검을 완료한 경우 이 알림을 무시하세요.
+    </p>
+  </div>
+</div></body></html>'''
+                _send_mail(email, subject, html)
+                print(f'[알림] {eq["name"]} → {email} 발송', flush=True)
+    finally:
+        conn.close()
+
+
 # gunicorn 포함 모든 실행 환경에서 DB 초기화 보장
 with app.app_context():
     init_db()
+
+    # 평일 오전 11시(KST) 미점검 알림 스케줄러
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        import pytz
+        _kst = pytz.timezone('Asia/Seoul')
+        _scheduler = BackgroundScheduler(timezone=_kst)
+        _scheduler.add_job(
+            _send_inspection_reminders,
+            CronTrigger(day_of_week='mon-fri', hour=11, minute=0, timezone=_kst)
+        )
+        _scheduler.start()
+        print('[스케줄러] 평일 오전 11시 미점검 알림 등록 완료', flush=True)
+    except Exception as _e:
+        print(f'[스케줄러] 시작 실패: {_e}', flush=True)
+
     # 시작 시 DB 연결 상태 명확히 출력
     _chk = get_db()
     if _chk._pg:
