@@ -701,12 +701,21 @@ def change_role(user_id):
 @app.route('/admin/equipment')
 @admin_required
 def admin_equipment():
+    q = request.args.get('q', '').strip()
     conn = get_db()
-    equipments = conn.execute('''
+
+    # 시리얼 번호 = id 기준 등록순 rank
+    if conn._pg:
+        serial_expr = '(SELECT COUNT(*) FROM equipment e2 WHERE e2.id <= e.id)'
+    else:
+        serial_expr = '(SELECT COUNT(*) FROM equipment e2 WHERE e2.id <= e.id)'
+
+    base_sql = f'''
         SELECT e.*,
+               {serial_expr}             AS serial_no,
                u.name  AS creator_name,
                a.name  AS approver_name,
-               COUNT(DISTINCT i.id) AS inspection_count,
+               COUNT(DISTINCT i.id)      AS inspection_count,
                t.id       AS template_id,
                t.filename AS template_file
         FROM equipment e
@@ -714,16 +723,22 @@ def admin_equipment():
         LEFT JOIN users a ON e.approver_id = a.id
         LEFT JOIN inspections i ON e.id = i.equipment_id
         LEFT JOIN inspection_templates t ON e.id = t.equipment_id
-        GROUP BY e.id, u.name, a.name, t.id, t.filename
-        ORDER BY e.created_at DESC
-    ''').fetchall()
+    '''
+    params = []
+    if q:
+        base_sql += " WHERE (e.name LIKE ? OR e.location LIKE ? OR e.department LIKE ?)"
+        params = [f'%{q}%', f'%{q}%', f'%{q}%']
+
+    base_sql += ' GROUP BY e.id, u.name, a.name, t.id, t.filename ORDER BY e.id DESC'
+
+    equipments = conn.execute(base_sql, params).fetchall()
     approvers = conn.execute(
         "SELECT id, name, team FROM users WHERE (role='승인자' OR is_admin=1) AND is_approved=1 ORDER BY name"
     ).fetchall()
     conn.close()
     return render_template('admin_equipment.html', equipments=equipments,
                            approvers=approvers, has_qrcode=HAS_QRCODE,
-                           has_openpyxl=HAS_OPENPYXL)
+                           has_openpyxl=HAS_OPENPYXL, q=q)
 
 
 @app.route('/admin/equipment/set-approver/<int:eq_id>', methods=['POST'])
