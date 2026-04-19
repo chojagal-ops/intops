@@ -117,10 +117,25 @@
       .mark-ok, .mark-ng, .mark-na { width:22px; height:22px; line-height:22px; font-size:0.82rem; }
     }
     @media print {
-      .topbar, .mr-ctrl, .btn-print { display:none !important; }
-      .mr-page { padding:10px; }
-      .mr-title-box { border-color:#999; }
+      @page { size: A4 landscape; margin: 8mm; }
+      .topbar, .mr-ctrl, .btn-print, .mr-summary { display:none !important; }
+      .mr-page { padding:4px; max-width:100%; }
+      .mr-title-box { border-color:#999; padding:10px 14px; margin-bottom:8px; }
+      .mr-title-text h1 { font-size:1rem; }
+      .mr-title-text p  { font-size:0.72rem; }
+      .mr-title-badge   { font-size:0.85rem; padding:5px 12px; }
       body { background:#fff; }
+      .mr-wrap { border:none; overflow:visible; }
+      .mr-table { font-size:0.6rem; width:100%; }
+      .mr-table th, .mr-table td { padding:3px 2px !important; }
+      .mr-table th.col-item { min-width:80px; max-width:120px; }
+      .mr-table th.col-std  { min-width:55px; }
+      .mr-table th.col-day  { min-width:18px; width:18px; }
+      .th-day-num  { font-size:0.6rem; padding:3px 1px 1px; }
+      .th-day-time { font-size:0.5rem; padding:0 1px 2px; }
+      .mark-ok, .mark-ng, .mark-na { width:16px; height:16px; line-height:16px; font-size:0.65rem; }
+      .mr-table td { height:22px; }
+      textarea { display:none; }
     }
   </style>
 </head>
