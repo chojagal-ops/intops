@@ -268,8 +268,10 @@ def _send_mail(to_email, subject, html_body):
             s.login(email_config.SENDER_EMAIL, email_config.SENDER_PASSWORD)
             s.sendmail(email_config.SENDER_EMAIL, to_email, msg.as_string())
         print(f'[이메일] 발송 완료 → {to_email}')
+        return True
     except Exception as e:
         print(f'[이메일] 발송 실패: {e}')
+        return False
 
 
 def send_approval_request(to_email, approver_name, inspector_name,
@@ -591,8 +593,32 @@ def forgot_password():
                 'expires': datetime.now() + timedelta(minutes=10),
             }
 
+        mail_sent = False
         if email_config.ENABLED and user['email']:
-            send_reset_code(user['email'], user['name'], code)
+            # 동기 발송으로 성공 여부 즉시 확인
+            subject = '[INTOPS] 비밀번호 재설정 인증번호'
+            html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+  <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
+              box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+    <div style="background:#f97316;padding:28px 32px;">
+      <h2 style="color:#fff;margin:0;font-size:1.3rem;">비밀번호 재설정</h2>
+    </div>
+    <div style="padding:32px;">
+      <p style="color:#374151;margin:0 0 12px;"><strong>{user["name"]}</strong> 님, 안녕하세요.</p>
+      <p style="color:#6b7280;margin:0 0 24px;">아래 인증번호를 입력하여 비밀번호를 재설정하세요.<br>
+         인증번호는 <strong>10분간</strong> 유효합니다.</p>
+      <div style="text-align:center;background:#fff7ed;border:2px dashed #f97316;
+                  border-radius:12px;padding:24px;margin:24px 0;">
+        <span style="font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#f97316;">{code}</span>
+      </div>
+      <p style="color:#9ca3af;font-size:0.8rem;margin:0;">
+        본인이 요청하지 않은 경우 이 메일을 무시하세요.
+      </p>
+    </div>
+  </div></body></html>'''
+            mail_sent = _send_mail(user['email'], subject, html)
+
+        if mail_sent:
             masked = user['email']
             if '@' in masked:
                 local, domain = masked.split('@', 1)
@@ -600,7 +626,7 @@ def forgot_password():
             flash(f'{masked} 으로 인증번호를 발송했습니다. 10분 내 입력하세요.', 'success')
             return redirect(url_for('verify_reset_code', emp_id=key))
         else:
-            # 이메일 미설정 → 관리자 요청 페이지로
+            # 이메일 발송 실패 or 미설정 → 관리자 요청 화면
             return render_template('forgot_password.html',
                                    need_request=True,
                                    user_id=user['id'],
