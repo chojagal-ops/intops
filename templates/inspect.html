@@ -198,7 +198,7 @@
                     <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                     <td class="tmpl-cell"><strong>{{ d.item_name }}</strong></td>
                     <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.8rem;">{{ d.criteria or '-' }}</td>
-                    <td class="tmpl-cell" style="text-align:center; color:var(--text-sub);">{{ d.unit or '-' }}</td>
+                    <td class="tmpl-cell" style="text-align:center; color:var(--text-sub); white-space:nowrap;">{{ d.unit or '-' }}</td>
                     <td class="tmpl-cell">
                       {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
                       {% elif d.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
