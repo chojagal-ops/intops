@@ -30,6 +30,7 @@ except ImportError:
 
 try:
     import qrcode
+    from PIL import Image, ImageDraw, ImageFont
     HAS_QRCODE = True
 except ImportError:
     HAS_QRCODE = False
@@ -687,6 +688,58 @@ def admin_equipment_delete(eq_id):
     return redirect(url_for('admin_equipment'))
 
 
+def _make_qr_label(eq_name, qr_url, serial_no):
+    """QR 코드 + 설비명 + 시리얼 번호 라벨 이미지 생성"""
+    # QR 코드 생성
+    qr = qrcode.QRCode(version=1, box_size=10, border=3)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color='black', back_color='white').convert('RGB')
+    qr_w, qr_h = qr_img.size
+
+    # 라벨 캔버스 크기 (위 여백 50 + QR + 아래 여백 90)
+    pad_top    = 50
+    pad_bottom = 90
+    label_w = qr_w
+    label_h = pad_top + qr_h + pad_bottom
+
+    canvas = Image.new('RGB', (label_w, label_h), 'white')
+    canvas.paste(qr_img, (0, pad_top))
+    draw = ImageDraw.Draw(canvas)
+
+    # 기본 폰트 사용 (환경에 따라 크기 조절 불가, 적당한 크기로 그림)
+    try:
+        # 시스템에 truetype 폰트가 있으면 사용
+        font_name = ImageFont.truetype("arial.ttf", 22)
+        font_sn   = ImageFont.truetype("arial.ttf", 28)
+    except Exception:
+        try:
+            font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 22)
+            font_sn   = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+        except Exception:
+            font_name = ImageFont.load_default()
+            font_sn   = font_name
+
+    # 설비명 (상단)
+    bbox = draw.textbbox((0, 0), eq_name, font=font_name)
+    tw = bbox[2] - bbox[0]
+    draw.text(((label_w - tw) // 2, 10), eq_name, fill='black', font=font_name)
+
+    # 시리얼 넘버 (하단)
+    sn_text = f"S/N : {serial_no}"
+    bbox2 = draw.textbbox((0, 0), sn_text, font=font_sn)
+    tw2 = bbox2[2] - bbox2[0]
+    draw.text(((label_w - tw2) // 2, pad_top + qr_h + 10), sn_text, fill='#f97316', font=font_sn)
+
+    # 구분선
+    draw.line([(20, pad_top + qr_h + 6), (label_w - 20, pad_top + qr_h + 6)], fill='#e5e7eb', width=1)
+
+    buf = BytesIO()
+    canvas.save(buf, format='PNG')
+    buf.seek(0)
+    return buf
+
+
 @app.route('/admin/equipment/qr/<int:eq_id>')
 @admin_required
 def equipment_qr_download(eq_id):
@@ -695,19 +748,19 @@ def equipment_qr_download(eq_id):
         return redirect(url_for('admin_equipment'))
     conn = get_db()
     eq = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    # 등록순 시리얼 번호: id 기준 오름차순 rank
+    rank = conn.execute(
+        'SELECT COUNT(*) AS cnt FROM equipment WHERE id <= ?', (eq_id,)
+    ).fetchone()['cnt']
     conn.close()
     if not eq:
         return '설비를 찾을 수 없습니다.', 404
-    url = request.host_url.rstrip('/') + url_for('qr_redirect', code=eq['qr_code'])
-    qr  = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color='black', back_color='white')
-    buf = BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
+
+    serial_no = f'{rank:04d}'
+    qr_url    = request.host_url.rstrip('/') + url_for('qr_redirect', code=eq['qr_code'])
+    buf       = _make_qr_label(eq['name'], qr_url, serial_no)
     return send_file(buf, mimetype='image/png', as_attachment=True,
-                     download_name=f'{eq["name"]}_QR코드.png')
+                     download_name=f'{eq["name"]}_{serial_no}_QR라벨.png')
 
 
 # ── QR 리다이렉트 ─────────────────────────────────────────────────────────────
