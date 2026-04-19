@@ -393,6 +393,9 @@ def init_db():
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS approved_at TEXT",
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS inspection_cycle TEXT DEFAULT '매일'",
             "ALTER TABLE inspection_details ADD COLUMN IF NOT EXISTS item_id INTEGER",
+            "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS mgmt_no TEXT DEFAULT ''",
+            "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_primary TEXT DEFAULT ''",
+            "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_secondary TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -409,6 +412,9 @@ def init_db():
             "ALTER TABLE inspections ADD COLUMN approved_at TEXT",
             "ALTER TABLE equipment ADD COLUMN inspection_cycle TEXT DEFAULT '매일'",
             "ALTER TABLE inspection_details ADD COLUMN item_id INTEGER",
+            "ALTER TABLE equipment ADD COLUMN mgmt_no TEXT DEFAULT ''",
+            "ALTER TABLE equipment ADD COLUMN manager_primary TEXT DEFAULT ''",
+            "ALTER TABLE equipment ADD COLUMN manager_secondary TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -788,20 +794,25 @@ def admin_equipment_add():
     ).fetchall()
     conn.close()
     if request.method == 'POST':
-        name        = request.form['name'].strip()
-        location    = request.form['location'].strip()
-        department  = request.form['department'].strip()
-        description = request.form.get('description', '').strip()
-        approver_id = request.form.get('approver_id') or None
-        qr_code     = request.form.get('qr_code', '').strip() or str(uuid.uuid4())
+        name              = request.form['name'].strip()
+        location          = request.form['location'].strip()
+        department        = request.form['department'].strip()
+        description       = request.form.get('description', '').strip()
+        approver_id       = request.form.get('approver_id') or None
+        qr_code           = request.form.get('qr_code', '').strip() or str(uuid.uuid4())
+        mgmt_no           = request.form.get('mgmt_no', '').strip()
+        manager_primary   = request.form.get('manager_primary', '').strip()
+        manager_secondary = request.form.get('manager_secondary', '').strip()
         conn = get_db()
         try:
             inspection_cycle = request.form.get('inspection_cycle', '매일')
             eq_id_new = conn.insert(
                 '''INSERT INTO equipment
-                   (name, qr_code, location, department, description, approver_id, created_by, inspection_cycle)
-                   VALUES (?,?,?,?,?,?,?,?)''',
-                (name, qr_code, location, department, description, approver_id, session['user_id'], inspection_cycle)
+                   (name, qr_code, location, department, description, approver_id, created_by, inspection_cycle,
+                    mgmt_no, manager_primary, manager_secondary)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                (name, qr_code, location, department, description, approver_id, session['user_id'], inspection_cycle,
+                 mgmt_no, manager_primary, manager_secondary)
             )
             # 점검 항목 저장
             item_names      = request.form.getlist('item_name')
@@ -881,6 +892,43 @@ def delete_template(eq_id):
     conn.close()
     flash('점검표가 삭제되었습니다.', 'info')
     return redirect(url_for('admin_equipment'))
+
+
+@app.route('/admin/equipment/edit/<int:eq_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_equipment_edit(eq_id):
+    conn = get_db()
+    eq = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    if not eq:
+        conn.close()
+        flash('설비를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('admin_equipment'))
+    approvers = conn.execute(
+        "SELECT id, name, team FROM users WHERE (role='승인자' OR is_admin=1) AND is_approved=1 ORDER BY name"
+    ).fetchall()
+    if request.method == 'POST':
+        name              = request.form['name'].strip()
+        location          = request.form['location'].strip()
+        department        = request.form['department'].strip()
+        description       = request.form.get('description', '').strip()
+        approver_id       = request.form.get('approver_id') or None
+        inspection_cycle  = request.form.get('inspection_cycle', '매일')
+        mgmt_no           = request.form.get('mgmt_no', '').strip()
+        manager_primary   = request.form.get('manager_primary', '').strip()
+        manager_secondary = request.form.get('manager_secondary', '').strip()
+        conn.execute(
+            '''UPDATE equipment SET name=?, location=?, department=?, description=?,
+               approver_id=?, inspection_cycle=?, mgmt_no=?, manager_primary=?, manager_secondary=?
+               WHERE id=?''',
+            (name, location, department, description, approver_id, inspection_cycle,
+             mgmt_no, manager_primary, manager_secondary, eq_id)
+        )
+        conn.commit()
+        conn.close()
+        flash(f'설비 "{name}" 정보가 수정되었습니다.', 'success')
+        return redirect(url_for('admin_equipment'))
+    conn.close()
+    return render_template('admin_equipment_edit.html', eq=eq, teams=TEAMS, approvers=approvers)
 
 
 @app.route('/admin/equipment/delete/<int:eq_id>')

@@ -90,6 +90,11 @@
         </div>
 
         <div class="form-group">
+          <label>설비관리번호</label>
+          <input type="text" name="mgmt_no" placeholder="예) EQ-2024-001">
+        </div>
+
+        <div class="form-group">
           <label>설치 위치 *</label>
           <input type="text" name="location" placeholder="예) A동 1층 생산라인" required>
         </div>
@@ -102,6 +107,17 @@
             <option value="{{ team }}">{{ team }}</option>
             {% endfor %}
           </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>관리담당자 (정)</label>
+            <input type="text" name="manager_primary" placeholder="예) 홍길동">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>관리담당자 (부)</label>
+            <input type="text" name="manager_secondary" placeholder="예) 김철수">
+          </div>
         </div>
 
         <div class="form-group">

@@ -155,6 +155,8 @@
               <div class="col-dropdown" id="dd-approver"></div>
             </th>
 
+            <th>관리번호</th>
+            <th>담당자(정/부)</th>
             <th class="col-center">점검횟수</th>
 
             <th style="position:relative;">
@@ -200,9 +202,16 @@
               <td style="text-align:center;">
                 <span class="badge badge-approved">{{ eq.inspection_count }} 회</span>
               </td>
+              <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.mgmt_no or '-' }}</td>
+              <td style="font-size:0.82rem; color:var(--text-sub);">
+                {% if eq.manager_primary or eq.manager_secondary %}
+                  {{ eq.manager_primary or '-' }} / {{ eq.manager_secondary or '-' }}
+                {% else %}-{% endif %}
+              </td>
               <td style="font-size:0.82rem; color:var(--text-sub);">{{ eq.created_at[:10] }}</td>
               <td style="text-align:center;">
                 <div class="eq-manage-btns">
+                  <a href="/admin/equipment/edit/{{ eq.id }}" class="btn btn-outline btn-sm">수정</a>
                   <a href="/admin/equipment/qr/{{ eq.id }}" class="btn btn-primary btn-sm">QR 다운</a>
                   <a href="/inspect/{{ eq.id }}" class="btn btn-success btn-sm">점검표</a>
                   <a href="/admin/equipment/delete/{{ eq.id }}"
@@ -214,7 +223,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="8" class="empty-row" style="padding:40px; text-align:center;">
+              <td colspan="10" class="empty-row" style="padding:40px; text-align:center;">
                 등록된 설비가 없습니다.
                 <a href="/admin/equipment/add" style="color:var(--orange);">설비를 등록하세요</a>
               </td>

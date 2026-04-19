@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>설비 수정 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link active">설비 관리</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card" style="max-width:600px; width:100%;">
+
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </div>
+        <div class="card-title">설비 정보 수정</div>
+        <div class="card-desc">{{ eq.name }} 의 정보를 수정합니다.</div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="/admin/equipment/edit/{{ eq.id }}">
+
+        <div class="form-group">
+          <label>설비명 *</label>
+          <input type="text" name="name" value="{{ eq.name }}" required>
+        </div>
+
+        <div class="form-group">
+          <label>설비관리번호</label>
+          <input type="text" name="mgmt_no" value="{{ eq.mgmt_no or '' }}" placeholder="예) EQ-2024-001">
+        </div>
+
+        <div class="form-group">
+          <label>설치 위치 *</label>
+          <input type="text" name="location" value="{{ eq.location or '' }}" required>
+        </div>
+
+        <div class="form-group">
+          <label>담당 부서 *</label>
+          <select name="department" required>
+            <option value="" disabled>담당 부서를 선택하세요</option>
+            {% for team in teams %}
+            <option value="{{ team }}" {% if team == eq.department %}selected{% endif %}>{{ team }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>관리담당자 (정)</label>
+            <input type="text" name="manager_primary" value="{{ eq.manager_primary or '' }}" placeholder="예) 홍길동">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>관리담당자 (부)</label>
+            <input type="text" name="manager_secondary" value="{{ eq.manager_secondary or '' }}" placeholder="예) 김철수">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>승인자 지정</label>
+          <select name="approver_id">
+            <option value="">미지정</option>
+            {% for ap in approvers %}
+            <option value="{{ ap.id }}" {% if ap.id == eq.approver_id %}selected{% endif %}>{{ ap.name }} ({{ ap.team }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>설비 설명 (선택)</label>
+          <input type="text" name="description" value="{{ eq.description or '' }}" placeholder="예) 월 1회 윤활유 교체 필요">
+        </div>
+
+        <div class="form-group">
+          <label>점검 주기</label>
+          <select name="inspection_cycle">
+            {% for cycle in ['매일','주1회','격주','월1회','분기1회'] %}
+            <option value="{{ cycle }}" {% if cycle == (eq.inspection_cycle or '매일') %}selected{% endif %}>{{ cycle }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button type="submit" class="btn btn-primary">수정 저장</button>
+          <a href="/admin/equipment" class="btn btn-outline">취소</a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <script src="/static/nav.js"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>
