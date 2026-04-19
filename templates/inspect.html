@@ -44,6 +44,7 @@
           <div class="eq-info-meta">
             <span>📍 {{ eq.location or '위치 미등록' }}</span>
             <span>🏭 {{ eq.department or '-' }}</span>
+            {% if eq.mgmt_no %}<span>🔢 관리번호: <strong>{{ eq.mgmt_no }}</strong></span>{% endif %}
           </div>
           <div class="eq-info-meta" style="margin-top:4px;">
             <span>👤 승인자:
@@ -51,6 +52,12 @@
                 {{ eq.approver_name or '미지정' }}
               </strong>
             </span>
+            {% if eq.manager_primary or eq.manager_secondary %}
+            <span>👷 담당자:
+              <strong>{{ eq.manager_primary or '-' }}</strong> (정) /
+              <strong>{{ eq.manager_secondary or '-' }}</strong> (부)
+            </span>
+            {% endif %}
             {% if tmpl_rows %}
             <span>📋 점검표: <strong style="color:#16a34a;">Excel 연동</strong></span>
             {% endif %}
