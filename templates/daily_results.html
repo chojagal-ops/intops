@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>일별 점검 결과 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      <a href="/daily-results" class="nav-link active">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      <div class="section-title" style="margin-bottom:16px;">📅 일별 점검 결과</div>
+
+      <!-- 날짜 선택 -->
+      <form method="GET" style="display:flex; gap:8px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">
+        <input type="date" name="date" value="{{ selected_date }}"
+               style="padding:7px 12px; border-radius:8px; border:1.5px solid var(--border);
+                      background:var(--bg); color:var(--text); font-size:0.88rem; height:36px;">
+        <button type="submit" class="btn btn-primary" style="width:auto; padding:0 20px; height:36px; font-size:0.88rem;">조회</button>
+      </form>
+
+      {% set done = rows | selectattr('insp_id') | list %}
+      {% set total = rows | list %}
+
+      <!-- 요약 -->
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <span class="sum-badge" style="background:rgba(22,163,74,0.12); color:#15803d; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
+          ✅ 점검완료 {{ done | length }}대
+        </span>
+        <span class="sum-badge" style="background:rgba(249,115,22,0.12); color:#c2410c; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
+          ⚠️ 미점검 {{ total | length - done | length }}대
+        </span>
+      </div>
+
+      <!-- 결과 테이블 -->
+      <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
+          <thead>
+            <tr>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">설비명</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">위치</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">담당자(정/부)</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">점검여부</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">점검결과</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검자</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">승인상태</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검시간</th>
+              <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:center; border-bottom:1px solid var(--border);">점검표</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr style="border-bottom:1px solid var(--border); {% if not r.insp_id %}background:rgba(249,115,22,0.03);{% endif %}">
+              <td style="padding:10px 14px;"><strong>{{ r.eq_name }}</strong></td>
+              <td style="padding:10px 14px; color:var(--text-sub);">{{ r.location or '-' }}</td>
+              <td style="padding:10px 14px; font-size:0.8rem; color:var(--text-sub);">
+                {{ r.manager_primary or '-' }} / {{ r.manager_secondary or '-' }}
+              </td>
+              <td style="padding:10px 14px; text-align:center;">
+                {% if r.insp_id %}
+                  <span style="background:rgba(22,163,74,0.12); color:#15803d; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">완료</span>
+                {% else %}
+                  <span style="background:rgba(249,115,22,0.12); color:#c2410c; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">미점검</span>
+                {% endif %}
+              </td>
+              <td style="padding:10px 14px; text-align:center;">
+                {% if r.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
+                {% elif r.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+                {% elif r.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                {% elif r.result %}{{ r.result }}
+                {% else %}<span style="color:var(--text-muted);">-</span>{% endif %}
+              </td>
+              <td style="padding:10px 14px; color:var(--text-sub);">{{ r.inspector_name or '-' }}</td>
+              <td style="padding:10px 14px; text-align:center;">
+                {% if r.status == '승인완료' %}
+                  <span class="badge badge-approved">✔ 승인완료</span>
+                {% elif r.insp_id %}
+                  <span class="badge badge-pending">⏳ 대기</span>
+                {% else %}
+                  <span style="color:var(--text-muted);">-</span>
+                {% endif %}
+              </td>
+              <td style="padding:10px 14px; color:var(--text-sub);">
+                {{ r.inspected_at[11:16] if r.inspected_at else '-' }}
+              </td>
+              <td style="padding:10px 14px; text-align:center;">
+                <a href="/monthly/{{ r.eq_id }}" class="btn btn-outline btn-sm" style="margin:0;">월별</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/static/nav.js"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>

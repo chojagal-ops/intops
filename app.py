@@ -1504,6 +1504,33 @@ def inspect(eq_id):
                            now_year=now.year, now_month=now.month)
 
 
+# ── 일별 점검 결과 (전체 설비) ───────────────────────────────────────────────
+@app.route('/daily-results')
+@login_required
+def daily_results():
+    today = datetime.now().strftime('%Y-%m-%d')
+    selected_date = request.args.get('date', today)
+
+    conn = get_db()
+    # 해당 날짜의 점검 현황 (점검된 설비)
+    rows = conn.execute('''
+        SELECT e.id AS eq_id, e.name AS eq_name, e.location, e.department,
+               e.manager_primary, e.manager_secondary,
+               i.id AS insp_id, i.result, i.status, i.inspected_at,
+               u.name AS inspector_name, a.name AS approved_name
+        FROM equipment e
+        LEFT JOIN inspections i ON i.equipment_id = e.id
+            AND DATE(i.inspected_at) = ?
+        LEFT JOIN users u ON i.inspector_id = u.id
+        LEFT JOIN users a ON i.approved_by = a.id
+        ORDER BY e.name
+    ''', (selected_date,)).fetchall()
+    conn.close()
+
+    return render_template('daily_results.html',
+                           rows=rows, selected_date=selected_date)
+
+
 # ── 내 점검 결과 ──────────────────────────────────────────────────────────────
 @app.route('/my-inspections')
 @login_required
