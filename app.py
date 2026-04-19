@@ -902,18 +902,16 @@ def _make_qr_label(eq_name, qr_url, serial_no):
     draw = ImageDraw.Draw(canvas)
 
     # 한글 지원 폰트 우선 탐색 (Windows / Linux Render 모두 지원)
+    _base = os.path.dirname(os.path.abspath(__file__))
     _FONT_CANDIDATES = [
-        "C:/Windows/Fonts/malgunbd.ttf",   # Windows 맑은 고딕 Bold (전체 경로)
-        "C:/Windows/Fonts/malgun.ttf",     # Windows 맑은 고딕 (전체 경로)
-        "C:/Windows/Fonts/gulim.ttc",      # Windows 굴림
-        "C:/Windows/Fonts/batang.ttc",     # Windows 바탕
-        "C:/Windows/Fonts/arial.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",   # Linux - fonts-nanum
+        os.path.join(_base, 'static', 'fonts', 'malgunbd.ttf'),  # 프로젝트 내장 폰트 (최우선)
+        "C:/Windows/Fonts/malgunbd.ttf",
+        "C:/Windows/Fonts/malgun.ttf",
+        "C:/Windows/Fonts/gulim.ttc",
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "malgunbd.ttf",
-        "malgun.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "arial.ttf",
     ]
     font_name = font_sn = None
     for _fp in _FONT_CANDIDATES:
