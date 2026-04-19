@@ -1467,19 +1467,24 @@ def inspect(eq_id):
 
         elif action == 'approve' and is_approver:
             ins_id = request.form.get('inspection_id')
+            approved_ins = conn.execute(
+                'SELECT inspected_at FROM inspections WHERE id=?', (ins_id,)
+            ).fetchone()
             conn.execute(
                 f'''UPDATE inspections
                    SET status='승인완료', approved_by=?, approved_at={conn.now_fn}
                    WHERE id=? AND status='점검완료' ''',
                 (session['user_id'], ins_id)
             )
-            # 같은 날 같은 설비의 나머지 대기 건 삭제
-            conn.execute(
-                f'''DELETE FROM inspections
-                    WHERE equipment_id=? AND status='점검완료' AND id!=?
-                    AND {conn.date_col("inspected_at")}={conn.today}''',
-                (eq_id, ins_id)
-            )
+            # 같은 날 같은 설비의 나머지 대기 건 모두 삭제 (실제 점검 날짜 기준)
+            if approved_ins:
+                ins_date = approved_ins['inspected_at'][:10]
+                conn.execute(
+                    f'''DELETE FROM inspections
+                        WHERE equipment_id=? AND status='점검완료' AND id!=?
+                        AND {conn.date_col("inspected_at")}=?''',
+                    (eq_id, ins_id, ins_date)
+                )
             conn.commit()
             flash('승인이 완료되었습니다.', 'success')
             return redirect(url_for('inspect', eq_id=eq_id))
@@ -1501,11 +1506,9 @@ def inspect(eq_id):
         LEFT JOIN users a ON i.approved_by = a.id
         WHERE i.equipment_id=?
           AND i.id = (
-              SELECT id FROM inspections
+              SELECT MAX(id) FROM inspections
               WHERE equipment_id = i.equipment_id
                 AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
-              ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
-              LIMIT 1
           )
         ORDER BY i.inspected_at DESC
         LIMIT 20
@@ -1548,12 +1551,13 @@ def approve_inspection(ins_id):
         f"UPDATE inspections SET status='승인완료', approved_by=?, approved_at={conn.now_fn} WHERE id=?",
         (session['user_id'], ins_id)
     )
-    # 같은 날 같은 설비의 나머지 대기 건 삭제
+    # 같은 날 같은 설비의 나머지 대기 건 모두 삭제 (실제 점검 날짜 기준)
+    ins_date = insp['inspected_at'][:10]
     conn.execute(
         f'''DELETE FROM inspections
             WHERE equipment_id=? AND status='점검완료' AND id!=?
-            AND {conn.date_col("inspected_at")}={conn.today}''',
-        (insp['equipment_id'], ins_id)
+            AND {conn.date_col("inspected_at")}=?''',
+        (insp['equipment_id'], ins_id, ins_date)
     )
     conn.commit()
     conn.close()
@@ -1601,6 +1605,38 @@ def reset_inspection():
 
     flash(f'[{eq["name"]}] {date_str} 점검 기록이 초기화되었습니다.', 'success')
     return redirect(request.referrer or url_for('daily_results'))
+
+
+# ── 중복 점검 기록 일괄 정리 (관리자 전용) ────────────────────────────────────
+@app.route('/admin/cleanup-duplicates', methods=['POST'])
+@login_required
+def cleanup_duplicates():
+    if not session.get('is_admin'):
+        flash('관리자만 실행할 수 있습니다.', 'error')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db()
+    # 날짜·설비별로 MAX(id)만 남기고 나머지 삭제
+    if conn._pg:
+        result = conn.execute(f'''
+            DELETE FROM inspections
+            WHERE id NOT IN (
+                SELECT MAX(id) FROM inspections
+                GROUP BY equipment_id, {conn.date_col("inspected_at")}
+            )
+        ''')
+    else:
+        result = conn.execute(f'''
+            DELETE FROM inspections
+            WHERE id NOT IN (
+                SELECT MAX(id) FROM inspections
+                GROUP BY equipment_id, {conn.date_col("inspected_at")}
+            )
+        ''')
+    conn.commit()
+    conn.close()
+    flash('중복 점검 기록 정리가 완료되었습니다.', 'success')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/daily-results')
@@ -1669,11 +1705,10 @@ def my_inspections():
         WHERE i.inspector_id = ?
           {date_filter}{result_f}
           AND i.id = (
-              SELECT id FROM inspections
+              SELECT MAX(id) FROM inspections
               WHERE equipment_id = i.equipment_id
+                AND inspector_id = i.inspector_id
                 AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
-              ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
-              LIMIT 1
           )
         ORDER BY i.inspected_at DESC
     '''
@@ -1730,7 +1765,7 @@ def dashboard():
 
     pending_list = []
     if session.get('role') == '승인자' or session.get('is_admin'):
-        pending_list = conn.execute('''
+        pending_list = conn.execute(f'''
             SELECT i.id, i.result, i.inspected_at,
                    e.id AS eq_id, e.name AS eq_name,
                    u.name AS inspector_name
@@ -1739,9 +1774,10 @@ def dashboard():
             JOIN users u ON i.inspector_id = u.id
             WHERE e.approver_id=? AND i.status='점검완료'
               AND i.id = (
-                  SELECT id FROM inspections
-                  WHERE equipment_id = i.equipment_id AND status='점검완료'
-                  ORDER BY inspected_at DESC LIMIT 1
+                  SELECT MAX(id) FROM inspections
+                  WHERE equipment_id = i.equipment_id
+                    AND status='점검완료'
+                    AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
               )
             ORDER BY i.inspected_at DESC
         ''', (session['user_id'],)).fetchall()

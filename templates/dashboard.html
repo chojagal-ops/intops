@@ -180,6 +180,19 @@
       </div>
       {% endif %}
 
+      {% if session.is_admin %}
+      <hr class="divider">
+      <div class="section-title" style="margin-bottom:10px;">🛠 관리자 도구</div>
+      <form method="POST" action="/admin/cleanup-duplicates"
+            onsubmit="return confirm('날짜·설비별 중복 점검 기록을 정리합니다.\n각 날짜마다 최신 1건만 남기고 나머지는 삭제됩니다.\n계속하시겠습니까?')">
+        <button type="submit"
+                style="padding:8px 18px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3);
+                       border-radius:8px; color:#dc2626; font-size:0.85rem; font-weight:600; cursor:pointer;">
+          🗑 중복 점검 기록 일괄 정리
+        </button>
+      </form>
+      {% endif %}
+
       <!-- 시스템 안내 -->
       <hr class="divider">
       <div class="section-title" style="margin-bottom:14px;">📋 시스템 안내</div>
