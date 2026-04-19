@@ -90,14 +90,22 @@ class _PGCursorWrapper:
 
 class DBConn:
     def __init__(self):
+        self._pg = USE_PG
         if USE_PG:
-            self._conn = psycopg2.connect(DATABASE_URL)
+            try:
+                self._conn = psycopg2.connect(DATABASE_URL)
+                print('[DB] PostgreSQL 연결 성공', flush=True)
+            except Exception as e:
+                print(f'[DB] ⚠ PostgreSQL 연결 실패({e}) → SQLite 폴백', flush=True)
+                self._pg = False
+                self._conn = sqlite3.connect('facility.db')
+                self._conn.row_factory = sqlite3.Row
         else:
             self._conn = sqlite3.connect('facility.db')
             self._conn.row_factory = sqlite3.Row
 
     def execute(self, sql, params=()):
-        if USE_PG:
+        if self._pg:
             cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute(sql.replace('?', '%s'), params or None)
             return _PGCursorWrapper(cur)
@@ -105,7 +113,7 @@ class DBConn:
 
     def insert(self, sql, params=()):
         """INSERT 후 새 row ID 반환"""
-        if USE_PG:
+        if self._pg:
             cur = self._conn.cursor()
             pg_sql = (sql + ' RETURNING id').replace('?', '%s')
             cur.execute(pg_sql, params or None)
@@ -336,7 +344,7 @@ def init_db():
     ''')
 
     # 마이그레이션
-    if USE_PG:
+    if conn._pg:
         migrations = [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT '점검자'",
@@ -371,7 +379,7 @@ def init_db():
 
     admin_pw = hashlib.sha256('admin123'.encode()).hexdigest()
 
-    if USE_PG:
+    if conn._pg:
         conn.execute('''
             INSERT INTO users (name, employee_id, email, phone, team, password, role, is_admin, is_approved)
             VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
