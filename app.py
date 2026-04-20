@@ -1022,7 +1022,7 @@ def admin_equipment():
                {serial_expr}             AS serial_no,
                u.name  AS creator_name,
                a.name  AS approver_name,
-               COUNT(DISTINCT i.id)      AS inspection_count,
+               COUNT(DISTINCT SUBSTR(i.inspected_at, 1, 10)) AS inspection_count,
                t.id       AS template_id,
                t.filename AS template_file
         FROM equipment e
