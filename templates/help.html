@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도움말 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      {% if session.is_admin %}
+        <a href="/admin" class="nav-link">회원 관리</a>
+        <a href="/admin/equipment" class="nav-link">설비 관리</a>
+      {% else %}
+        <a href="/dashboard" class="nav-link">홈</a>
+        <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+        <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+        <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      {% endif %}
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/help" class="help-btn active-help">&#10067; 도움말</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+      <div class="card-header" style="text-align:left; margin-bottom:24px;">
+        <div class="card-title" style="font-size:1.5rem;">&#10067; 도움말 / 사용 매뉴얼</div>
+        <div class="card-desc">INTOPS 설비점검 시스템 전체 사용 방법을 안내합니다.</div>
+      </div>
+      <div style="background:var(--bg-subtle);border-radius:12px;padding:18px 22px;margin-bottom:28px;border:1px solid var(--border);">
+        <div style="font-weight:700;font-size:0.9rem;color:var(--text);margin-bottom:12px;">&#128204; 목차</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <a href="#overview" class="help-toc-btn">1. 시스템 개요</a>
+          <a href="#roles" class="help-toc-btn">2. 역할 안내</a>
+          <a href="#join" class="help-toc-btn">3. 회원가입 및 로그인</a>
+          <a href="#inspect" class="help-toc-btn">4. 설비 점검 방법</a>
+          <a href="#approve" class="help-toc-btn">5. 점검 승인</a>
+          <a href="#results" class="help-toc-btn">6. 점검 결과 조회</a>
+          <a href="#admin" class="help-toc-btn">7. 관리자 기능</a>
+          <a href="#email" class="help-toc-btn">8. 이메일 알림</a>
+          <a href="#faq" class="help-toc-btn">9. 자주 묻는 질문</a>
+        </div>
+      </div>
+      <div class="help-section" id="overview">
+        <div class="help-section-title">1. 시스템 개요</div>
+        <div class="help-section-body">
+          <p>INTOPS 설비점검 시스템은 공장 내 설빔의 일상 점검을 디지털로 관리하는 플랫폼입니다.</p>
+          <div class="help-flow">
+            <div class="help-flow-step"><div class="help-flow-num">①</div><div class="help-flow-text"><strong>설비 등록</strong><br>관리자가 설비를 등록하고 승인자를 지정합니다.</div></div>
+            <div class="help-flow-arrow">&rarr;</div>
+            <div class="help-flow-step"><div class="help-flow-num">②</div><div class="help-flow-text"><strong>QR 스캔</strong><br>설비에 부착된 QR을 스캔하여 점검 화면에 접속합니다.</div></div>
+            <div class="help-flow-arrow">&rarr;</div>
+            <div class="help-flow-step"><div class="help-flow-num">③</div><div class="help-flow-text"><strong>점검 입력</strong><br>항목별 결과를 입력하고 제출합니다.</div></div>
+            <div class="help-flow-arrow">&rarr;</div>
+            <div class="help-flow-step"><div class="help-flow-num">④</div><div class="help-flow-text"><strong>승인 처리</strong><br>승인자가 결과를 확인하고 승인합니다.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="help-section" id="roles">
+        <div class="help-section-title">2. 역할 안내</div>
+        <div class="help-section-body">
+          <table class="help-table">
+            <thead><tr><th>역할</th><th>설명</th><th>주요 기능</th></tr></thead>
+            <tbody>
+              <tr><td><span class="role-badge-sm" style="background:rgba(249,115,22,0.12);color:var(--orange);">점검자</span></td><td>설비 일상 점검 담당자</td><td>QR 스캔 &rarr; 점검 입력 &rarr; 제출 / 내 점검 결과 조회</td></tr>
+              <tr><td><span class="role-badge-sm" style="background:rgba(34,197,94,0.12);color:#16a34a;">승인자</span></td><td>점검 결과 검토·승인 담당자</td><td>대시보드에서 승인 대기 건 확인 및 승인 처리</td></tr>
+              <tr><td><span class="role-badge-sm" style="background:rgba(99,102,241,0.12);color:#4f46e5;">관리자</span></td><td>시스템 최고 권한자</td><td>회원 승인·역할 지정 / 설비 등록·수정·삭제 / QR 생성</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="help-section" id="join">
+        <div class="help-section-title">3. 회원가입 및 로그인</div>
+        <div class="help-section-body">
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div><strong>회원가입 신청</strong><p>로그인 화면 &rarr; 회원가입 신청 &rarr; 성명, 사번, 이메일, 비밀번호, 소속 팀 입력 후 신청.</p></div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div><strong>관리자 승인 대기</strong><p>관리자가 승인하고 역할(점검자/승인자)을 지정합니다. 승인 후 로그인 가능.</p></div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div><strong>로그인</strong><p>사번과 비밀번호를 입력하여 로그인합니다.</p></div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div><strong>비밀번호 분실 시</strong><p>로그인 화면 &rarr; 비밀번호를 잊으셨나요? &rarr; 사번·이름 입력 &rarr; 이메일로 인증번호 발송.</p></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="help-section" id="inspect">
+        <div class="help-section-title">4. 설비 점검 방법</div>
+        <div class="help-section-body">
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div><strong>QR 코드 스캔</strong><p>설비에 부착된 QR 코드를 스마트폰으로 스캔합니다. 또는 월별 점검 결과 메뉴에서 설비를 클릭해도 됩니다.</p></div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div><strong>점검 결과 입력</strong><p>항목별로 정상 / 이상 / 수리필요 / 휴동을 선택하고 특이사항은 비고란에 입력합니다.</p></div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div><strong>점검 완료 제출</strong><p>점검 완료 버튼 클릭 &rarr; 기록 저장 + 승인자에게 이메일 자동 발송.</p></div></div>
+            <div class="help-step"><div class="help-step-num">4</div><div><strong>1일 1회 기준</strong><p>같은 날 중복 제출해도 1일 1회로만 집계됩니다.</p></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="help-section" id="approve">
+        <div class="help-section-title">5. 점검 승인 (승인자)</div>
+        <div class="help-section-body">
+          <div class="help-steps">
+            <div class="help-step"><div class="help-step-num">1</div><div><strong>승인 대기 확인</strong><p>점검 제출 시 이메일 알림 수신. 대시보드에서 승인 대기 목록 확인.</p></div></div>
+            <div class="help-step"><div class="help-step-num">2</div><div><strong>승인 처리</strong><p>대기 목록에서 ✔ 승인 버튼 클릭. 상세보기로 먼저 확인 가능.</p></div></div>
+            <div class="help-step"><div class="help-step-num">3</div><div><strong>승인 완료</strong><p>승인된 점검은 승인완료 상태로 변경됩니다.</p></div></div>
+          </div>
+          <div class="help-tip">&#128161; 설비별 승인자는 관리자가 설비 관리에서 지정합니다.</div>
+        </div>
+      </div>
+      <div class="help-section" id="results">
+        <div class="help-section-title">6. 점검 결과 조회</div>
+        <div class="help-section-body">
+          <table class="help-table">
+            <thead><tr><th>메뉴</th><th>내용</th></tr></thead>
+            <tbody>
+              <tr><td><strong>내 점검 결과</strong></td><td>내가 점검한 설비 목록과 결과를 날짜별로 조회합니다.</td></tr>
+              <tr><td><strong>일별 점검 결과</strong></td><td>특정 날짜를 선택하여 전체 설비 점검 현황을 조회합니다.</td></tr>
+              <tr><td><strong>월별 점검 결과</strong></td><td>설비별 월간 점검 현황을 캘린더 형식으로 조회하고 엑셀로 다운로드합니다.</td></tr>
+            </tbody>
+          </table>
+          <div class="help-tip">&#128197; 토·일요일은 월별 점검표에서 자동으로 휴동(P)으로 표시됩니다.</div>
+        </div>
+      </div>
+      <div class="help-section" id="admin">
+        <div class="help-section-title">7. 관리자 기능</div>
+        <div class="help-section-body">
+          <div class="help-subsection"><div class="help-subsection-title">&#128100; 회원 관리</div><ul class="help-list"><li>신규 회원가입 신청을 승인/거부하고 역할(점검자/승인자)을 지정합니다.</li><li>기존 회원의 역할 변경 및 계정 비활성화가 가능합니다.</li></ul></div>
+          <div class="help-subsection"><div class="help-subsection-title">&#9881;&#65039; 설비 관리</div><ul class="help-list"><li><strong>설비 등록:</strong> 설비명, 위치, 담당부서, 관리번호, 담당자(정/부) 입력.</li><li><strong>승인자 지정:</strong> 드롭다운 선택 시 자동 저장.</li><li><strong>점검표 업로드:</strong> 엑셀 템플릿 업로드 &rarr; 점검 항목으로 사용.</li><li><strong>QR 다운로드:</strong> 설비별 QR 이미지 다운로드 후 설비에 부착.</li><li><strong>설비 수정/삭제:</strong> 등록 정보 수정 또는 삭제.</li></ul></div>
+          <div class="help-subsection"><div class="help-subsection-title">&#128465; 중복 점검 기록 정리</div><ul class="help-list"><li>대시보드 &rarr; 관리자 도구 &rarr; 중복 점검 기록 일괄 정리: 날짜·설비별 최신 1건만 남기고 삭제.</li></ul></div>
+        </div>
+      </div>
+      <div class="help-section" id="email">
+        <div class="help-section-title">8. 이메일 알림</div>
+        <div class="help-section-body">
+          <table class="help-table">
+            <thead><tr><th>알림 시점</th><th>수신자</th><th>내용</th></tr></thead>
+            <tbody>
+              <tr><td>점검 제출 시</td><td>승인자</td><td>새 점검 결과 제출 알림</td></tr>
+              <tr><td>승인 처리 시</td><td>점검자</td><td>점검 결과 승인 완료 알림</td></tr>
+              <tr><td>평일 오전 11시</td><td>미점검 설비 담당자(정/부)</td><td>미점검 설빔 목록 자동 알림</td></tr>
+            </tbody>
+          </table>
+          <div class="help-tip">&#128231; 이메일이 오지 않으면 등록 이메일을 확인하거나 스팸함을 확인하세요.</div>
+        </div>
+      </div>
+      <div class="help-section" id="faq">
+        <div class="help-section-title">9. 자주 묻는 질문 (FAQ)</div>
+        <div class="help-section-body">
+          <div class="faq-item"><div class="faq-q">Q. 로그인이 안 됩니다.</div><div class="faq-a">관리자 승인이 필요합니다. 비밀번호 분실 시 <strong>비밀번호를 잊으셨나요?</strong>를 이용하세요.</div></div>
+          <div class="faq-item"><div class="faq-q">Q. QR 코드 스캔 후 반응이 없습니다.</div><div class="faq-a">로그인 상태에서 스캔하세요. 미로그인 시 로그인 페이지로 이동합니다. 월별 점검 결과에서 직접 클릭해도 됩니다.</div></div>
+          <div class="faq-item"><div class="faq-q">Q. 점검횟수가 실제보다 적게 표시됩니다.</div><div class="faq-a">점검횟수는 1일 1회 기준으로 집계됩니다. 같은 날 여러 번 제출해도 1회로만 집계되므로 정상입니다.</div></div>
+          <div class="faq-item"><div class="faq-q">Q. 이메일 알림이 오지 않습니다.</div><div class="faq-a">등록된 이메일 주소를 확인하고 스팸함도 확인해보세요. 계속 문제가 있으면 관리자에게 문의하세요.</div></div>
+          <div class="faq-item"><div class="faq-q">Q. 점검표 엑셀을 다운로드하려면?</div><div class="faq-a">월별 점검 결과 &rarr; 설비 선택 &rarr; 엑셀 다운로드 버튼 클릭.</div></div>
+          <div class="faq-item"><div class="faq-q">Q. 설비를 추가하거나 삭제하려면?</div><div class="faq-a">관리자 계정으로 로그인 후 설비 관리 메뉴에서 추가, 수정, 삭제할 수 있습니다.</div></div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:20px 0 8px;color:var(--text-muted);font-size:0.82rem;">추가 문의는 시스템 관리자에게 연락하세요.</div>
+    </div>
+  </div>
+  <script src="/static/nav.js"></script>
+</body>
+</html>

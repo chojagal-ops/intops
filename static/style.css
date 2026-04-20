@@ -970,3 +970,176 @@ td { padding: 12px 14px; color: var(--text); }
   .item-radio span  { padding: 2px 5px; font-size: 0.62rem; }
   .tmpl-result-cell { min-width: 110px; }
 }
+
+/* ── 도움말 버튼 (topbar) ────────────────────────── */
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--orange-light);
+  color: var(--orange) !important;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  border: 1px solid rgba(249,115,22,0.25);
+  transition: background 0.15s, border-color 0.15s;
+}
+.help-btn:hover { background: rgba(249,115,22,0.18) !important; border-color: var(--orange); text-decoration: none !important; }
+.active-help { background: rgba(249,115,22,0.18) !important; border-color: var(--orange); }
+
+/* ── 도움말 페이지 레이아웃 ──────────────────────── */
+.help-section {
+  margin-bottom: 32px;
+  scroll-margin-top: 80px;
+}
+.help-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  padding: 10px 0 10px 14px;
+  border-left: 4px solid var(--orange);
+  margin-bottom: 16px;
+}
+.help-section-body {
+  padding: 0 4px;
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+.help-section-body p { margin-bottom: 8px; }
+
+/* 흐름도 */
+.help-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.help-flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  min-width: 160px;
+  flex: 1;
+}
+.help-flow-num {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--orange);
+  flex-shrink: 0;
+}
+.help-flow-text { font-size: 0.84rem; line-height: 1.5; }
+.help-flow-arrow { font-size: 1.2rem; color: var(--text-muted); flex-shrink: 0; }
+
+/* 단계 목록 */
+.help-steps { display: flex; flex-direction: column; gap: 14px; }
+.help-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--bg-subtle);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+}
+.help-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--orange);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.help-step strong { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+.help-step p { margin: 0; font-size: 0.85rem; color: var(--text-sub); }
+
+/* 팁 박스 */
+.help-tip {
+  background: rgba(249,115,22,0.06);
+  border: 1px solid rgba(249,115,22,0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.84rem;
+  color: var(--text);
+  margin-top: 12px;
+}
+
+/* 소섹션 */
+.help-subsection { margin-bottom: 16px; }
+.help-subsection-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.help-list { padding-left: 20px; }
+.help-list li { margin-bottom: 6px; font-size: 0.85rem; color: var(--text-sub); line-height: 1.6; }
+.help-list li strong { color: var(--text); }
+
+/* 테이블 */
+.help-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.help-table th {
+  background: var(--orange-faint);
+  color: var(--text-sub);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.help-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+.help-table tr:last-child td { border-bottom: none; }
+
+/* FAQ */
+.faq-item { margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+.faq-q {
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 12px 16px;
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.faq-a {
+  font-size: 0.84rem;
+  padding: 12px 16px;
+  color: var(--text-sub);
+  line-height: 1.7;
+  background: var(--bg);
+}
+
+/* 목차 버튼 */
+.help-toc-btn {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.help-toc-btn:hover { border-color: var(--orange); color: var(--orange); text-decoration: none; }
+
+@media (max-width: 600px) {
+  .help-flow { flex-direction: column; }
+  .help-flow-arrow { transform: rotate(90deg); align-self: center; }
+  .help-flow-step { min-width: unset; width: 100%; }
+}

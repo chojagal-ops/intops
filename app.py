@@ -1729,6 +1729,12 @@ def my_inspections():
                            date_from=date_from, date_to=date_to,
                            result_filter=result_filter)
 
+# ── 도움말 ────────────────────────────────────────────────────────────────────
+@app.route("/help")
+@login_required
+def help_page():
+    return render_template("help.html")
+
 
 # ── 대시보드 ──────────────────────────────────────────────────────────────────
 @app.route('/dashboard')
