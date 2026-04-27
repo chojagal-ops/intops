@@ -6,6 +6,7 @@ if sys.stderr.encoding and sys.stderr.encoding.lower() not in ('utf-8', 'utf8'):
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 import threading
 import smtplib
@@ -158,7 +159,15 @@ def get_db():
 
 # ── Flask 앱 ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'intops_facility_2024_secret')
+# ── 보안: SECRET_KEY 환경변수 강제화 (없으면 랜덤 생성 + 경고)
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    import secrets as _secrets
+    _secret_key = _secrets.token_hex(32)
+    print('[보안경고] SECRET_KEY 환경변수 미설정 - 서버 재시작 시 세션이 초기화됩니다. Render 환경변수에 SECRET_KEY를 반드시 설정하세요.', flush=True)
+app.secret_key = _secret_key
+# ── 보안: 세션 30분 타임아웃
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
 TEAMS = ['품질팀', 'EMS제조팀', '생산기술팀', '개발팀', '환경안전팀', '사출팀', '코팅팀', '관리자']
 
@@ -444,7 +453,11 @@ def init_db():
             except Exception:
                 pass
 
-    admin_pw = hashlib.sha256('admin123'.encode()).hexdigest()
+    # 관리자 초기 비밀번호: 환경변수 ADMIN_PASSWORD 우선, 없으면 admin123 (반드시 변경 권고)
+    _admin_raw = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    if _admin_raw == 'admin123':
+        print('[보안경고] ADMIN_PASSWORD 환경변수가 설정되지 않았습니다. 기본값(admin123)을 사용 중입니다. 즉시 변경하세요.', flush=True)
+    admin_pw = generate_password_hash(_admin_raw)
 
     if conn._pg:
         conn.execute('''
@@ -464,7 +477,16 @@ def init_db():
 
 
 def hash_pw(pw):
-    return hashlib.sha256(pw.encode()).hexdigest()
+    # 신규 비밀번호: werkzeug pbkdf2 해시 사용 (SHA256 대비 보안 강화)
+    return generate_password_hash(pw)
+
+def check_pw(stored_hash, pw):
+    # 구버전(SHA256) 호환: 기존 사용자 로그인 시 자동 마이그레이션
+    if stored_hash.startswith('pbkdf2:') or stored_hash.startswith('scrypt:'):
+        return check_password_hash(stored_hash, pw)
+    # 구버전 SHA256 해시 확인
+    import hashlib as _hl
+    return _hl.sha256(pw.encode()).hexdigest() == stored_hash
 
 
 # ── 비밀번호 재설정 인증코드 임시 저장소 ─────────────────────────────────────
@@ -643,25 +665,73 @@ def splash():
     return render_template('splash.html')
 
 
+# ── 로그인 실패 횟수 추적 (IP 기반, 5회 실패 시 15분 잠금) ──────────────────
+_login_fail_store = {}  # { ip: {'count': 0, 'locked_until': None} }
+_login_fail_lock  = threading.Lock()
+LOGIN_MAX_FAIL    = 5          # 최대 실패 허용 횟수
+LOGIN_LOCK_MIN    = 15         # 잠금 시간(분)
+
+def _check_login_lock(ip):
+    """IP 잠금 여부 확인. 잠겨있으면 남은 시간(분) 반환, 아니면 None"""
+    with _login_fail_lock:
+        info = _login_fail_store.get(ip)
+        if not info:
+            return None
+        if info.get('locked_until') and datetime.now() < info['locked_until']:
+            remaining = int((info['locked_until'] - datetime.now()).total_seconds() / 60) + 1
+            return remaining
+        # 잠금 해제 또는 미잠금
+        return None
+
+def _record_login_fail(ip):
+    """로그인 실패 기록. 5회 초과 시 15분 잠금"""
+    with _login_fail_lock:
+        info = _login_fail_store.setdefault(ip, {'count': 0, 'locked_until': None})
+        info['count'] += 1
+        if info['count'] >= LOGIN_MAX_FAIL:
+            info['locked_until'] = datetime.now() + timedelta(minutes=LOGIN_LOCK_MIN)
+            info['count'] = 0  # 잠금 후 카운터 초기화
+            print(f'[보안] 로그인 {LOGIN_MAX_FAIL}회 실패 - IP {ip} {LOGIN_LOCK_MIN}분 잠금', flush=True)
+
+def _reset_login_fail(ip):
+    """로그인 성공 시 실패 기록 초기화"""
+    with _login_fail_lock:
+        _login_fail_store.pop(ip, None)
+
 # ── 로그인 ────────────────────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     next_url = request.args.get('next', '')
     if request.method == 'POST':
-        emp_id   = request.form['employee_id'].strip()
-        password = hash_pw(request.form['password'])
-        next_url = request.form.get('next', '')
+        client_ip = request.remote_addr or 'unknown'
+        emp_id    = request.form['employee_id'].strip()
+        raw_pw    = request.form['password']
+        next_url  = request.form.get('next', '')
+
+        # IP 잠금 확인
+        lock_remain = _check_login_lock(client_ip)
+        if lock_remain:
+            flash(f'로그인 시도가 너무 많습니다. {lock_remain}분 후 다시 시도하세요.', 'error')
+            return render_template('login.html', next_url=next_url)
+
         conn = get_db()
         user = conn.execute(
-            'SELECT * FROM users WHERE employee_id=? AND password=?',
-            (emp_id, password)
+            'SELECT * FROM users WHERE employee_id=?', (emp_id,)
         ).fetchone()
-        conn.close()
-        if user is None:
-            flash('사번 또는 비밀번호가 올바르지 않습니다.', 'error')
-        elif not user['is_approved']:
-            flash('관리자 승인 대기 중입니다.', 'warning')
-        else:
+
+        if user and check_pw(user['password'], raw_pw):
+            # 로그인 성공: SHA256 구버전 해시이면 pbkdf2로 자동 마이그레이션
+            stored = user['password']
+            if not (stored.startswith('pbkdf2:') or stored.startswith('scrypt:')):
+                new_hash = hash_pw(raw_pw)
+                conn.execute('UPDATE users SET password=? WHERE id=?', (new_hash, user['id']))
+                conn.commit()
+            conn.close()
+            if not user['is_approved']:
+                flash('관리자 승인 대기 중입니다.', 'warning')
+                return render_template('login.html', next_url=next_url)
+            _reset_login_fail(client_ip)
+            session.permanent = True  # 세션 타임아웃 적용
             session['user_id']   = user['id']
             session['user_name'] = user['name']
             session['is_admin']  = bool(user['is_admin'])
@@ -671,6 +741,10 @@ def login():
             if user['is_admin']:
                 return redirect(url_for('admin'))
             return redirect(url_for('dashboard'))
+        else:
+            conn.close()
+            _record_login_fail(client_ip)
+            flash('사번 또는 비밀번호가 올바르지 않습니다.', 'error')
     return render_template('login.html', next_url=next_url)
 
 
