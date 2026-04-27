@@ -2265,6 +2265,79 @@ def export_monthly(eq_id):
     )
 
 
+# ── 관리자: DB 백업 다운로드 ─────────────────────────────────────────────────
+@app.route('/admin/backup')
+@admin_required
+def admin_backup():
+    """전체 데이터베이스를 CSV ZIP 파일로 다운로드"""
+    import csv, io, zipfile
+
+    TABLES = [
+        ('users',
+         ['id','name','employee_id','email','phone','team',
+          'role','is_admin','is_approved','created_at']),
+        ('equipment',
+         ['id','name','location','description','qr_code',
+          'approver_id','created_at']),
+        ('inspections',
+         ['id','equipment_id','user_id','status',
+          'inspected_at','approved_at','approver_id','note']),
+        ('inspection_items',
+         ['id','equipment_id','item_name','item_type','options','order_num']),
+        ('inspection_templates',
+         ['id','equipment_id','filename','uploaded_at']),
+        ('inspection_details',
+         ['id','inspection_id','item_id','value','note']),
+        ('monthly_notes',
+         ['id','equipment_id','year','month','note','updated_at']),
+        ('password_reset_requests',
+         ['id','user_id','requested_at','status','code','expires_at']),
+    ]
+
+    conn = get_db()
+    buf  = BytesIO()
+    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    try:
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # ── 각 테이블 CSV ─────────────────────────────────────────────
+            for tbl, cols in TABLES:
+                try:
+                    rows = conn.execute(
+                        f'SELECT {", ".join(cols)} FROM {tbl}'
+                    ).fetchall()
+                    csv_buf = io.StringIO()
+                    w = csv.writer(csv_buf)
+                    w.writerow(cols)
+                    for row in rows:
+                        w.writerow([row[c] for c in cols])
+                    zf.writestr(f'{tbl}.csv',
+                                csv_buf.getvalue().encode('utf-8-sig').decode('utf-8-sig'))
+                except Exception as e:
+                    zf.writestr(f'{tbl}_ERROR.txt', str(e))
+
+            # ── 백업 메타 정보 ────────────────────────────────────────────
+            meta = (
+                f'INTOPS 설비점검 시스템 DB 백업\n'
+                f'생성일시: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
+                f'DB종류: {"PostgreSQL" if USE_PG else "SQLite"}\n'
+                f'테이블 수: {len(TABLES)}\n'
+            )
+            zf.writestr('_backup_info.txt', meta)
+
+    finally:
+        conn.close()
+
+    buf.seek(0)
+    fname = f'intops_backup_{now_str}.zip'
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=fname,
+        mimetype='application/zip'
+    )
+
+
 # ── 로그아웃 ──────────────────────────────────────────────────────────────────
 @app.route('/logout')
 def logout():

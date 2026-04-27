@@ -169,6 +169,24 @@
       {% endif %}
 
     </div>
+
+    <!-- 데이터 백업 -->
+    <div class="card" style="margin-top:24px;">
+      <div class="section-title">🗄️ 데이터 백업</div>
+      <p style="font-size:0.85rem; color:var(--text-sub); margin-bottom:14px;">
+        전체 데이터베이스(사용자·설비·점검기록 등)를 CSV ZIP 파일로 다운로드합니다.<br>
+        정기적으로 백업해두면 데이터 손실 시 복구가 가능합니다.
+      </p>
+      <a href="/admin/backup"
+         class="btn btn-primary"
+         style="display:inline-flex; align-items:center; gap:6px; width:auto; padding:10px 20px;">
+        ⬇️ DB 전체 백업 다운로드
+      </a>
+      <span style="font-size:0.78rem; color:var(--text-sub); margin-left:12px;">
+        intops_backup_YYYYMMDD_HHMMSS.zip 형태로 저장됩니다
+      </span>
+    </div>
+
   </div>
 
   <script src="/static/nav.js"></script>
