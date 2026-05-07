@@ -288,25 +288,51 @@
                  style="font-size:0.82rem; padding:6px 10px;">
           <!-- 수치항목 전용 필드 (숨김, 빈값으로 제출) -->
           <input type="hidden" name="item_min" value="">
+          <input type="hidden" name="item_center" value="">
           <input type="hidden" name="item_max" value="">
         </div>
 
         <!-- 수치입력 필드 (기본 숨김) -->
-        <div id="n-fields-${n}" style="display:none; flex-direction:column; gap:6px;">
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px;">
-            <input type="number" step="any" name="item_min" placeholder="최솟값"
-                   style="font-size:0.82rem; padding:6px 10px;">
-            <input type="number" step="any" name="item_max" placeholder="최댓값"
-                   style="font-size:0.82rem; padding:6px 10px;">
-            <input type="text" name="item_unit" placeholder="단위 (예: ℃, bar)"
+        <div id="n-fields-${n}" style="display:none; flex-direction:column; gap:8px;">
+
+          <!-- 하한/센터치/상한 라벨 헤더 -->
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; text-align:center;">
+            <span style="font-size:0.72rem; font-weight:700; color:#3b82f6; padding:3px 0;
+                         background:rgba(59,130,246,0.08); border-radius:5px;">📉 하한값 (LSL)</span>
+            <span style="font-size:0.72rem; font-weight:700; color:#22c55e; padding:3px 0;
+                         background:rgba(34,197,94,0.08); border-radius:5px;">🎯 센터치 (CL)</span>
+            <span style="font-size:0.72rem; font-weight:700; color:#ef4444; padding:3px 0;
+                         background:rgba(239,68,68,0.08); border-radius:5px;">📈 상한값 (USL)</span>
+          </div>
+
+          <!-- 하한/센터치/상한 입력 -->
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+            <input type="number" step="any" name="item_min" placeholder="예) 18"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(59,130,246,0.4); border-radius:7px;">
+            <input type="number" step="any" name="item_center" placeholder="예) 23"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(34,197,94,0.4); border-radius:7px;">
+            <input type="number" step="any" name="item_max" placeholder="예) 28"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(239,68,68,0.4); border-radius:7px;">
+          </div>
+
+          <!-- 단위 / 분류 -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <input type="text" name="item_unit" placeholder="단위 (예: ℃, bar, rpm)"
                    style="font-size:0.82rem; padding:6px 10px;">
             <input type="text" name="item_category" placeholder="분류(선택)"
                    style="font-size:0.82rem; padding:6px 10px;">
           </div>
-          <div style="font-size:0.75rem; color:var(--text-muted); padding:0 2px;">
-            💡 최솟값~최댓값 범위를 벗어나면 자동으로 <strong style="color:#f97316;">이상</strong>으로 판정됩니다.
-            범위를 비워두면 범위 검사 없이 수치만 기록됩니다.
+
+          <div style="font-size:0.74rem; color:var(--text-muted); padding:2px 4px;
+                      background:rgba(249,115,22,0.05); border-radius:6px; line-height:1.6;">
+            💡 점검 시 <strong style="color:#3b82f6;">하한값</strong> 미달 또는
+            <strong style="color:#ef4444;">상한값</strong> 초과 시 실시간 경고가 표시됩니다.
+            <strong style="color:#22c55e;">센터치</strong>는 목표값으로 참고 표시됩니다.
           </div>
+
           <!-- 일반항목 전용 필드 (숨김, 빈값으로 제출) -->
           <input type="hidden" name="item_criteria" value="">
         </div>

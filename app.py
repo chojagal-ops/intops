@@ -384,6 +384,7 @@ def init_db():
             unit         TEXT DEFAULT '',
             item_type    TEXT DEFAULT '일반',
             min_val      TEXT DEFAULT '',
+            center_val   TEXT DEFAULT '',
             max_val      TEXT DEFAULT '',
             created_at   TEXT DEFAULT ({_now})
         )
@@ -430,6 +431,7 @@ def init_db():
             "ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_expires TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT '일반'",
             "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS min_val TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS center_val TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS max_val TEXT DEFAULT ''",
         ]
         for sql in migrations:
@@ -454,6 +456,7 @@ def init_db():
             "ALTER TABLE password_reset_requests ADD COLUMN reset_expires TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN item_type TEXT DEFAULT '일반'",
             "ALTER TABLE inspection_items ADD COLUMN min_val TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN center_val TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN max_val TEXT DEFAULT ''",
         ]
         for sql in migrations:
@@ -1179,19 +1182,21 @@ def admin_equipment_add():
             item_units      = request.form.getlist('item_unit')
             item_types      = request.form.getlist('item_type')
             item_mins       = request.form.getlist('item_min')
+            item_centers    = request.form.getlist('item_center')
             item_maxs       = request.form.getlist('item_max')
             for i, iname in enumerate(item_names):
                 if iname.strip():
-                    cat   = item_categories[i] if i < len(item_categories) else ''
-                    cri   = item_criterias[i]  if i < len(item_criterias)  else ''
-                    unt   = item_units[i]       if i < len(item_units)      else ''
-                    itype = item_types[i]       if i < len(item_types)      else '일반'
-                    imin  = item_mins[i]        if i < len(item_mins)       else ''
-                    imax  = item_maxs[i]        if i < len(item_maxs)       else ''
+                    cat    = item_categories[i] if i < len(item_categories) else ''
+                    cri    = item_criterias[i]  if i < len(item_criterias)  else ''
+                    unt    = item_units[i]       if i < len(item_units)      else ''
+                    itype  = item_types[i]       if i < len(item_types)      else '일반'
+                    imin   = item_mins[i]        if i < len(item_mins)       else ''
+                    icen   = item_centers[i]     if i < len(item_centers)    else ''
+                    imax   = item_maxs[i]        if i < len(item_maxs)       else ''
                     conn.execute(
-                        'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit, item_type, min_val, max_val) VALUES (?,?,?,?,?,?,?,?,?)',
+                        'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit, item_type, min_val, center_val, max_val) VALUES (?,?,?,?,?,?,?,?,?,?)',
                         (eq_id_new, i+1, cat.strip(), iname.strip(), cri.strip(), unt.strip(),
-                         itype.strip() or '일반', imin.strip(), imax.strip())
+                         itype.strip() or '일반', imin.strip(), icen.strip(), imax.strip())
                     )
             conn.commit()
             flash(f'설비 "{name}" 이(가) 등록되었습니다.', 'success')
@@ -1456,7 +1461,8 @@ def inspect(eq_id):
     if today_insp:
         today_insp_details = conn.execute('''
             SELECT d.row_index, d.result, d.detail_notes, d.item_id,
-                   ii.item_name, ii.category, ii.criteria, ii.unit
+                   ii.item_name, ii.category, ii.criteria, ii.unit,
+                   ii.item_type, ii.min_val, ii.center_val, ii.max_val
             FROM inspection_details d
             LEFT JOIN inspection_items ii ON d.item_id = ii.id
             WHERE d.inspection_id = ?

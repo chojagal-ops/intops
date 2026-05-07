@@ -219,7 +219,17 @@
                   <tr class="tmpl-item-row{% if d.result == '이상' %} row-abnormal{% elif d.result == '수리중' %} row-repair{% elif d.result == '휴동' %} row-na{% elif d.result == '해당없음' %} row-na{% endif %}">
                     <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                     <td class="tmpl-cell"><strong>{{ d.item_name }}</strong></td>
-                    <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.8rem;">{{ d.criteria or '-' }}</td>
+                    <td class="tmpl-cell" style="font-size:0.78rem;">
+                      {% if d.item_type == '수치' and (d.min_val or d.center_val or d.max_val) %}
+                        <div style="display:flex; flex-direction:column; gap:1px; line-height:1.4;">
+                          {% if d.min_val %}<span style="color:#3b82f6;">하한 <strong>{{ d.min_val }}</strong></span>{% endif %}
+                          {% if d.center_val %}<span style="color:#22c55e;">센터 <strong>{{ d.center_val }}</strong></span>{% endif %}
+                          {% if d.max_val %}<span style="color:#ef4444;">상한 <strong>{{ d.max_val }}</strong></span>{% endif %}
+                        </div>
+                      {% else %}
+                        <span style="color:var(--text-sub);">{{ d.criteria or '-' }}</span>
+                      {% endif %}
+                    </td>
                     <td class="tmpl-cell" style="text-align:center; color:var(--text-sub); white-space:nowrap;">{{ d.unit or '-' }}</td>
                     <td class="tmpl-cell">
                       {% if d.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
@@ -228,16 +238,18 @@
                       {% elif d.result == '휴동' %}<span class="result-tag tag-idle">⏸ 휴동</span>
                       {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
                     </td>
-                    <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">
+                    <td class="tmpl-cell" style="font-size:0.8rem;">
                       {% if d.detail_notes %}
-                        {# 수치항목의 경우 측정값 강조 표시 #}
-                        {% set val_str = d.detail_notes.split(' ')[0] %}
-                        {% if val_str | float(default=none) is not none and val_str | float(default=none) != none %}
-                          <strong style="color:var(--text-main); font-size:0.88rem;">{{ d.detail_notes }}</strong>
+                        {% if d.item_type == '수치' %}
+                          {# 수치항목: 측정값 강조 표시 #}
+                          <strong style="font-size:0.92rem;
+                            color:{% if d.result == '이상' %}#dc2626{% elif d.result == '정상' %}#16a34a{% else %}var(--text-main){% endif %};">
+                            {{ d.detail_notes }}
+                          </strong>
                         {% else %}
-                          {{ d.detail_notes }}
+                          <span style="color:var(--text-sub);">{{ d.detail_notes }}</span>
                         {% endif %}
-                      {% else %}-{% endif %}
+                      {% else %}<span style="color:var(--text-muted);">-</span>{% endif %}
                     </td>
                   </tr>
                 {% elif tmpl_rows and d.row_index < tmpl_rows|length %}
@@ -328,15 +340,31 @@
                 <tr class="tmpl-item-row">
                   <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                   <td class="tmpl-cell"><strong>{{ item.item_name }}</strong></td>
-                  <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">
+                  <td class="tmpl-cell" style="font-size:0.80rem;">
                     {% if item.item_type == '수치' %}
-                      {% if item.min_val or item.max_val %}
-                        <span style="color:var(--orange); font-weight:600;">
-                          {{ item.min_val or '−' }} ~ {{ item.max_val or '∞' }}
+                      {% if item.min_val or item.center_val or item.max_val %}
+                      <div style="display:flex; flex-direction:column; gap:2px; line-height:1.4;">
+                        {% if item.min_val %}
+                        <span style="color:#3b82f6; white-space:nowrap;">
+                          📉 하한: <strong>{{ item.min_val }}</strong>{% if item.unit %} {{ item.unit }}{% endif %}
                         </span>
-                      {% else %}수치입력{% endif %}
+                        {% endif %}
+                        {% if item.center_val %}
+                        <span style="color:#22c55e; white-space:nowrap;">
+                          🎯 센터: <strong>{{ item.center_val }}</strong>{% if item.unit %} {{ item.unit }}{% endif %}
+                        </span>
+                        {% endif %}
+                        {% if item.max_val %}
+                        <span style="color:#ef4444; white-space:nowrap;">
+                          📈 상한: <strong>{{ item.max_val }}</strong>{% if item.unit %} {{ item.unit }}{% endif %}
+                        </span>
+                        {% endif %}
+                      </div>
+                      {% else %}
+                        <span style="color:var(--text-muted); font-size:0.78rem;">수치입력</span>
+                      {% endif %}
                     {% else %}
-                      {{ item.criteria or '-' }}
+                      <span style="color:var(--text-sub);">{{ item.criteria or '-' }}</span>
                     {% endif %}
                   </td>
                   <td class="tmpl-cell" style="text-align:center; color:var(--text-sub); white-space:nowrap;">{{ item.unit or '-' }}</td>
@@ -345,7 +373,8 @@
                     {% if item.item_type == '수치' %}
                     {# ── 수치 입력 항목 ── #}
                     <div style="display:flex; flex-direction:column; gap:6px;">
-                      <!-- 수치 입력 or 수리중/휴동 선택 -->
+
+                      <!-- 수리중/휴동 선택 드롭다운 -->
                       <select name="special_item_{{ item.id }}"
                               id="special_{{ item.id }}"
                               onchange="toggleNumericInput(this, {{ item.id }})"
@@ -355,28 +384,69 @@
                         <option value="수리중">🔧 수리중</option>
                         <option value="휴동">⏸ 휴동</option>
                       </select>
-                      <!-- 수치 입력 필드 -->
-                      <div id="num_wrap_{{ item.id }}"
-                           style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                        <input type="number" step="any"
-                               name="numeric_val_{{ item.id }}"
-                               id="num_{{ item.id }}"
-                               placeholder="측정값"
-                               style="width:90px; padding:5px 8px; font-size:0.9rem; font-weight:600;
-                                      border:1.5px solid rgba(249,115,22,0.4); border-radius:7px;
-                                      background:var(--bg); color:var(--text-main); text-align:center;">
-                        {% if item.unit %}
-                        <span style="font-size:0.82rem; color:var(--text-sub); white-space:nowrap;">{{ item.unit }}</span>
-                        {% endif %}
+
+                      <!-- 수치 입력 영역 -->
+                      <div id="num_wrap_{{ item.id }}" style="display:flex; flex-direction:column; gap:4px;">
+
+                        <!-- 입력창 + 단위 -->
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                          <input type="number" step="any"
+                                 name="numeric_val_{{ item.id }}"
+                                 id="num_{{ item.id }}"
+                                 placeholder="측정값 입력"
+                                 data-min="{{ item.min_val or '' }}"
+                                 data-center="{{ item.center_val or '' }}"
+                                 data-max="{{ item.max_val or '' }}"
+                                 oninput="checkNumericRange(this, {{ item.id }})"
+                                 style="width:100px; padding:6px 10px; font-size:1rem; font-weight:700;
+                                        border:2px solid rgba(249,115,22,0.4); border-radius:7px;
+                                        background:var(--bg); color:var(--text-main); text-align:center;
+                                        transition:border-color 0.2s, background 0.2s;">
+                          {% if item.unit %}
+                          <span style="font-size:0.84rem; color:var(--text-sub); white-space:nowrap;
+                                       font-weight:600;">{{ item.unit }}</span>
+                          {% endif %}
+
+                          {# 센터치 참고 뱃지 #}
+                          {% if item.center_val %}
+                          <span style="font-size:0.72rem; padding:2px 8px; border-radius:10px;
+                                       background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.3);
+                                       color:#16a34a; white-space:nowrap; font-weight:600;">
+                            🎯 기준: {{ item.center_val }}{% if item.unit %} {{ item.unit }}{% endif %}
+                          </span>
+                          {% endif %}
+                        </div>
+
+                        {# 실시간 경고 메시지 영역 #}
+                        <div id="range_warn_{{ item.id }}"
+                             style="display:none; font-size:0.8rem; font-weight:700;
+                                    padding:5px 10px; border-radius:7px; line-height:1.4;">
+                        </div>
+
+                        {# 범위 바 (하한~센터~상한 시각 표시) #}
                         {% if item.min_val or item.max_val %}
-                        <span id="range_badge_{{ item.id }}"
-                              style="font-size:0.73rem; padding:2px 7px; border-radius:10px;
-                                     background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.2);
-                                     color:var(--text-sub); white-space:nowrap;">
-                          {{ item.min_val or '−' }}~{{ item.max_val or '∞' }}
-                        </span>
+                        <div style="display:flex; align-items:center; gap:3px; font-size:0.70rem; flex-wrap:wrap;">
+                          <span style="color:#3b82f6; font-weight:600; white-space:nowrap;">
+                            하한 {{ item.min_val or '−' }}
+                          </span>
+                          <span style="color:var(--text-muted);">|</span>
+                          {% if item.center_val %}
+                          <span style="color:#22c55e; font-weight:600; white-space:nowrap;">
+                            센터 {{ item.center_val }}
+                          </span>
+                          <span style="color:var(--text-muted);">|</span>
+                          {% endif %}
+                          <span style="color:#ef4444; font-weight:600; white-space:nowrap;">
+                            상한 {{ item.max_val or '∞' }}
+                          </span>
+                          {% if item.unit %}
+                          <span style="color:var(--text-muted);">({{ item.unit }})</span>
+                          {% endif %}
+                        </div>
                         {% endif %}
-                      </div>
+
+                      </div>{# /num_wrap #}
+
                       <input type="text" name="notes_item_{{ item.id }}"
                              placeholder="비고" class="item-notes-input">
                     </div>
@@ -622,16 +692,82 @@
       updateDateUI(); // 초기 실행
     }
 
+    // 수치항목: 측정값 실시간 범위 검사 및 경고
+    function checkNumericRange(input, id) {
+      const warn = document.getElementById('range_warn_' + id);
+      if (!warn) return;
+
+      const val    = parseFloat(input.value);
+      const minV   = input.dataset.min   !== '' ? parseFloat(input.dataset.min)   : null;
+      const cenV   = input.dataset.center !== '' ? parseFloat(input.dataset.center) : null;
+      const maxV   = input.dataset.max   !== '' ? parseFloat(input.dataset.max)   : null;
+
+      if (input.value === '' || isNaN(val)) {
+        warn.style.display = 'none';
+        input.style.borderColor = 'rgba(249,115,22,0.4)';
+        input.style.background  = 'var(--bg)';
+        input.style.color       = 'var(--text-main)';
+        return;
+      }
+
+      let overMax = maxV !== null && val > maxV;
+      let underMin = minV !== null && val < minV;
+
+      if (overMax) {
+        warn.innerHTML = `⚠ 상한값(${maxV}) 초과! 측정값: <strong>${val}</strong>`;
+        warn.style.display   = 'block';
+        warn.style.background = 'rgba(239,68,68,0.12)';
+        warn.style.border     = '1.5px solid rgba(239,68,68,0.4)';
+        warn.style.color      = '#dc2626';
+        input.style.borderColor = '#ef4444';
+        input.style.background  = 'rgba(239,68,68,0.06)';
+        input.style.color       = '#dc2626';
+      } else if (underMin) {
+        warn.innerHTML = `⚠ 하한값(${minV}) 미달! 측정값: <strong>${val}</strong>`;
+        warn.style.display   = 'block';
+        warn.style.background = 'rgba(59,130,246,0.12)';
+        warn.style.border     = '1.5px solid rgba(59,130,246,0.4)';
+        warn.style.color      = '#2563eb';
+        input.style.borderColor = '#3b82f6';
+        input.style.background  = 'rgba(59,130,246,0.06)';
+        input.style.color       = '#2563eb';
+      } else {
+        // 정상 범위
+        let msg = '✅ 정상 범위';
+        if (cenV !== null) {
+          const diff = (val - cenV).toFixed(2);
+          const sign = diff >= 0 ? '+' : '';
+          msg += `&nbsp; (센터 대비 <strong>${sign}${diff}</strong>)`;
+        }
+        warn.innerHTML = msg;
+        warn.style.display   = 'block';
+        warn.style.background = 'rgba(34,197,94,0.10)';
+        warn.style.border     = '1.5px solid rgba(34,197,94,0.35)';
+        warn.style.color      = '#16a34a';
+        input.style.borderColor = '#22c55e';
+        input.style.background  = 'rgba(34,197,94,0.05)';
+        input.style.color       = '#15803d';
+      }
+    }
+
     // 수치항목: 수리중/휴동 선택 시 수치 입력 필드 숨김
     function toggleNumericInput(sel, id) {
-      const wrap = document.getElementById('num_wrap_' + id);
+      const wrap     = document.getElementById('num_wrap_' + id);
       const numInput = document.getElementById('num_' + id);
-      if (sel.value === '' ) {
+      const warn     = document.getElementById('range_warn_' + id);
+      if (sel.value === '') {
         wrap.style.display = 'flex';
         if (numInput) numInput.disabled = false;
       } else {
         wrap.style.display = 'none';
-        if (numInput) { numInput.disabled = true; numInput.value = ''; }
+        if (numInput) {
+          numInput.disabled = true;
+          numInput.value = '';
+          numInput.style.borderColor = 'rgba(249,115,22,0.4)';
+          numInput.style.background  = 'var(--bg)';
+          numInput.style.color       = 'var(--text-main)';
+        }
+        if (warn) warn.style.display = 'none';
       }
     }
 
