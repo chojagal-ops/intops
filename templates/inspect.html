@@ -139,7 +139,7 @@
       {% if is_inspector %}
       <hr class="divider">
 
-      <!-- 오늘 날짜 표시 -->
+      <!-- 점검 날짜 선택 & 오늘 날짜 표시 -->
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
         <div class="section-title" style="margin-bottom:0;">
           📋 일일 점검표
@@ -152,14 +152,14 @@
         {% endif %}
       </div>
 
+      <!-- 오늘 점검 완료 정보 (오늘 선택 시 참고용 표시) -->
       {% if today_insp %}
-      <!-- 오늘 이미 점검 완료 -->
-      <div style="background:rgba(249,115,22,0.08); border:1.5px solid rgba(249,115,22,0.3);
-                  border-radius:12px; padding:20px; margin-bottom:12px;">
+      <div id="today-insp-info" style="background:rgba(249,115,22,0.08); border:1.5px solid rgba(249,115,22,0.3);
+                  border-radius:12px; padding:20px; margin-bottom:16px;">
         <div style="text-align:center; margin-bottom:{% if today_insp_details %}14px{% else %}0{% endif %};">
           <div style="font-size:1.5rem; margin-bottom:8px;">✅</div>
           <div style="font-size:1rem; font-weight:700; color:var(--orange); margin-bottom:6px;">
-            오늘 이미 점검이 진행되었습니다
+            오늘 이미 점검이 완료되었습니다
           </div>
           <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:{% if today_insp_details %}4px{% else %}12px{% endif %};">
             점검자: <strong>{{ today_insp.inspector_name }}</strong> &nbsp;·&nbsp;
@@ -168,7 +168,7 @@
           </div>
           {% if not today_insp_details %}
           <div style="font-size:0.8rem; color:var(--text-muted);">
-            동일 설비의 중복 점검은 허용되지 않습니다. 오류가 있을 경우 관리자에게 문의하세요.
+            오늘 날짜로는 중복 점검이 불가합니다. 다른 날짜를 선택하거나 관리자에게 문의하세요.
           </div>
           {% endif %}
           {% if session.is_admin %}
@@ -261,10 +261,35 @@
         </div>
         {% endif %}
       </div>
+      {% endif %}
 
-      {% else %}
+      <!-- ── 점검 입력 폼 (날짜 선택 포함) ── -->
       <form method="POST" id="inspect-form">
         <input type="hidden" name="action" value="submit">
+
+        <!-- 점검 날짜 선택 -->
+        <div style="margin-bottom:16px; padding:14px 16px;
+                    background:rgba(249,115,22,0.05); border:1px solid rgba(249,115,22,0.2);
+                    border-radius:10px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <label for="inspect_date"
+                 style="font-size:0.88rem; font-weight:600; color:var(--text-main); white-space:nowrap;">
+            📅 점검 날짜
+          </label>
+          <input type="date" name="inspect_date" id="inspect_date"
+                 value="{{ today_date }}" max="{{ today_date }}"
+                 style="padding:6px 10px; border:1px solid rgba(249,115,22,0.4); border-radius:7px;
+                        font-size:0.88rem; background:var(--card-bg); color:var(--text-main); cursor:pointer;">
+          <span id="past-date-notice"
+                style="display:none; font-size:0.8rem; color:#d97706; font-weight:500;">
+            ⚠ 과거 날짜 점검 기록입니다. 해당 날짜에 미점검 설비를 보완 입력하세요.
+          </span>
+          {% if today_insp %}
+          <span id="today-dup-notice"
+                style="font-size:0.8rem; color:#ef4444; font-weight:500;">
+            ⛔ 오늘은 이미 점검 완료 — 다른 날짜를 선택하세요
+          </span>
+          {% endif %}
+        </div>
 
         {% if db_items %}
         <!-- ════ DB 등록 점검항목 ════ -->
@@ -440,11 +465,10 @@
         </div>
         {% endif %}
 
-        <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="margin-top:8px;">
           ✔ 점검완료 제출
         </button>
       </form>
-      {% endif %}{# today_insp else #}
       {% endif %}{# is_inspector #}
 
       <!-- ── 점검 이력 ─────────────────────────────────────── -->
@@ -495,10 +519,44 @@
 
   <script>
     // 오늘 날짜 표시
-    const today = new Date();
-    const label = today.getFullYear() + '년 ' + (today.getMonth()+1) + '월 ' + today.getDate() + '일';
+    const todayDate = new Date();
+    const label = todayDate.getFullYear() + '년 ' + (todayDate.getMonth()+1) + '월 ' + todayDate.getDate() + '일';
     const el = document.getElementById('today-label');
     if (el) el.textContent = label;
+
+    // 날짜 선택기 동작
+    const todayStr = '{{ today_date }}';
+    const hasTodayInsp = {{ 'true' if today_insp else 'false' }};
+    const dateInput   = document.getElementById('inspect_date');
+    const pastNotice  = document.getElementById('past-date-notice');
+    const dupNotice   = document.getElementById('today-dup-notice');
+    const todayInfo   = document.getElementById('today-insp-info');
+    const submitBtn   = document.getElementById('submit-btn');
+
+    function updateDateUI() {
+      if (!dateInput) return;
+      const sel = dateInput.value;
+      const isPast = sel < todayStr;
+      const isToday = sel === todayStr;
+
+      // 과거 날짜 안내
+      if (pastNotice) pastNotice.style.display = isPast ? 'inline' : 'none';
+
+      // 오늘 중복 경고 & 오늘 점검 정보 박스
+      if (dupNotice) dupNotice.style.display = (isToday && hasTodayInsp) ? 'inline' : 'none';
+      if (todayInfo) todayInfo.style.display  = (isToday && hasTodayInsp) ? 'block'  : 'none';
+
+      // 오늘이고 이미 점검된 경우 제출 버튼 비활성화
+      if (submitBtn) {
+        submitBtn.disabled = (isToday && hasTodayInsp);
+        submitBtn.style.opacity = (isToday && hasTodayInsp) ? '0.4' : '1';
+      }
+    }
+
+    if (dateInput) {
+      dateInput.addEventListener('change', updateDateUI);
+      updateDateUI(); // 초기 실행
+    }
 
     // 결과 선택 시 행 강조
     document.querySelectorAll('.tmpl-item-row input[type=radio]').forEach(radio => {

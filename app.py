@@ -1451,10 +1451,31 @@ def inspect(eq_id):
         action = request.form.get('action')
 
         if action == 'submit' and is_inspector:
-            # 중복 점검 방지
-            if today_insp:
-                flash('오늘 이미 점검이 진행되었습니다. 중복 점검은 불가합니다.', 'warning')
+            # ── 점검 날짜 처리 ──────────────────────────────────────
+            today_str = now_kst().strftime('%Y-%m-%d')
+            inspect_date = request.form.get('inspect_date', '').strip()
+            if not inspect_date:
+                inspect_date = today_str
+            try:
+                datetime.strptime(inspect_date, '%Y-%m-%d')
+            except ValueError:
+                inspect_date = today_str
+            # 미래 날짜 방지
+            if inspect_date > today_str:
+                inspect_date = today_str
+
+            # 선택 날짜 중복 점검 방지
+            date_insp = conn.execute(f'''
+                SELECT id FROM inspections
+                WHERE equipment_id=? AND {conn.date_col("inspected_at")}=?
+                AND status IN ('점검완료','승인완료')
+            ''', (eq_id, inspect_date)).fetchone()
+            if date_insp:
+                flash(f'{inspect_date} 날짜에 이미 점검이 완료되었습니다. 중복 점검은 불가합니다.', 'warning')
                 return redirect(url_for('inspect', eq_id=eq_id))
+
+            # 저장할 inspected_at: 선택 날짜 + 현재 시각(KST)
+            inspected_at = inspect_date + ' ' + now_kst().strftime('%H:%M:%S')
 
             overall_notes = request.form.get('notes', '').strip()
 
@@ -1469,8 +1490,8 @@ def inspect(eq_id):
                             '수리중' if '수리중' in all_vals else
                             '휴동' if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
                 ins_id = conn.insert(
-                    "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status) VALUES (?,?,?,?,'점검완료')",
-                    (eq_id, session['user_id'], overall, overall_notes)
+                    "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
+                    (eq_id, session['user_id'], overall, overall_notes, inspected_at)
                 )
                 for item_id, r_val, n_val in item_results:
                     conn.execute(
@@ -1496,9 +1517,9 @@ def inspect(eq_id):
 
                 ins_id = conn.insert(
                     '''INSERT INTO inspections
-                       (equipment_id, inspector_id, result, notes, status)
-                       VALUES (?,?,?,?,'점검완료')''',
-                    (eq_id, session['user_id'], overall, overall_notes)
+                       (equipment_id, inspector_id, result, notes, status, inspected_at)
+                       VALUES (?,?,?,?,'점검완료',?)''',
+                    (eq_id, session['user_id'], overall, overall_notes, inspected_at)
                 )
                 for idx, r_val, n_val in item_results:
                     conn.execute(
@@ -1513,9 +1534,9 @@ def inspect(eq_id):
                 result = request.form.get('result', '정상')
                 conn.execute(
                     '''INSERT INTO inspections
-                       (equipment_id, inspector_id, result, notes, status)
-                       VALUES (?,?,?,?,'점검완료')''',
-                    (eq_id, session['user_id'], result, overall_notes)
+                       (equipment_id, inspector_id, result, notes, status, inspected_at)
+                       VALUES (?,?,?,?,'점검완료',?)''',
+                    (eq_id, session['user_id'], result, overall_notes, inspected_at)
                 )
                 conn.commit()
 
@@ -1590,12 +1611,14 @@ def inspect(eq_id):
     conn.close()
 
     now = now_kst()
+    today_date = now.strftime('%Y-%m-%d')
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
                            tmpl_rows=tmpl_rows, tmpl_max_cols=tmpl_max_cols,
                            db_items=db_items, today_insp=today_insp,
                            today_insp_details=today_insp_details,
+                           today_date=today_date,
                            now_year=now.year, now_month=now.month)
 
 
