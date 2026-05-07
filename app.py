@@ -1153,6 +1153,9 @@ def admin_equipment_add():
     approvers = conn.execute(
         "SELECT id, name, team FROM users WHERE (role='승인자' OR is_admin=1) AND is_approved=1 ORDER BY name"
     ).fetchall()
+    all_equipments = conn.execute(
+        'SELECT id, name, department FROM equipment ORDER BY name'
+    ).fetchall()
     conn.close()
     if request.method == 'POST':
         name              = request.form['name'].strip()
@@ -1205,7 +1208,8 @@ def admin_equipment_add():
             flash('이미 등록된 QR 코드입니다.', 'error')
         finally:
             conn.close()
-    return render_template('admin_equipment_add.html', teams=TEAMS, approvers=approvers)
+    return render_template('admin_equipment_add.html', teams=TEAMS, approvers=approvers,
+                           all_equipments=all_equipments)
 
 
 @app.route('/admin/equipment/upload-template/<int:eq_id>', methods=['POST'])
@@ -1264,6 +1268,22 @@ def delete_template(eq_id):
     return redirect(url_for('admin_equipment'))
 
 
+@app.route('/admin/equipment/items-json/<int:eq_id>')
+@admin_required
+def equipment_items_json(eq_id):
+    """설비 점검항목을 JSON으로 반환 (항목 복사 기능용)"""
+    conn = get_db()
+    eq = conn.execute('SELECT name FROM equipment WHERE id=?', (eq_id,)).fetchone()
+    items = conn.execute(
+        'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order', (eq_id,)
+    ).fetchall()
+    conn.close()
+    if not eq:
+        return json.dumps({'error': '설비를 찾을 수 없습니다.'}), 404
+    result = [dict(item) for item in items]
+    return json.dumps({'eq_name': eq['name'], 'items': result}, ensure_ascii=False)
+
+
 @app.route('/admin/equipment/edit/<int:eq_id>', methods=['GET', 'POST'])
 @admin_required
 def admin_equipment_edit(eq_id):
@@ -1275,6 +1295,10 @@ def admin_equipment_edit(eq_id):
         return redirect(url_for('admin_equipment'))
     approvers = conn.execute(
         "SELECT id, name, team FROM users WHERE (role='승인자' OR is_admin=1) AND is_approved=1 ORDER BY name"
+    ).fetchall()
+    # 항목 복사용: 현재 설비 제외한 전체 설비 목록
+    all_equipments = conn.execute(
+        'SELECT id, name, department FROM equipment WHERE id!=? ORDER BY name', (eq_id,)
     ).fetchall()
     if request.method == 'POST':
         name              = request.form['name'].strip()
@@ -1293,12 +1317,42 @@ def admin_equipment_edit(eq_id):
             (name, location, department, description, approver_id, inspection_cycle,
              mgmt_no, manager_primary, manager_secondary, eq_id)
         )
+        # ── 점검 항목 업데이트: 기존 삭제 후 새로 저장 ──
+        conn.execute('DELETE FROM inspection_items WHERE equipment_id=?', (eq_id,))
+        item_names      = request.form.getlist('item_name')
+        item_categories = request.form.getlist('item_category')
+        item_criterias  = request.form.getlist('item_criteria')
+        item_units      = request.form.getlist('item_unit')
+        item_types      = request.form.getlist('item_type')
+        item_mins       = request.form.getlist('item_min')
+        item_centers    = request.form.getlist('item_center')
+        item_maxs       = request.form.getlist('item_max')
+        for i, iname in enumerate(item_names):
+            if iname.strip():
+                cat   = item_categories[i] if i < len(item_categories) else ''
+                cri   = item_criterias[i]  if i < len(item_criterias)  else ''
+                unt   = item_units[i]       if i < len(item_units)      else ''
+                itype = item_types[i]       if i < len(item_types)      else '일반'
+                imin  = item_mins[i]        if i < len(item_mins)       else ''
+                icen  = item_centers[i]     if i < len(item_centers)    else ''
+                imax  = item_maxs[i]        if i < len(item_maxs)       else ''
+                conn.execute(
+                    'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit, item_type, min_val, center_val, max_val) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                    (eq_id, i+1, cat.strip(), iname.strip(), cri.strip(), unt.strip(),
+                     itype.strip() or '일반', imin.strip(), icen.strip(), imax.strip())
+                )
         conn.commit()
         conn.close()
-        flash(f'설비 "{name}" 정보가 수정되었습니다.', 'success')
+        flash(f'설비 "{name}" 정보 및 점검항목이 수정되었습니다.', 'success')
         return redirect(url_for('admin_equipment'))
+    db_items = conn.execute(
+        'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order', (eq_id,)
+    ).fetchall()
     conn.close()
-    return render_template('admin_equipment_edit.html', eq=eq, teams=TEAMS, approvers=approvers)
+    items_json = json.dumps([dict(item) for item in db_items], ensure_ascii=False)
+    return render_template('admin_equipment_edit.html', eq=eq, teams=TEAMS, approvers=approvers,
+                           db_items=db_items, items_json=items_json,
+                           all_equipments=all_equipments)
 
 
 @app.route('/admin/equipment/delete/<int:eq_id>')

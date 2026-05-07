@@ -102,6 +102,62 @@
           </select>
         </div>
 
+        <hr class="divider">
+
+        <!-- ── 점검항목 복사 ── -->
+        {% if all_equipments %}
+        <div style="margin-bottom:16px; padding:12px 14px;
+                    background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.2);
+                    border-radius:10px;">
+          <div style="font-size:0.85rem; font-weight:600; color:#3b82f6; margin-bottom:8px;">
+            📋 다른 설비에서 점검항목 복사
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="copy-src-select"
+                    style="flex:1; min-width:160px; padding:7px 10px; font-size:0.83rem;
+                           border:1px solid rgba(59,130,246,0.3); border-radius:7px;
+                           background:var(--card-bg); color:var(--text-main);">
+              <option value="">— 복사할 설비 선택 —</option>
+              {% for oeq in all_equipments %}
+              <option value="{{ oeq.id }}">{{ oeq.name }}{% if oeq.department %} ({{ oeq.department }}){% endif %}</option>
+              {% endfor %}
+            </select>
+            <button type="button" onclick="copyItemsFrom()"
+                    style="padding:7px 16px; background:#3b82f6; border:none; border-radius:7px;
+                           color:#fff; font-size:0.83rem; font-weight:600; cursor:pointer; white-space:nowrap;">
+              ⬇ 항목 가져오기
+            </button>
+            <span id="copy-status" style="font-size:0.78rem; color:var(--text-muted);"></span>
+          </div>
+          <div style="font-size:0.73rem; color:var(--text-muted); margin-top:6px;">
+            ※ 가져오기 시 현재 항목 목록이 대체됩니다.
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ── 점검항목 목록 ── -->
+        <div class="section-title" style="margin-bottom:12px;">
+          📋 점검 항목 편집
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400; text-transform:none; margin-left:6px;">
+            기존 항목을 수정하거나 추가/삭제할 수 있습니다
+          </span>
+        </div>
+
+        <div id="items-wrap" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+          <!-- JS로 동적 렌더링 -->
+        </div>
+
+        <button type="button" onclick="addItem()"
+                style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px;
+                       background:var(--orange-light); border:1px solid rgba(249,115,22,0.3);
+                       border-radius:8px; font-size:0.85rem; font-weight:600;
+                       color:var(--orange-dark); cursor:pointer; margin-bottom:4px;">
+          + 항목 추가
+        </button>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
+          항목이 없으면 Excel 점검표 또는 기본 점검 폼이 사용됩니다.
+        </div>
+
         <div style="display:flex; gap:10px; margin-top:8px;">
           <button type="submit" class="btn btn-primary">수정 저장</button>
           <a href="/admin/equipment" class="btn btn-outline">취소</a>
@@ -110,6 +166,155 @@
 
     </div>
   </div>
+
+  <script>
+    /* ── 기존 항목 데이터 ── */
+    const existingItems = {{ items_json | safe }};
+    let itemCount = 0;
+
+    /* ── 항목 카드 생성 (data 있으면 기존값 채움) ── */
+    function addItem(data) {
+      itemCount++;
+      const n = itemCount;
+      const wrap = document.getElementById('items-wrap');
+      const div = document.createElement('div');
+      div.id = 'item-' + n;
+      div.style.cssText = 'background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:7px;';
+
+      const itype = data ? (data.item_type || '일반') : '일반';
+
+      div.innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr 130px auto; gap:6px; align-items:center;">
+          <input type="text" name="item_name" placeholder="점검항목명 *"
+                 value="${data ? escHtml(data.item_name) : ''}"
+                 style="font-size:0.83rem; padding:7px 10px;" required>
+          <select name="item_type" onchange="onItemTypeChange(this,${n})"
+                  style="font-size:0.83rem; padding:7px 8px; border:1px solid var(--border-mid);
+                         border-radius:7px; background:var(--card-bg); color:var(--text-main); cursor:pointer;">
+            <option value="일반" ${itype==='일반'?'selected':''}>🔘 일반항목</option>
+            <option value="수치" ${itype==='수치'?'selected':''}>🔢 수치입력</option>
+          </select>
+          <button type="button" onclick="removeItem(${n})"
+                  style="padding:6px 10px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.2);
+                         border-radius:6px; color:#dc2626; cursor:pointer; font-size:0.85rem; white-space:nowrap;">✕</button>
+        </div>
+
+        <!-- 일반항목 필드 -->
+        <div id="g-fields-${n}" style="display:${itype==='수치'?'none':'grid'}; grid-template-columns:2fr 1fr 1fr; gap:6px;">
+          <input type="text" name="item_criteria" placeholder="판단기준"
+                 value="${data && itype==='일반' ? escHtml(data.criteria||'') : ''}"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <input type="text" name="item_unit" placeholder="단위/주기"
+                 value="${data && itype==='일반' ? escHtml(data.unit||'') : ''}"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <input type="text" name="item_category" placeholder="분류(선택)"
+                 value="${data ? escHtml(data.category||'') : ''}"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <input type="hidden" name="item_min"    value="">
+          <input type="hidden" name="item_center" value="">
+          <input type="hidden" name="item_max"    value="">
+        </div>
+
+        <!-- 수치입력 필드 -->
+        <div id="n-fields-${n}" style="display:${itype==='수치'?'flex':'none'}; flex-direction:column; gap:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; text-align:center;">
+            <span style="font-size:0.72rem; font-weight:700; color:#3b82f6; padding:3px 0;
+                         background:rgba(59,130,246,0.08); border-radius:5px;">📉 하한값 (LSL)</span>
+            <span style="font-size:0.72rem; font-weight:700; color:#22c55e; padding:3px 0;
+                         background:rgba(34,197,94,0.08); border-radius:5px;">🎯 센터치 (CL)</span>
+            <span style="font-size:0.72rem; font-weight:700; color:#ef4444; padding:3px 0;
+                         background:rgba(239,68,68,0.08); border-radius:5px;">📈 상한값 (USL)</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+            <input type="number" step="any" name="item_min"
+                   value="${data ? escHtml(data.min_val||'') : ''}"
+                   placeholder="예) 18"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(59,130,246,0.4); border-radius:7px;">
+            <input type="number" step="any" name="item_center"
+                   value="${data ? escHtml(data.center_val||'') : ''}"
+                   placeholder="예) 23"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(34,197,94,0.4); border-radius:7px;">
+            <input type="number" step="any" name="item_max"
+                   value="${data ? escHtml(data.max_val||'') : ''}"
+                   placeholder="예) 28"
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                          border:1.5px solid rgba(239,68,68,0.4); border-radius:7px;">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <input type="text" name="item_unit"
+                   value="${data && itype==='수치' ? escHtml(data.unit||'') : ''}"
+                   placeholder="단위 (예: ℃, bar)"
+                   style="font-size:0.82rem; padding:6px 10px;">
+            <input type="text" name="item_category"
+                   value="${data && itype==='수치' ? escHtml(data.category||'') : ''}"
+                   placeholder="분류(선택)"
+                   style="font-size:0.82rem; padding:6px 10px;">
+          </div>
+          <input type="hidden" name="item_criteria" value="">
+        </div>
+      `;
+      wrap.appendChild(div);
+      if (itype === '수치') {
+        const sel = div.querySelector('select[name=item_type]');
+        if (sel) onItemTypeChange(sel, n);
+      }
+    }
+
+    function onItemTypeChange(sel, n) {
+      const gFields = document.getElementById('g-fields-' + n);
+      const nFields = document.getElementById('n-fields-' + n);
+      if (sel.value === '수치') {
+        gFields.style.display = 'none';
+        nFields.style.display = 'flex';
+      } else {
+        gFields.style.display = 'grid';
+        nFields.style.display = 'none';
+      }
+    }
+
+    function removeItem(id) {
+      const el = document.getElementById('item-' + id);
+      if (el) el.remove();
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ── 항목 복사 ── */
+    async function copyItemsFrom() {
+      const sel = document.getElementById('copy-src-select');
+      const status = document.getElementById('copy-status');
+      if (!sel.value) { status.textContent = '설비를 선택해주세요.'; return; }
+      status.textContent = '가져오는 중...';
+      try {
+        const res = await fetch(`/admin/equipment/items-json/${sel.value}`);
+        const data = await res.json();
+        if (data.error) { status.textContent = '오류: ' + data.error; return; }
+        if (!data.items || data.items.length === 0) {
+          status.textContent = `"${data.eq_name}"에 등록된 항목이 없습니다.`;
+          return;
+        }
+        if (!confirm(`"${data.eq_name}"의 점검항목 ${data.items.length}개를 가져옵니다.\n현재 항목이 모두 대체됩니다. 계속하시겠습니까?`)) return;
+        // 기존 항목 모두 제거
+        document.getElementById('items-wrap').innerHTML = '';
+        itemCount = 0;
+        // 복사된 항목 렌더링
+        data.items.forEach(item => addItem(item));
+        status.textContent = `✅ "${data.eq_name}"에서 ${data.items.length}개 항목을 가져왔습니다.`;
+        status.style.color = '#16a34a';
+      } catch(e) {
+        status.textContent = '가져오기 실패: ' + e.message;
+        status.style.color = '#dc2626';
+      }
+    }
+
+    /* ── 페이지 로드 시 기존 항목 렌더링 ── */
+    existingItems.forEach(item => addItem(item));
+    if (existingItems.length === 0) addItem(); // 항목 없으면 빈 행 1개
+  </script>
 
   <script src="/static/nav.js"></script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
