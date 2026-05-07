@@ -228,7 +228,17 @@
                       {% elif d.result == '휴동' %}<span class="result-tag tag-idle">⏸ 휴동</span>
                       {% else %}<span style="color:var(--text-muted); font-size:0.78rem;">— 해당없음</span>{% endif %}
                     </td>
-                    <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">{{ d.detail_notes or '-' }}</td>
+                    <td class="tmpl-cell" style="font-size:0.8rem; color:var(--text-sub);">
+                      {% if d.detail_notes %}
+                        {# 수치항목의 경우 측정값 강조 표시 #}
+                        {% set val_str = d.detail_notes.split(' ')[0] %}
+                        {% if val_str | float(default=none) is not none and val_str | float(default=none) != none %}
+                          <strong style="color:var(--text-main); font-size:0.88rem;">{{ d.detail_notes }}</strong>
+                        {% else %}
+                          {{ d.detail_notes }}
+                        {% endif %}
+                      {% else %}-{% endif %}
+                    </td>
                   </tr>
                 {% elif tmpl_rows and d.row_index < tmpl_rows|length %}
                   {% set row = tmpl_rows[d.row_index] %}
@@ -318,9 +328,61 @@
                 <tr class="tmpl-item-row">
                   <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
                   <td class="tmpl-cell"><strong>{{ item.item_name }}</strong></td>
-                  <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">{{ item.criteria or '-' }}</td>
+                  <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">
+                    {% if item.item_type == '수치' %}
+                      {% if item.min_val or item.max_val %}
+                        <span style="color:var(--orange); font-weight:600;">
+                          {{ item.min_val or '−' }} ~ {{ item.max_val or '∞' }}
+                        </span>
+                      {% else %}수치입력{% endif %}
+                    {% else %}
+                      {{ item.criteria or '-' }}
+                    {% endif %}
+                  </td>
                   <td class="tmpl-cell" style="text-align:center; color:var(--text-sub); white-space:nowrap;">{{ item.unit or '-' }}</td>
                   <td class="tmpl-result-cell">
+
+                    {% if item.item_type == '수치' %}
+                    {# ── 수치 입력 항목 ── #}
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                      <!-- 수치 입력 or 수리중/휴동 선택 -->
+                      <select name="special_item_{{ item.id }}"
+                              id="special_{{ item.id }}"
+                              onchange="toggleNumericInput(this, {{ item.id }})"
+                              style="font-size:0.82rem; padding:5px 8px; border:1px solid var(--border-mid);
+                                     border-radius:7px; background:var(--card-bg); color:var(--text-main); cursor:pointer;">
+                        <option value="">🔢 수치 입력</option>
+                        <option value="수리중">🔧 수리중</option>
+                        <option value="휴동">⏸ 휴동</option>
+                      </select>
+                      <!-- 수치 입력 필드 -->
+                      <div id="num_wrap_{{ item.id }}"
+                           style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <input type="number" step="any"
+                               name="numeric_val_{{ item.id }}"
+                               id="num_{{ item.id }}"
+                               placeholder="측정값"
+                               style="width:90px; padding:5px 8px; font-size:0.9rem; font-weight:600;
+                                      border:1.5px solid rgba(249,115,22,0.4); border-radius:7px;
+                                      background:var(--bg); color:var(--text-main); text-align:center;">
+                        {% if item.unit %}
+                        <span style="font-size:0.82rem; color:var(--text-sub); white-space:nowrap;">{{ item.unit }}</span>
+                        {% endif %}
+                        {% if item.min_val or item.max_val %}
+                        <span id="range_badge_{{ item.id }}"
+                              style="font-size:0.73rem; padding:2px 7px; border-radius:10px;
+                                     background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.2);
+                                     color:var(--text-sub); white-space:nowrap;">
+                          {{ item.min_val or '−' }}~{{ item.max_val or '∞' }}
+                        </span>
+                        {% endif %}
+                      </div>
+                      <input type="text" name="notes_item_{{ item.id }}"
+                             placeholder="비고" class="item-notes-input">
+                    </div>
+
+                    {% else %}
+                    {# ── 일반 항목 ── #}
                     <div class="item-result-group">
                       <label class="item-radio item-normal">
                         <input type="radio" name="result_item_{{ item.id }}" value="정상" checked>
@@ -345,6 +407,8 @@
                     </div>
                     <input type="text" name="notes_item_{{ item.id }}"
                            placeholder="비고" class="item-notes-input">
+                    {% endif %}
+
                   </td>
                 </tr>
               {% endfor %}
@@ -556,6 +620,19 @@
     if (dateInput) {
       dateInput.addEventListener('change', updateDateUI);
       updateDateUI(); // 초기 실행
+    }
+
+    // 수치항목: 수리중/휴동 선택 시 수치 입력 필드 숨김
+    function toggleNumericInput(sel, id) {
+      const wrap = document.getElementById('num_wrap_' + id);
+      const numInput = document.getElementById('num_' + id);
+      if (sel.value === '' ) {
+        wrap.style.display = 'flex';
+        if (numInput) numInput.disabled = false;
+      } else {
+        wrap.style.display = 'none';
+        if (numInput) { numInput.disabled = true; numInput.value = ''; }
+      }
     }
 
     // 결과 선택 시 행 강조

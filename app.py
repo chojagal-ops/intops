@@ -382,6 +382,9 @@ def init_db():
             item_name    TEXT NOT NULL,
             criteria     TEXT DEFAULT '',
             unit         TEXT DEFAULT '',
+            item_type    TEXT DEFAULT '일반',
+            min_val      TEXT DEFAULT '',
+            max_val      TEXT DEFAULT '',
             created_at   TEXT DEFAULT ({_now})
         )
     ''')
@@ -425,6 +428,9 @@ def init_db():
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_secondary TEXT DEFAULT ''",
             "ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_code TEXT DEFAULT ''",
             "ALTER TABLE password_reset_requests ADD COLUMN IF NOT EXISTS reset_expires TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT '일반'",
+            "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS min_val TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS max_val TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -446,6 +452,9 @@ def init_db():
             "ALTER TABLE equipment ADD COLUMN manager_secondary TEXT DEFAULT ''",
             "ALTER TABLE password_reset_requests ADD COLUMN reset_code TEXT DEFAULT ''",
             "ALTER TABLE password_reset_requests ADD COLUMN reset_expires TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN item_type TEXT DEFAULT '일반'",
+            "ALTER TABLE inspection_items ADD COLUMN min_val TEXT DEFAULT ''",
+            "ALTER TABLE inspection_items ADD COLUMN max_val TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -1168,14 +1177,21 @@ def admin_equipment_add():
             item_categories = request.form.getlist('item_category')
             item_criterias  = request.form.getlist('item_criteria')
             item_units      = request.form.getlist('item_unit')
+            item_types      = request.form.getlist('item_type')
+            item_mins       = request.form.getlist('item_min')
+            item_maxs       = request.form.getlist('item_max')
             for i, iname in enumerate(item_names):
                 if iname.strip():
-                    cat = item_categories[i] if i < len(item_categories) else ''
-                    cri = item_criterias[i]  if i < len(item_criterias)  else ''
-                    unt = item_units[i]      if i < len(item_units)       else ''
+                    cat   = item_categories[i] if i < len(item_categories) else ''
+                    cri   = item_criterias[i]  if i < len(item_criterias)  else ''
+                    unt   = item_units[i]       if i < len(item_units)      else ''
+                    itype = item_types[i]       if i < len(item_types)      else '일반'
+                    imin  = item_mins[i]        if i < len(item_mins)       else ''
+                    imax  = item_maxs[i]        if i < len(item_maxs)       else ''
                     conn.execute(
-                        'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit) VALUES (?,?,?,?,?,?)',
-                        (eq_id_new, i+1, cat.strip(), iname.strip(), cri.strip(), unt.strip())
+                        'INSERT INTO inspection_items (equipment_id, item_order, category, item_name, criteria, unit, item_type, min_val, max_val) VALUES (?,?,?,?,?,?,?,?,?)',
+                        (eq_id_new, i+1, cat.strip(), iname.strip(), cri.strip(), unt.strip(),
+                         itype.strip() or '일반', imin.strip(), imax.strip())
                     )
             conn.commit()
             flash(f'설비 "{name}" 이(가) 등록되었습니다.', 'success')
@@ -1482,9 +1498,44 @@ def inspect(eq_id):
             if db_items:
                 item_results = []
                 for item in db_items:
-                    r_val = request.form.get(f'result_item_{item["id"]}', '정상')
-                    n_val = request.form.get(f'notes_item_{item["id"]}', '')
-                    item_results.append((item['id'], r_val, n_val))
+                    itype = (item.get('item_type') or '일반')
+                    iid   = item['id']
+                    if itype == '수치':
+                        # 수리중/휴동 선택 여부 확인
+                        special = request.form.get(f'special_item_{iid}', '')
+                        if special in ('수리중', '휴동'):
+                            r_val = special
+                            n_val = request.form.get(f'notes_item_{iid}', '')
+                        else:
+                            # 수치 입력값 처리
+                            numeric_str = request.form.get(f'numeric_val_{iid}', '').strip()
+                            unit_label  = item.get('unit', '') or ''
+                            n_val = f"{numeric_str} {unit_label}".strip() if numeric_str else ''
+                            if numeric_str:
+                                try:
+                                    num   = float(numeric_str)
+                                    min_s = (item.get('min_val') or '').strip()
+                                    max_s = (item.get('max_val') or '').strip()
+                                    in_range = True
+                                    if min_s:
+                                        try:
+                                            if num < float(min_s): in_range = False
+                                        except ValueError:
+                                            pass
+                                    if max_s:
+                                        try:
+                                            if num > float(max_s): in_range = False
+                                        except ValueError:
+                                            pass
+                                    r_val = '정상' if in_range else '이상'
+                                except (ValueError, TypeError):
+                                    r_val = '이상'
+                            else:
+                                r_val = '정상'  # 값 미입력 = 정상
+                    else:
+                        r_val = request.form.get(f'result_item_{iid}', '정상')
+                        n_val = request.form.get(f'notes_item_{iid}', '')
+                    item_results.append((iid, r_val, n_val))
                 all_vals = [r for _, r, _ in item_results]
                 overall  = ('이상' if '이상' in all_vals else
                             '수리중' if '수리중' in all_vals else

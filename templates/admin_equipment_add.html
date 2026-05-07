@@ -257,20 +257,73 @@
 
     function addItem() {
       itemCount++;
+      const n = itemCount;
       const wrap = document.getElementById('items-wrap');
       const div = document.createElement('div');
-      div.id = 'item-' + itemCount;
-      div.style.cssText = 'display:grid; grid-template-columns:2fr 2fr 1fr 1fr auto; gap:6px; align-items:center; background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:10px;';
+      div.id = 'item-' + n;
+      div.style.cssText = 'background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:7px;';
       div.innerHTML = `
-        <input type="text" name="item_name" placeholder="점검항목명 *" style="font-size:0.82rem; padding:7px 10px;" required>
-        <input type="text" name="item_criteria" placeholder="판단기준" style="font-size:0.82rem; padding:7px 10px;">
-        <input type="text" name="item_unit" placeholder="점검주기" style="font-size:0.82rem; padding:7px 10px;">
-        <input type="text" name="item_category" placeholder="분류(선택)" style="font-size:0.82rem; padding:7px 10px;">
-        <button type="button" onclick="removeItem(${itemCount})"
-                style="padding:6px 10px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.2);
-                       border-radius:6px; color:#dc2626; cursor:pointer; font-size:0.85rem; white-space:nowrap;">✕</button>
+        <!-- 항목명 + 유형 + 삭제 -->
+        <div style="display:grid; grid-template-columns:1fr 130px auto; gap:6px; align-items:center;">
+          <input type="text" name="item_name" placeholder="점검항목명 *"
+                 style="font-size:0.83rem; padding:7px 10px;" required>
+          <select name="item_type" onchange="onItemTypeChange(this,${n})"
+                  style="font-size:0.83rem; padding:7px 8px; border:1px solid var(--border-mid);
+                         border-radius:7px; background:var(--card-bg); color:var(--text-main); cursor:pointer;">
+            <option value="일반">🔘 일반항목</option>
+            <option value="수치">🔢 수치입력</option>
+          </select>
+          <button type="button" onclick="removeItem(${n})"
+                  style="padding:6px 10px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.2);
+                         border-radius:6px; color:#dc2626; cursor:pointer; font-size:0.85rem; white-space:nowrap;">✕</button>
+        </div>
+
+        <!-- 일반항목 필드 (기본 표시) -->
+        <div id="g-fields-${n}" style="display:grid; grid-template-columns:2fr 1fr 1fr; gap:6px;">
+          <input type="text" name="item_criteria" placeholder="판단기준 (예: 온도 정상범위)"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <input type="text" name="item_unit" placeholder="단위/주기"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <input type="text" name="item_category" placeholder="분류(선택)"
+                 style="font-size:0.82rem; padding:6px 10px;">
+          <!-- 수치항목 전용 필드 (숨김, 빈값으로 제출) -->
+          <input type="hidden" name="item_min" value="">
+          <input type="hidden" name="item_max" value="">
+        </div>
+
+        <!-- 수치입력 필드 (기본 숨김) -->
+        <div id="n-fields-${n}" style="display:none; flex-direction:column; gap:6px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px;">
+            <input type="number" step="any" name="item_min" placeholder="최솟값"
+                   style="font-size:0.82rem; padding:6px 10px;">
+            <input type="number" step="any" name="item_max" placeholder="최댓값"
+                   style="font-size:0.82rem; padding:6px 10px;">
+            <input type="text" name="item_unit" placeholder="단위 (예: ℃, bar)"
+                   style="font-size:0.82rem; padding:6px 10px;">
+            <input type="text" name="item_category" placeholder="분류(선택)"
+                   style="font-size:0.82rem; padding:6px 10px;">
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); padding:0 2px;">
+            💡 최솟값~최댓값 범위를 벗어나면 자동으로 <strong style="color:#f97316;">이상</strong>으로 판정됩니다.
+            범위를 비워두면 범위 검사 없이 수치만 기록됩니다.
+          </div>
+          <!-- 일반항목 전용 필드 (숨김, 빈값으로 제출) -->
+          <input type="hidden" name="item_criteria" value="">
+        </div>
       `;
       wrap.appendChild(div);
+    }
+
+    function onItemTypeChange(sel, n) {
+      const gFields = document.getElementById('g-fields-' + n);
+      const nFields = document.getElementById('n-fields-' + n);
+      if (sel.value === '수치') {
+        gFields.style.display = 'none';
+        nFields.style.display = 'flex';
+      } else {
+        gFields.style.display = 'grid';
+        nFields.style.display = 'none';
+      }
     }
 
     function removeItem(id) {
