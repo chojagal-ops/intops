@@ -256,10 +256,9 @@
         </div>
       `;
       wrap.appendChild(div);
-      if (itype === '수치') {
-        const sel = div.querySelector('select[name=item_type]');
-        if (sel) onItemTypeChange(sel, n);
-      }
+      // 비활성 섹션의 inputs를 disabled 처리 (폼 전송 제외)
+      const typeSel = div.querySelector('select[name=item_type]');
+      if (typeSel) onItemTypeChange(typeSel, n);
     }
 
     function onItemTypeChange(sel, n) {
@@ -268,9 +267,13 @@
       if (sel.value === '수치') {
         gFields.style.display = 'none';
         nFields.style.display = 'flex';
+        gFields.querySelectorAll('input').forEach(el => el.disabled = true);
+        nFields.querySelectorAll('input').forEach(el => el.disabled = false);
       } else {
         gFields.style.display = 'grid';
         nFields.style.display = 'none';
+        gFields.querySelectorAll('input').forEach(el => el.disabled = false);
+        nFields.querySelectorAll('input').forEach(el => el.disabled = true);
       }
     }
 
