@@ -282,6 +282,22 @@
           동일 설비의 중복 점검은 허용되지 않습니다. 오류가 있을 경우 관리자에게 문의하세요.
         </div>
         {% endif %}
+
+        {% if today_insp.status == '점검완료' %}
+        <div style="text-align:center; margin-top:16px; padding-top:14px; border-top:1px solid rgba(249,115,22,0.15);">
+          <button type="button" onclick="enterEditMode()"
+                  style="padding:11px 32px; background:rgba(249,115,22,0.1); border:1.5px solid rgba(249,115,22,0.5);
+                         border-radius:10px; color:var(--orange); font-size:0.93rem; font-weight:700; cursor:pointer;
+                         transition:background 0.2s, transform 0.1s;"
+                  onmouseover="this.style.background='rgba(249,115,22,0.18)'"
+                  onmouseout="this.style.background='rgba(249,115,22,0.1)'">
+            ✏️ 점검 내용 수정하기
+          </button>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">
+            승인 전에만 수정 가능합니다
+          </div>
+        </div>
+        {% endif %}
       </div>
       {% endif %}
 
@@ -661,6 +677,8 @@
     // 날짜 선택기 동작
     const todayStr = '{{ today_date }}';
     const hasTodayInsp = {{ 'true' if today_insp else 'false' }};
+    const detailsJson  = {{ details_json | safe }};
+    const todayInspNotes = {% if today_insp %}{{ (today_insp.notes or '') | tojson }}{% else %}''{% endif %};
     const dateInput   = document.getElementById('inspect_date');
     const pastNotice  = document.getElementById('past-date-notice');
     const dupNotice   = document.getElementById('today-dup-notice');
@@ -781,6 +799,72 @@
         if (this.value === '휴동' || this.value === '해당없음') row.classList.add('row-na');
       });
     });
+
+    // ── 수정 모드 진입 (승인 대기 상태에서 기존 점검 내용 수정) ──────────────
+    function enterEditMode() {
+      // 1) hidden action → resubmit
+      const actionInput = document.querySelector('#inspect-form input[name="action"]');
+      if (actionInput) actionInput.value = 'resubmit';
+
+      // 2) 기존 점검 세부 항목 미리 채우기
+      if (Array.isArray(detailsJson)) {
+        detailsJson.forEach(function(d) {
+          const iid      = d.item_id;
+          const itemType = d.item_type || '일반';
+          const result   = d.result    || '';
+          const dNotes   = d.detail_notes || '';
+
+          if (itemType === '수치') {
+            const specialSel = document.getElementById('special_' + iid);
+            const numInput   = document.getElementById('num_'     + iid);
+
+            if (result === '수리중' || result === '휴동') {
+              // 특수상태(수리중/휴동) 복원
+              if (specialSel) {
+                specialSel.value = result;
+                toggleNumericInput(specialSel, iid);
+              }
+            } else {
+              // 수치 측정값 복원 (detail_notes에 숫자값이 저장됨)
+              if (numInput) {
+                numInput.value = dNotes;
+                numInput.dispatchEvent(new Event('input')); // 범위 경고 표시
+              }
+            }
+          } else {
+            // 일반 항목 라디오 복원
+            const radios = document.querySelectorAll('input[name="result_item_' + iid + '"]');
+            radios.forEach(function(r) {
+              if (r.value === result) { r.checked = true; r.dispatchEvent(new Event('change')); }
+            });
+            // 비고 복원
+            const notesEl = document.querySelector(
+              'input[name="notes_item_' + iid + '"], textarea[name="notes_item_' + iid + '"]');
+            if (notesEl) notesEl.value = dNotes;
+          }
+        });
+      }
+
+      // 3) 종합 특이사항 복원
+      const notesTA = document.querySelector('#inspect-form textarea[name="notes"]');
+      if (notesTA) notesTA.value = todayInspNotes;
+
+      // 4) 제출 버튼 활성화 + 텍스트 변경
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.innerHTML = '🔄 수정 제출';
+        submitBtn.style.background = 'var(--orange)';
+      }
+
+      // 5) 오늘 점검 정보 박스 & 중복 경고 숨김
+      if (todayInfo)  todayInfo.style.display  = 'none';
+      if (dupNotice)  dupNotice.style.display  = 'none';
+
+      // 6) 폼으로 스크롤
+      const form = document.getElementById('inspect-form');
+      if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   </script>
   <script src="/static/nav.js"></script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>

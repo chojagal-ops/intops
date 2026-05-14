@@ -1671,6 +1671,107 @@ def inspect(eq_id):
             flash('점검이 완료되었습니다. 승인자에게 알림이 발송됩니다.', 'success')
             return redirect(url_for('inspect', eq_id=eq_id))
 
+        elif action == 'resubmit' and is_inspector:
+            # ── 승인 대기 중 점검 수정 제출 ───────────────────────────
+            if not today_insp or today_insp['status'] != '점검완료':
+                flash('수정할 수 있는 점검 기록이 없습니다. (이미 승인됐거나 기록 없음)', 'warning')
+                return redirect(url_for('inspect', eq_id=eq_id))
+
+            ins_id        = today_insp['id']
+            inspected_at  = today_insp['inspected_at']  # 원래 날짜·시각 유지
+            overall_notes = request.form.get('notes', '').strip()
+
+            if db_items:
+                item_results = []
+                for item in db_items:
+                    itype = item['item_type'] or '일반'
+                    iid   = item['id']
+                    if itype == '수치':
+                        special = request.form.get(f'special_item_{iid}', '')
+                        if special in ('수리중', '휴동'):
+                            r_val = special
+                            n_val = request.form.get(f'notes_item_{iid}', '')
+                        else:
+                            numeric_str = request.form.get(f'numeric_val_{iid}', '').strip()
+                            unit_label  = item['unit'] or ''
+                            n_val = f"{numeric_str} {unit_label}".strip() if numeric_str else ''
+                            if numeric_str:
+                                try:
+                                    num   = float(numeric_str)
+                                    min_s = (item['min_val'] or '').strip()
+                                    max_s = (item['max_val'] or '').strip()
+                                    in_range = True
+                                    if min_s:
+                                        try:
+                                            if num < float(min_s): in_range = False
+                                        except ValueError: pass
+                                    if max_s:
+                                        try:
+                                            if num > float(max_s): in_range = False
+                                        except ValueError: pass
+                                    r_val = '정상' if in_range else '이상'
+                                except (ValueError, TypeError):
+                                    r_val = '이상'
+                            else:
+                                r_val = '정상'
+                    else:
+                        r_val = request.form.get(f'result_item_{iid}', '정상')
+                        n_val = request.form.get(f'notes_item_{iid}', '')
+                    item_results.append((iid, r_val, n_val))
+
+                all_vals = [r for _, r, _ in item_results]
+                overall  = ('이상'  if '이상'  in all_vals else
+                            '수리중' if '수리중' in all_vals else
+                            '휴동'  if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
+
+                # 기존 세부항목 삭제 후 재저장
+                conn.execute('DELETE FROM inspection_details WHERE inspection_id=?', (ins_id,))
+                conn.execute(
+                    'UPDATE inspections SET result=?, notes=?, inspected_at=? WHERE id=?',
+                    (overall, overall_notes, inspected_at, ins_id)
+                )
+                for item_id, r_val, n_val in item_results:
+                    conn.execute(
+                        'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES (?,?,?,?,?)',
+                        (ins_id, 0, item_id, r_val, n_val)
+                    )
+                conn.commit()
+
+            elif tmpl_rows:
+                item_results = []
+                for idx, row in enumerate(tmpl_rows):
+                    if not row['is_item']:
+                        continue
+                    r_val = request.form.get(f'result_{idx}', '정상')
+                    n_val = request.form.get(f'notes_{idx}', '')
+                    item_results.append((idx, r_val, n_val))
+                all_vals = [r for _, r, _ in item_results]
+                overall  = ('이상'  if '이상'  in all_vals else
+                            '수리중' if '수리중' in all_vals else
+                            '휴동'  if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
+                conn.execute('DELETE FROM inspection_details WHERE inspection_id=?', (ins_id,))
+                conn.execute(
+                    'UPDATE inspections SET result=?, notes=?, inspected_at=? WHERE id=?',
+                    (overall, overall_notes, inspected_at, ins_id)
+                )
+                for idx, r_val, n_val in item_results:
+                    conn.execute(
+                        'INSERT INTO inspection_details (inspection_id, row_index, result, detail_notes) VALUES (?,?,?,?)',
+                        (ins_id, idx, r_val, n_val)
+                    )
+                conn.commit()
+
+            else:
+                result = request.form.get('result', '정상')
+                conn.execute(
+                    'UPDATE inspections SET result=?, notes=?, inspected_at=? WHERE id=?',
+                    (result, overall_notes, inspected_at, ins_id)
+                )
+                conn.commit()
+
+            flash('점검 내용이 수정되었습니다.', 'success')
+            return redirect(url_for('inspect', eq_id=eq_id))
+
         elif action == 'approve' and is_approver:
             ins_id = request.form.get('inspection_id')
             approved_ins = conn.execute(
@@ -1723,6 +1824,19 @@ def inspect(eq_id):
 
     now = now_kst()
     today_date = now.strftime('%Y-%m-%d')
+
+    # 수정용 기존 점검 데이터 JSON (승인 대기 중일 때 폼 사전 입력용)
+    details_for_edit = []
+    if today_insp and today_insp['status'] == '점검완료':
+        for d in today_insp_details:
+            details_for_edit.append({
+                'item_id':      d['item_id'],
+                'result':       d['result'] or '',
+                'detail_notes': d['detail_notes'] or '',
+                'item_type':    d['item_type'] or '일반',
+            })
+    details_json = json.dumps(details_for_edit, ensure_ascii=False)
+
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
@@ -1730,7 +1844,8 @@ def inspect(eq_id):
                            db_items=db_items, today_insp=today_insp,
                            today_insp_details=today_insp_details,
                            today_date=today_date,
-                           now_year=now.year, now_month=now.month)
+                           now_year=now.year, now_month=now.month,
+                           details_json=details_json)
 
 
 # ── 일별 점검 결과 (전체 설비) ───────────────────────────────────────────────
