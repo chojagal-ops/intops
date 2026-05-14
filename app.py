@@ -1853,6 +1853,14 @@ def bulk_inspect():
     conn = get_db()
     today_str = now_kst().strftime('%Y-%m-%d')
 
+    # DB Row → 순수 Python dict 변환 (POST/GET 공용)
+    def _to_dict(row):
+        if row is None:
+            return None
+        if isinstance(row, dict):
+            return dict(row)
+        return {k: row[k] for k in row.keys()}
+
     if request.method == 'POST':
         inspect_date = request.form.get('inspect_date', '').strip()
         if not inspect_date:
@@ -1869,133 +1877,132 @@ def bulk_inspect():
         success_count = 0
         skip_count = 0
 
-        for eq_id_str in eq_ids:
-            eq_id = int(eq_id_str)
+        try:
+            for eq_id_str in eq_ids:
+                eq_id = int(eq_id_str)
 
-            # 건너뜀 체크박스
-            if request.form.get(f'skip_eq_{eq_id}'):
-                skip_count += 1
-                continue
+                if request.form.get(f'skip_eq_{eq_id}'):
+                    skip_count += 1
+                    continue
 
-            # 해당 날짜 이미 점검됐으면 건너뜀
-            date_insp = conn.execute(f'''
-                SELECT id FROM inspections
-                WHERE equipment_id=? AND {conn.date_col("inspected_at")}=?
-                AND status IN ('점검완료','승인완료')
-            ''', (eq_id, inspect_date)).fetchone()
-            if date_insp:
-                skip_count += 1
-                continue
+                date_insp = conn.execute(f'''
+                    SELECT id FROM inspections
+                    WHERE equipment_id=? AND {conn.date_col("inspected_at")}=?
+                    AND status IN ('점검완료','승인완료')
+                ''', (eq_id, inspect_date)).fetchone()
+                if date_insp:
+                    skip_count += 1
+                    continue
 
-            eq = conn.execute('SELECT * FROM equipment WHERE id=?', (eq_id,)).fetchone()
-            if not eq:
-                continue
+                eq = _to_dict(conn.execute(
+                    'SELECT * FROM equipment WHERE id=?', (eq_id,)
+                ).fetchone())
+                if not eq:
+                    continue
 
-            db_items = conn.execute(
-                'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
-                (eq_id,)
-            ).fetchall()
+                db_items = [_to_dict(r) for r in conn.execute(
+                    'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
+                    (eq_id,)
+                ).fetchall()]
 
-            overall_notes = request.form.get(f'notes_eq_{eq_id}', '').strip()
+                overall_notes = request.form.get(f'notes_eq_{eq_id}', '').strip()
 
-            if db_items:
-                item_results = []
-                for item in db_items:
-                    itype = (item.get('item_type') or '일반')
-                    iid = item['id']
-                    if itype == '수치':
-                        special = request.form.get(f'special_item_{iid}', '')
-                        if special in ('수리중', '휴동'):
-                            r_val = special
-                            n_val = request.form.get(f'notes_item_{iid}', '')
-                        else:
-                            numeric_str = request.form.get(f'numeric_val_{iid}', '').strip()
-                            unit_label = item.get('unit', '') or ''
-                            n_val = f"{numeric_str} {unit_label}".strip() if numeric_str else ''
-                            if numeric_str:
-                                try:
-                                    num = float(numeric_str)
-                                    min_s = (item.get('min_val') or '').strip()
-                                    max_s = (item.get('max_val') or '').strip()
-                                    in_range = True
-                                    if min_s:
-                                        try:
-                                            if num < float(min_s): in_range = False
-                                        except ValueError:
-                                            pass
-                                    if max_s:
-                                        try:
-                                            if num > float(max_s): in_range = False
-                                        except ValueError:
-                                            pass
-                                    r_val = '정상' if in_range else '이상'
-                                except (ValueError, TypeError):
-                                    r_val = '이상'
+                if db_items:
+                    item_results = []
+                    for item in db_items:
+                        itype = item.get('item_type') or '일반'
+                        iid   = item['id']
+                        if itype == '수치':
+                            special = request.form.get(f'special_item_{iid}', '')
+                            if special in ('수리중', '휴동'):
+                                r_val = special
+                                n_val = request.form.get(f'notes_item_{iid}', '')
                             else:
-                                r_val = '정상'
-                    else:
-                        r_val = request.form.get(f'result_item_{iid}', '정상')
-                        n_val = request.form.get(f'notes_item_{iid}', '')
-                    item_results.append((iid, r_val, n_val))
+                                numeric_str = request.form.get(f'numeric_val_{iid}', '').strip()
+                                unit_label  = item.get('unit') or ''
+                                n_val = f"{numeric_str} {unit_label}".strip() if numeric_str else ''
+                                if numeric_str:
+                                    try:
+                                        num   = float(numeric_str)
+                                        min_s = (item.get('min_val') or '').strip()
+                                        max_s = (item.get('max_val') or '').strip()
+                                        in_range = True
+                                        if min_s:
+                                            try:
+                                                if num < float(min_s): in_range = False
+                                            except ValueError:
+                                                pass
+                                        if max_s:
+                                            try:
+                                                if num > float(max_s): in_range = False
+                                            except ValueError:
+                                                pass
+                                        r_val = '정상' if in_range else '이상'
+                                    except (ValueError, TypeError):
+                                        r_val = '이상'
+                                else:
+                                    r_val = '정상'
+                        else:
+                            r_val = request.form.get(f'result_item_{iid}', '정상')
+                            n_val = request.form.get(f'notes_item_{iid}', '')
+                        item_results.append((iid, r_val, n_val))
 
-                all_vals = [r for _, r, _ in item_results]
-                overall = ('이상' if '이상' in all_vals else
-                           '수리중' if '수리중' in all_vals else
-                           '휴동' if all(r in ('휴동', '해당없음') for r in all_vals) else '정상')
+                    all_vals = [r for _, r, _ in item_results]
+                    overall  = ('이상'  if '이상'  in all_vals else
+                                '수리중' if '수리중' in all_vals else
+                                '휴동'  if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
 
-                ins_id = conn.insert(
-                    "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
-                    (eq_id, session['user_id'], overall, overall_notes, inspected_at)
-                )
-                for item_id, r_val, n_val in item_results:
-                    conn.execute(
-                        'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES (?,?,?,?,?)',
-                        (ins_id, 0, item_id, r_val, n_val)
+                    ins_id = conn.insert(
+                        "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
+                        (eq_id, session['user_id'], overall, overall_notes, inspected_at)
                     )
-                conn.commit()
-                success_count += 1
-
-                if eq['approver_id']:
-                    approver = conn.execute(
-                        'SELECT name, email FROM users WHERE id=?', (eq['approver_id'],)
-                    ).fetchone()
-                    if approver and approver['email']:
-                        send_approval_request(
-                            to_email=approver['email'],
-                            approver_name=approver['name'],
-                            inspector_name=session['user_name'],
-                            eq_name=eq['name'],
-                            location=eq.get('location') or '-',
-                            result=overall,
-                            notes=overall_notes,
-                            eq_id=eq_id,
-                            host_url=request.host_url,
+                    for item_id, r_val, n_val in item_results:
+                        conn.execute(
+                            'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES (?,?,?,?,?)',
+                            (ins_id, 0, item_id, r_val, n_val)
                         )
-            else:
-                # 항목 없는 설비 - 단순 결과
-                result = request.form.get(f'simple_result_eq_{eq_id}', '정상')
-                conn.execute(
-                    '''INSERT INTO inspections
-                       (equipment_id, inspector_id, result, notes, status, inspected_at)
-                       VALUES (?,?,?,?,'점검완료',?)''',
-                    (eq_id, session['user_id'], result, overall_notes, inspected_at)
-                )
-                conn.commit()
-                success_count += 1
+                    conn.commit()
+                    success_count += 1
+
+                    approver_id = eq.get('approver_id')
+                    if approver_id:
+                        approver = _to_dict(conn.execute(
+                            'SELECT name, email FROM users WHERE id=?', (approver_id,)
+                        ).fetchone())
+                        if approver and approver.get('email'):
+                            send_approval_request(
+                                to_email       = approver['email'],
+                                approver_name  = approver['name'],
+                                inspector_name = session['user_name'],
+                                eq_name        = eq.get('name', ''),
+                                location       = eq.get('location') or '-',
+                                result         = overall,
+                                notes          = overall_notes,
+                                eq_id          = eq_id,
+                                host_url       = request.host_url,
+                            )
+                else:
+                    result = request.form.get(f'simple_result_eq_{eq_id}', '정상')
+                    conn.execute(
+                        '''INSERT INTO inspections
+                           (equipment_id, inspector_id, result, notes, status, inspected_at)
+                           VALUES (?,?,?,?,'점검완료',?)''',
+                        (eq_id, session['user_id'], result, overall_notes, inspected_at)
+                    )
+                    conn.commit()
+                    success_count += 1
+
+        except Exception as e:
+            app.logger.exception('bulk_inspect POST error')
+            conn.close()
+            flash(f'저장 중 오류가 발생했습니다: {e}', 'error')
+            return redirect(url_for('bulk_inspect'))
 
         conn.close()
         flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
         return redirect(url_for('bulk_inspect'))
 
     # GET: 모든 설비 + 항목 + 오늘 점검 여부 로드
-    def _to_dict(row):
-        """DB Row(sqlite3.Row / _PGRow) → 순수 Python dict 변환"""
-        if row is None:
-            return None
-        if isinstance(row, dict):
-            return dict(row)
-        return {k: row[k] for k in row.keys()}
-
     try:
         equipments = conn.execute('''
             SELECT e.*, a.name AS approver_name
