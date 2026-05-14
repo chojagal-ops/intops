@@ -2009,7 +2009,7 @@ def bulk_inspect():
         ''', (eq_id,)).fetchone()
         eq_data.append({
             'eq': eq,
-            'items': db_items,
+            'eq_items': db_items,
             'already_done': bool(today_insp)
         })
 

@@ -210,7 +210,7 @@
       {% set total = eq_data | length %}
       {% for item in eq_data %}
       {% set eq = item.eq %}
-      {% set items = item.items %}
+      {% set items = item.eq_items %}
       {% set done = item.already_done %}
 
       <div class="bulk-eq-card {{ 'already-done' if done else '' }}"
