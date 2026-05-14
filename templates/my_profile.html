@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 정보 관리 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 4px;
+    }
+    @media (max-width: 700px) {
+      .profile-grid { grid-template-columns: 1fr; }
+    }
+    .profile-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 24px 20px;
+    }
+    .profile-section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .profile-section-title span.icon {
+      font-size: 1.1rem;
+    }
+    .read-field {
+      background: rgba(0,0,0,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .field-note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      margin-top: 3px;
+    }
+    .badge-role {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(249,115,22,0.12);
+      color: var(--orange);
+      border: 1px solid rgba(249,115,22,0.25);
+    }
+    .divider-h {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 18px 0;
+    }
+    .pw-toggle-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 0 8px;
+      font-size: 1rem;
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap input {
+      padding-right: 38px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-decoration: none;
+      margin-bottom: 18px;
+      transition: color 0.15s;
+    }
+    .back-btn:hover { color: var(--orange); }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      {% if session.is_admin %}
+        <a href="/admin" class="nav-link">관리자</a>
+      {% else %}
+        <a href="/dashboard" class="nav-link">홈</a>
+        <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+        <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+        <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      {% endif %}
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
+      <a href="/help" class="help-btn">❓ 도움말</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card card-wide">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <a href="javascript:history.back()" class="back-btn">← 이전 페이지로</a>
+
+      <div class="card-header" style="text-align:left; margin-bottom:20px;">
+        <div class="card-title">👤 내 정보 관리</div>
+        <div class="card-desc">연락처·소속 팀·비밀번호를 직접 수정할 수 있습니다.</div>
+      </div>
+
+      <div class="profile-grid">
+
+        <!-- 왼쪽: 기본 정보 수정 -->
+        <div class="profile-section">
+          <div class="profile-section-title"><span class="icon">📋</span> 기본 정보</div>
+
+          <!-- 읽기 전용 -->
+          <div class="form-group" style="margin-bottom:6px;">
+            <label>성 명</label>
+            <div class="read-field">{{ user.name }}</div>
+            <div class="field-note">이름 변경은 관리자에게 문의하세요.</div>
+          </div>
+          <div class="form-group" style="margin-bottom:6px;">
+            <label>사 번</label>
+            <div class="read-field">{{ user.employee_id }}</div>
+            <div class="field-note">사번은 변경할 수 없습니다.</div>
+          </div>
+          <div class="form-group" style="margin-bottom:6px;">
+            <label>역 할</label>
+            <div class="read-field">
+              <span class="badge-role">{{ user.role or '점검자' }}</span>
+              {% if user.is_admin %}<span class="badge-role" style="margin-left:6px;">관리자</span>{% endif %}
+            </div>
+            <div class="field-note">역할 변경은 관리자에게 문의하세요.</div>
+          </div>
+
+          <hr class="divider-h">
+
+          <!-- 수정 가능 -->
+          <form method="POST" action="/my-profile">
+            <input type="hidden" name="action" value="info">
+
+            <div class="form-group">
+              <label>이메일 주소</label>
+              <input type="email" name="email" value="{{ user.email or '' }}" placeholder="example@company.com">
+            </div>
+            <div class="form-group">
+              <label>핸드폰 번호</label>
+              <input type="tel" name="phone" value="{{ user.phone or '' }}" placeholder="010-0000-0000">
+            </div>
+            <div class="form-group">
+              <label>소속 팀</label>
+              <select name="team">
+                {% for t in teams %}
+                <option value="{{ t }}" {% if user.team == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:4px;">
+              💾 정보 저장
+            </button>
+          </form>
+        </div>
+
+        <!-- 오른쪽: 비밀번호 변경 -->
+        <div class="profile-section">
+          <div class="profile-section-title"><span class="icon">🔑</span> 비밀번호 변경</div>
+
+          <form method="POST" action="/my-profile" id="pw-form">
+            <input type="hidden" name="action" value="password">
+
+            <div class="form-group">
+              <label>현재 비밀번호</label>
+              <div class="input-wrap">
+                <input type="password" name="current_password" id="cur-pw" placeholder="현재 비밀번호 입력" required>
+                <button type="button" class="pw-toggle-btn" onclick="togglePw('cur-pw', this)" tabindex="-1">👁</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>새 비밀번호</label>
+              <div class="input-wrap">
+                <input type="password" name="new_password" id="new-pw" placeholder="새 비밀번호 (4자 이상)" required minlength="4">
+                <button type="button" class="pw-toggle-btn" onclick="togglePw('new-pw', this)" tabindex="-1">👁</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>새 비밀번호 확인</label>
+              <div class="input-wrap">
+                <input type="password" name="new_password2" id="new-pw2" placeholder="새 비밀번호 재입력" required minlength="4">
+                <button type="button" class="pw-toggle-btn" onclick="togglePw('new-pw2', this)" tabindex="-1">👁</button>
+              </div>
+              <div id="pw-match-msg" style="font-size:0.78rem; margin-top:4px;"></div>
+            </div>
+
+            <div style="background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.2); border-radius:10px; padding:12px 14px; font-size:0.82rem; color:var(--text-muted); margin-bottom:18px; line-height:1.7;">
+              <strong style="color:var(--orange);">비밀번호 안내</strong><br>
+              • 최소 4자 이상 설정하세요.<br>
+              • 타인이 유추하기 어려운 비밀번호를 사용하세요.<br>
+              • 변경 후 다시 로그인할 필요 없이 바로 적용됩니다.
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;" id="pw-submit-btn">
+              🔐 비밀번호 변경
+            </button>
+          </form>
+        </div>
+
+      </div><!-- /profile-grid -->
+
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
+
+    function togglePw(inputId, btn) {
+      const inp = document.getElementById(inputId);
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        inp.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+
+    // 새 비밀번호 일치 여부 실시간 표시
+    const newPw  = document.getElementById('new-pw');
+    const newPw2 = document.getElementById('new-pw2');
+    const matchMsg = document.getElementById('pw-match-msg');
+    const submitBtn = document.getElementById('pw-submit-btn');
+
+    function checkMatch() {
+      if (!newPw2.value) {
+        matchMsg.textContent = '';
+        submitBtn.disabled = false;
+        return;
+      }
+      if (newPw.value === newPw2.value) {
+        matchMsg.textContent = '✔ 비밀번호가 일치합니다.';
+        matchMsg.style.color = '#16a34a';
+        submitBtn.disabled = false;
+      } else {
+        matchMsg.textContent = '✖ 비밀번호가 일치하지 않습니다.';
+        matchMsg.style.color = '#dc2626';
+        submitBtn.disabled = true;
+      }
+    }
+    newPw.addEventListener('input', checkMatch);
+    newPw2.addEventListener('input', checkMatch);
+  </script>
+</body>
+</html>

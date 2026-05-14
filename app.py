@@ -3011,6 +3011,63 @@ def admin_backup():
     )
 
 
+# ── 내 정보 관리 ─────────────────────────────────────────────────────────────
+@app.route('/my-profile', methods=['GET', 'POST'])
+@login_required
+def my_profile():
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE id=?', (session['user_id'],)).fetchone()
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'info')
+
+        if action == 'info':
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            team  = request.form.get('team', '').strip()
+            conn.execute(
+                'UPDATE users SET email=?, phone=?, team=? WHERE id=?',
+                (email, phone, team, session['user_id'])
+            )
+            conn.commit()
+            conn.close()
+            flash('개인정보가 저장되었습니다.', 'success')
+            return redirect(url_for('my_profile'))
+
+        elif action == 'password':
+            cur_pw   = request.form.get('current_password', '')
+            new_pw   = request.form.get('new_password', '')
+            new_pw2  = request.form.get('new_password2', '')
+
+            if not check_pw(user['password'], cur_pw):
+                conn.close()
+                flash('현재 비밀번호가 올바르지 않습니다.', 'error')
+                return redirect(url_for('my_profile'))
+            if len(new_pw) < 4:
+                conn.close()
+                flash('새 비밀번호는 4자 이상이어야 합니다.', 'error')
+                return redirect(url_for('my_profile'))
+            if new_pw != new_pw2:
+                conn.close()
+                flash('새 비밀번호가 일치하지 않습니다.', 'error')
+                return redirect(url_for('my_profile'))
+
+            conn.execute(
+                'UPDATE users SET password=? WHERE id=?',
+                (hash_pw(new_pw), session['user_id'])
+            )
+            conn.commit()
+            conn.close()
+            flash('비밀번호가 변경되었습니다.', 'success')
+            return redirect(url_for('my_profile'))
+
+        conn.close()
+        return redirect(url_for('my_profile'))
+
+    conn.close()
+    return render_template('my_profile.html', user=user, teams=TEAMS)
+
+
 # ── 로그아웃 ──────────────────────────────────────────────────────────────────
 @app.route('/logout')
 def logout():
