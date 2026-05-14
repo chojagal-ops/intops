@@ -2167,6 +2167,138 @@ def bulk_inspect():
                            today_date=today_str, selected_date=selected_date)
 
 
+# ── 일괄 승인 ─────────────────────────────────────────────────────────────────
+@app.route('/bulk-approve', methods=['GET', 'POST'])
+@login_required
+def bulk_approve():
+    # 승인자 또는 관리자만 접근 허용
+    if not (session.get('is_admin') or session.get('role') == '승인자'):
+        flash('승인 권한이 없습니다.', 'error')
+        return redirect(url_for('dashboard'))
+
+    conn = get_db()
+    today_str = now_kst().strftime('%Y-%m-%d')
+
+    def _to_dict(row):
+        if row is None:
+            return None
+        if isinstance(row, dict):
+            return dict(row)
+        return {k: row[k] for k in row.keys()}
+
+    if request.method == 'POST':
+        selected_date = request.form.get('approve_date', today_str).strip()
+        try:
+            datetime.strptime(selected_date, '%Y-%m-%d')
+        except ValueError:
+            selected_date = today_str
+        if selected_date > today_str:
+            selected_date = today_str
+
+        ins_ids = request.form.getlist('ins_ids')
+        if not ins_ids:
+            flash('승인할 항목을 선택하세요.', 'warning')
+            conn.close()
+            return redirect(url_for('bulk_approve', date=selected_date))
+
+        success_count = 0
+        try:
+            for ins_id in ins_ids:
+                insp = _to_dict(conn.execute(
+                    "SELECT * FROM inspections WHERE id=? AND status='점검완료'", (ins_id,)
+                ).fetchone())
+                if not insp:
+                    continue
+
+                # 관리자가 아닌 경우 해당 설비의 승인자인지 확인
+                if not session.get('is_admin'):
+                    eq_check = conn.execute(
+                        'SELECT id FROM equipment WHERE id=? AND approver_id=?',
+                        (insp['equipment_id'], session['user_id'])
+                    ).fetchone()
+                    if not eq_check:
+                        continue
+
+                conn.execute(
+                    f'''UPDATE inspections
+                           SET status='승인완료', approved_by=?, approved_at={conn.now_fn}
+                         WHERE id=? AND status='점검완료' ''',
+                    (session['user_id'], ins_id)
+                )
+                # 같은 날 같은 설비의 나머지 대기 건 모두 삭제
+                ins_date = insp['inspected_at'][:10]
+                conn.execute(
+                    f'''DELETE FROM inspections
+                         WHERE equipment_id=? AND status='점검완료' AND id!=?
+                           AND {conn.date_col("inspected_at")}=?''',
+                    (insp['equipment_id'], ins_id, ins_date)
+                )
+                success_count += 1
+        except Exception as e:
+            app.logger.exception('bulk_approve POST error')
+            conn.close()
+            flash(f'승인 처리 중 오류가 발생했습니다: {e}', 'error')
+            return redirect(url_for('bulk_approve', date=selected_date))
+
+        conn.commit()
+        conn.close()
+        flash(f'일괄 승인 완료 ✅  {success_count}건 처리', 'success')
+        return redirect(url_for('bulk_approve', date=selected_date))
+
+    # GET
+    selected_date = request.args.get('date', today_str).strip()
+    try:
+        datetime.strptime(selected_date, '%Y-%m-%d')
+    except ValueError:
+        selected_date = today_str
+    if selected_date > today_str:
+        selected_date = today_str
+
+    try:
+        if session.get('is_admin'):
+            rows = conn.execute(f'''
+                SELECT i.id, i.equipment_id, i.result, i.notes, i.inspected_at,
+                       e.name AS eq_name, e.location, e.department,
+                       u.name AS inspector_name,
+                       a.name AS approver_name
+                FROM inspections i
+                JOIN equipment e ON i.equipment_id = e.id
+                JOIN users u ON i.inspector_id = u.id
+                LEFT JOIN users a ON e.approver_id = a.id
+                WHERE i.status = '점검완료'
+                  AND {conn.date_col("i.inspected_at")} = ?
+                ORDER BY e.name, i.inspected_at
+            ''', (selected_date,)).fetchall()
+        else:
+            rows = conn.execute(f'''
+                SELECT i.id, i.equipment_id, i.result, i.notes, i.inspected_at,
+                       e.name AS eq_name, e.location, e.department,
+                       u.name AS inspector_name,
+                       a.name AS approver_name
+                FROM inspections i
+                JOIN equipment e ON i.equipment_id = e.id
+                JOIN users u ON i.inspector_id = u.id
+                LEFT JOIN users a ON e.approver_id = a.id
+                WHERE i.status = '점검완료'
+                  AND e.approver_id = ?
+                  AND {conn.date_col("i.inspected_at")} = ?
+                ORDER BY e.name, i.inspected_at
+            ''', (session['user_id'], selected_date)).fetchall()
+
+        pending_list = [_to_dict(r) for r in rows]
+    except Exception as e:
+        app.logger.exception('bulk_approve GET error')
+        conn.close()
+        flash(f'페이지 로드 중 오류가 발생했습니다: {e}', 'error')
+        return redirect(url_for('dashboard'))
+
+    conn.close()
+    return render_template('bulk_approve.html',
+                           pending_list=pending_list,
+                           today_date=today_str,
+                           selected_date=selected_date)
+
+
 @app.route('/daily-results')
 @login_required
 def daily_results():

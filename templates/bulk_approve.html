@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>일괄 승인 - INTOPS</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    .bulk-wrap { max-width:900px; margin:0 auto; padding:24px 20px 80px; }
+
+    .bulk-topbar {
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      margin-bottom:20px; padding:14px 18px;
+      background:var(--bg); border:1.5px solid var(--border); border-radius:12px;
+      position:sticky; top:56px; z-index:100;
+      box-shadow:0 2px 10px rgba(0,0,0,0.07);
+    }
+    .bulk-topbar .title { font-size:1.05rem; font-weight:700; color:var(--text); flex-shrink:0; }
+    .bulk-date-input {
+      padding:6px 10px; font-size:0.85rem; border-radius:7px;
+      border:1.5px solid var(--border); background:var(--bg-subtle); color:var(--text);
+    }
+
+    .pend-card {
+      background:var(--bg); border:1.5px solid var(--border);
+      border-radius:11px; margin-bottom:8px;
+      display:flex; align-items:center; gap:14px;
+      padding:14px 16px; cursor:pointer;
+      transition:border-color 0.15s, background 0.15s;
+    }
+    .pend-card:hover { border-color:rgba(249,115,22,0.4); background:var(--orange-faint); }
+    .pend-card.selected { border-color:var(--orange); background:rgba(249,115,22,0.06); }
+    .pend-card.result-abnormal { border-left:4px solid #f97316; }
+    .pend-card.result-repair   { border-left:4px solid #dc2626; }
+
+    .pend-chk {
+      width:20px; height:20px; accent-color:var(--orange);
+      cursor:pointer; flex-shrink:0;
+    }
+    .pend-eq-name { font-weight:700; font-size:0.93rem; }
+    .pend-meta { font-size:0.78rem; color:var(--text-sub); margin-top:3px; }
+    .pend-right { margin-left:auto; text-align:right; flex-shrink:0; }
+
+    .cnt-badge {
+      font-size:0.8rem; font-weight:700; padding:4px 12px; border-radius:20px;
+      background:rgba(249,115,22,0.12); color:var(--orange); white-space:nowrap;
+    }
+    .sel-all-btn {
+      padding:7px 13px; font-size:0.8rem; white-space:nowrap; cursor:pointer;
+      background:var(--bg-subtle); border:1px solid var(--border); border-radius:7px;
+      color:var(--text-sub); font-weight:600;
+    }
+    .sel-all-btn:hover { border-color:var(--orange); color:var(--orange); }
+
+    .submit-bar {
+      position:fixed; bottom:0; left:0; right:0; z-index:200;
+      background:var(--bg); border-top:1.5px solid var(--border);
+      padding:11px 20px; display:flex; justify-content:center; align-items:center; gap:12px;
+      box-shadow:0 -2px 10px rgba(0,0,0,0.09);
+    }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+    .empty-state .icon { font-size:3rem; margin-bottom:14px; }
+
+    @media (max-width:600px) {
+      .bulk-topbar { top:0; }
+      .pend-card { flex-wrap:wrap; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="bulk-wrap">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}" style="margin-bottom:12px;">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" id="aForm">
+      <input type="hidden" name="approve_date" id="approve_date_hidden" value="{{ selected_date }}">
+
+      <!-- 상단 고정 헤더 -->
+      <div class="bulk-topbar">
+        <span class="title">✅ 일괄 승인</span>
+        <input type="date" id="date_picker"
+               value="{{ selected_date }}" max="{{ today_date }}"
+               class="bulk-date-input"
+               onchange="reloadDate(this.value)">
+        {% if selected_date != today_date %}
+        <span style="font-size:0.78rem;color:#c2410c;font-weight:600;white-space:nowrap;">
+          📅 {{ selected_date }} 기준 조회
+        </span>
+        {% endif %}
+        <span class="cnt-badge" id="selCount">0 / {{ pending_list | length }} 선택</span>
+        <button type="button" class="sel-all-btn" id="selAllBtn" onclick="toggleAll()">전체 선택</button>
+        <a href="/dashboard" class="btn btn-outline"
+           style="width:auto;padding:7px 13px;font-size:0.8rem;white-space:nowrap;">← 홈</a>
+      </div>
+
+      {% if pending_list %}
+      <!-- 승인 대기 목록 -->
+      {% for p in pending_list %}
+      <div class="pend-card {{ 'result-abnormal' if p['result'] == '이상' else 'result-repair' if p['result'] == '수리중' else '' }}"
+           id="pc-{{ p['id'] }}"
+           onclick="toggleCard({{ p['id'] }})">
+
+        <input type="checkbox" name="ins_ids" value="{{ p['id'] }}"
+               class="pend-chk" id="chk-{{ p['id'] }}"
+               onclick="event.stopPropagation()"
+               onchange="onCheck()">
+
+        <div style="flex:1; min-width:0;">
+          <div class="pend-eq-name">🔧 {{ p['eq_name'] }}</div>
+          <div class="pend-meta">
+            {% if p['location'] %}📍 {{ p['location'] }}{% endif %}
+            {% if p['department'] %} &nbsp;·&nbsp; {{ p['department'] }}{% endif %}
+            &nbsp;·&nbsp; 👷 {{ p['inspector_name'] }}
+            &nbsp;·&nbsp; 🕐 {{ p['inspected_at'][11:16] }}
+            {% if p['approver_name'] %} &nbsp;·&nbsp; 승인자: {{ p['approver_name'] }}{% endif %}
+          </div>
+          {% if p['notes'] %}
+          <div style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
+            💬 {{ p['notes'] }}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="pend-right">
+          {% if p['result'] == '정상' %}
+            <span class="result-tag tag-normal">✅ 정상</span>
+          {% elif p['result'] == '이상' %}
+            <span class="result-tag tag-abnormal">⚠️ 이상</span>
+          {% elif p['result'] == '수리중' %}
+            <span class="result-tag tag-repair">🔧 수리중</span>
+          {% elif p['result'] == '휴동' %}
+            <span class="result-tag tag-idle">⏸ 휴동</span>
+          {% else %}
+            <span class="result-tag tag-idle">{{ p['result'] or '-' }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% else %}
+      <!-- 빈 상태 -->
+      <div class="empty-state">
+        <div class="icon">✅</div>
+        <div style="font-size:1rem; font-weight:700; color:var(--text-sub); margin-bottom:8px;">
+          승인 대기 중인 점검이 없습니다
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-muted);">
+          {{ selected_date }} 기준으로 승인할 점검 기록이 없습니다.
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="height:65px;"></div>
+    </form>
+  </div>
+
+  <!-- 하단 고정 승인 버튼 -->
+  <div class="submit-bar">
+    <span style="font-size:0.8rem; color:var(--text-sub);" id="sInfo">
+      {{ pending_list | length }}건 승인 대기 중
+    </span>
+    <button type="submit" form="aForm" id="submitBtn"
+            class="btn btn-primary" disabled
+            style="width:auto;padding:10px 28px;font-size:0.93rem;opacity:0.4;">
+      ✅ 일괄 승인
+    </button>
+  </div>
+
+  <script>
+    function reloadDate(val) {
+      window.location.href = '/bulk-approve?date=' + encodeURIComponent(val);
+    }
+
+    function toggleCard(id) {
+      const chk = document.getElementById('chk-' + id);
+      if (!chk) return;
+      chk.checked = !chk.checked;
+      onCheck();
+    }
+
+    function onCheck() {
+      const all     = document.querySelectorAll('.pend-chk');
+      const checked = document.querySelectorAll('.pend-chk:checked');
+
+      all.forEach(function(c) {
+        const card = document.getElementById('pc-' + c.value);
+        if (card) card.classList.toggle('selected', c.checked);
+      });
+
+      const cnt = checked.length;
+      document.getElementById('selCount').textContent = cnt + ' / ' + all.length + ' 선택';
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = (cnt === 0);
+      btn.style.opacity = (cnt === 0) ? '0.4' : '1';
+
+      document.getElementById('selAllBtn').textContent =
+        (cnt === all.length && all.length > 0) ? '전체 해제' : '전체 선택';
+    }
+
+    function toggleAll() {
+      const all     = document.querySelectorAll('.pend-chk');
+      const checked = document.querySelectorAll('.pend-chk:checked');
+      const doCheck = checked.length < all.length;
+      all.forEach(function(c) { c.checked = doCheck; });
+      onCheck();
+    }
+  </script>
+  <script src="/static/nav.js"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>
