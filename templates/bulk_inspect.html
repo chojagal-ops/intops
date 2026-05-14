@@ -161,6 +161,12 @@
           <div class="prog-bg"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
           <span class="prog-txt" id="pTxt">0 / {{ eq_data | length }}</span>
         </div>
+        <button type="button" onclick="autoFillAll()"
+                style="padding:7px 13px;font-size:0.8rem;white-space:nowrap;
+                       background:rgba(249,115,22,0.1);border:1.5px solid rgba(249,115,22,0.35);
+                       border-radius:7px;color:var(--orange);font-weight:600;cursor:pointer;">
+          🎲 수치 자동입력
+        </button>
         <a href="/dashboard" class="btn btn-outline"
            style="width:auto;padding:7px 13px;font-size:0.8rem;white-space:nowrap;">← 홈</a>
       </div>
@@ -238,6 +244,7 @@
                     <input type="number" step="any" class="num-inp"
                            name="numeric_val_{{ iid }}" id="ni-{{ iid }}"
                            placeholder="{{ it['unit'] or '값' }}"
+                           data-center="{{ it['center_val'] or '' }}"
                            data-min="{{ it['min_val'] or '' }}"
                            data-max="{{ it['max_val'] or '' }}"
                            oninput="onNum(this,{{ iid }},{{ eid }})">
@@ -382,6 +389,48 @@
       document.getElementById('pFill').style.width = pct + '%';
       document.getElementById('pTxt').textContent = done + ' / ' + t;
       document.getElementById('sInfo').textContent = done + '개 설비 저장 준비 완료';
+    }
+
+    // ── 수치 자동입력: 중심치 ±10% 랜덤 ──
+    function autoFillAll() {
+      document.querySelectorAll('.num-inp').forEach(el => {
+        // 수리중/휴동 선택된 항목은 건너뜀
+        const iid  = el.id.replace('ni-', '');
+        const sp   = document.getElementById('sp-' + iid);
+        if (sp && (sp.value === '수리중' || sp.value === '휴동')) return;
+
+        // 이미 값이 입력된 항목도 건너뜀
+        if (el.value.trim() !== '') return;
+
+        const center = parseFloat(el.dataset.center);
+        const minV   = parseFloat(el.dataset.min);
+        const maxV   = parseFloat(el.dataset.max);
+
+        let base = NaN;
+        if (!isNaN(center)) {
+          base = center;                          // 중심치 우선
+        } else if (!isNaN(minV) && !isNaN(maxV)) {
+          base = (minV + maxV) / 2;               // 없으면 상하한 평균
+        }
+
+        if (isNaN(base)) return;                  // 기준값 없으면 건너뜀
+
+        // base ±10% 랜덤
+        const range = Math.abs(base) * 0.10 || 0.1;   // base=0 이면 ±0.1
+        const rand  = base + (Math.random() * 2 - 1) * range;
+
+        // 소수점 자릿수는 center/min/max 중 가장 긴 것 기준
+        const decimals = Math.max(
+          (el.dataset.center || '').split('.')[1]?.length || 0,
+          (el.dataset.min    || '').split('.')[1]?.length || 0,
+          (el.dataset.max    || '').split('.')[1]?.length || 0,
+          1
+        );
+        el.value = rand.toFixed(decimals);
+
+        // range 경고 및 종합 결과 업데이트
+        el.dispatchEvent(new Event('input'));
+      });
     }
 
     updProg();
