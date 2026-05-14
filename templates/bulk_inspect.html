@@ -9,155 +9,115 @@
   <style>
     .bulk-wrap { max-width:960px; margin:0 auto; padding:24px 20px 80px; }
 
-    /* ── 상단 헤더 ── */
-    .bulk-header {
+    .bulk-topbar {
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-      margin-bottom:20px;
-      background:var(--bg); border:1.5px solid var(--border);
-      border-radius:14px; padding:16px 20px;
+      margin-bottom:20px; padding:14px 18px;
+      background:var(--bg); border:1.5px solid var(--border); border-radius:12px;
       position:sticky; top:56px; z-index:100;
-      box-shadow:0 2px 12px rgba(0,0,0,0.08);
+      box-shadow:0 2px 10px rgba(0,0,0,0.07);
     }
-    .bulk-header .card-title { margin:0; font-size:1.1rem; flex-shrink:0; }
+    .bulk-topbar .title { font-size:1.05rem; font-weight:700; color:var(--text); flex-shrink:0; }
     .bulk-date-input {
-      padding:7px 10px; font-size:0.85rem; border-radius:8px;
+      padding:6px 10px; font-size:0.85rem; border-radius:7px;
       border:1.5px solid var(--border); background:var(--bg-subtle); color:var(--text);
     }
-    .progress-wrap {
-      flex:1; min-width:160px; display:flex; align-items:center; gap:8px;
-    }
-    .progress-bar-bg {
-      flex:1; height:8px; border-radius:20px; background:var(--border);
-      overflow:hidden;
-    }
-    .progress-bar-fill {
-      height:100%; border-radius:20px;
-      background:linear-gradient(90deg,#f97316,#fb923c);
-      transition:width 0.3s;
-    }
-    .progress-label { font-size:0.8rem; color:var(--text-sub); white-space:nowrap; }
+    .prog-wrap { flex:1; min-width:140px; display:flex; align-items:center; gap:8px; }
+    .prog-bg { flex:1; height:7px; border-radius:20px; background:var(--border); overflow:hidden; }
+    .prog-fill { height:100%; border-radius:20px; background:linear-gradient(90deg,#f97316,#fb923c); transition:width 0.3s; }
+    .prog-txt { font-size:0.78rem; color:var(--text-sub); white-space:nowrap; }
 
-    /* ── 설비 카드 ── */
-    .bulk-eq-card {
-      border:1.5px solid var(--border); border-radius:12px;
-      margin-bottom:10px; overflow:hidden;
-      transition:border-color 0.2s;
+    .eq-card {
+      border:1.5px solid var(--border); border-radius:11px;
+      margin-bottom:8px; overflow:hidden;
     }
-    .bulk-eq-card.already-done { opacity:0.55; }
-    .bulk-eq-card.has-abnormal { border-color:rgba(249,115,22,0.6); }
+    .eq-card.done { opacity:0.5; }
+    .eq-card.abnormal { border-color:rgba(249,115,22,0.55); }
 
-    .bulk-eq-header {
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-      padding:12px 16px; cursor:pointer;
-      background:var(--bg-subtle); user-select:none;
-      transition:background 0.15s;
+    .eq-hdr {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:11px 15px; cursor:pointer; background:var(--bg-subtle);
+      user-select:none; transition:background 0.15s;
     }
-    .bulk-eq-header:hover { background:var(--orange-faint); }
+    .eq-hdr:hover { background:var(--orange-faint); }
+    .eq-hdr-name { font-weight:700; font-size:0.9rem; min-width:100px; }
+    .eq-hdr-meta { font-size:0.76rem; color:var(--text-muted); flex:1; }
+    .eq-hdr-tog { font-size:0.75rem; color:var(--text-muted); margin-left:auto; }
 
-    .bulk-eq-name { font-weight:700; font-size:0.92rem; color:var(--text); min-width:120px; }
-    .bulk-eq-meta { font-size:0.78rem; color:var(--text-muted); flex:1; }
-    .bulk-eq-toggle { font-size:0.8rem; color:var(--text-muted); margin-left:auto; flex-shrink:0; }
-
-    .skip-label {
-      display:inline-flex; align-items:center; gap:5px;
-      font-size:0.78rem; color:var(--text-muted); cursor:pointer;
-      padding:4px 8px; border-radius:6px; border:1px solid var(--border);
-      background:var(--bg); transition:background 0.1s;
+    .skip-lbl {
+      display:inline-flex; align-items:center; gap:4px; cursor:pointer;
+      font-size:0.76rem; color:var(--text-muted);
+      padding:3px 8px; border-radius:5px; border:1px solid var(--border);
+      background:var(--bg);
     }
-    .skip-label:hover { background:rgba(220,38,38,0.06); }
-    .skip-label input { accent-color:#dc2626; }
+    .skip-lbl input { accent-color:#dc2626; }
 
-    /* ── 항목 테이블 ── */
-    .bulk-eq-body { padding:14px 16px; background:var(--bg); }
-    .bulk-items-table {
-      width:100%; border-collapse:collapse; font-size:0.82rem; margin-bottom:10px;
-    }
-    .bulk-items-table th {
+    .eq-body { padding:12px 15px; background:var(--bg); }
+
+    .items-tbl { width:100%; border-collapse:collapse; font-size:0.81rem; margin-bottom:8px; }
+    .items-tbl th {
       background:var(--orange-faint); color:var(--text-sub);
-      font-size:0.75rem; font-weight:700;
-      padding:7px 10px; border-bottom:1px solid var(--border); text-align:left;
+      font-size:0.73rem; font-weight:700;
+      padding:6px 9px; border-bottom:1px solid var(--border); text-align:left;
     }
-    .bulk-items-table td {
-      padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle;
-    }
-    .bulk-items-table tr:last-child td { border-bottom:none; }
+    .items-tbl td { padding:6px 9px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .items-tbl tr:last-child td { border-bottom:none; }
 
-    /* 일반 항목 라디오 */
-    .result-radio-group {
-      display:flex; gap:6px; flex-wrap:wrap;
-    }
-    .result-radio-group label {
-      display:inline-flex; align-items:center; gap:4px;
-      font-size:0.78rem; padding:4px 8px; border-radius:6px;
+    .rg { display:flex; gap:5px; flex-wrap:wrap; }
+    .rg label {
+      display:inline-flex; align-items:center; gap:3px;
+      font-size:0.76rem; padding:3px 8px; border-radius:5px;
       border:1px solid var(--border); cursor:pointer; white-space:nowrap;
-      transition:all 0.15s;
     }
-    .result-radio-group input[type=radio] { display:none; }
-    .result-radio-group input[type=radio]:checked + span { font-weight:700; }
-    .result-radio-group label:has(input[value="정상"]:checked) { background:rgba(22,163,74,0.12); border-color:#16a34a; color:#15803d; }
-    .result-radio-group label:has(input[value="이상"]:checked) { background:rgba(249,115,22,0.12); border-color:#f97316; color:#c2410c; }
-    .result-radio-group label:has(input[value="수리중"]:checked) { background:rgba(220,38,38,0.1); border-color:#dc2626; color:#dc2626; }
-    .result-radio-group label:has(input[value="휴동"]:checked) { background:rgba(148,163,184,0.12); border-color:#94a3b8; color:#64748b; }
+    .rg input[type=radio] { display:none; }
 
-    /* 수치 입력 */
-    .numeric-group { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .numeric-input {
-      width:90px; padding:5px 8px; font-size:0.82rem;
-      border:1.5px solid var(--border); border-radius:6px;
-      background:var(--bg-subtle); color:var(--text); text-align:center;
-    }
-    .numeric-input:focus { border-color:var(--orange); outline:none; }
-    .numeric-special-sel {
-      padding:5px 6px; font-size:0.78rem; border-radius:6px;
+    .num-grp { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+    .num-sel {
+      padding:4px 6px; font-size:0.76rem; border-radius:5px;
       border:1px solid var(--border); background:var(--bg-subtle); color:var(--text);
     }
-    .range-warn {
-      font-size:0.75rem; padding:3px 8px; border-radius:5px;
-      display:none;
-    }
-    .range-warn.out { display:inline-block; background:rgba(249,115,22,0.12); color:#c2410c; border:1px solid rgba(249,115,22,0.3); }
-    .range-warn.ok  { display:inline-block; background:rgba(22,163,74,0.1); color:#15803d; border:1px solid rgba(22,163,74,0.3); }
-
-    /* 하단 특이사항 + 결과 요약 */
-    .bulk-eq-footer {
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-      padding-top:10px; border-top:1px solid var(--border); margin-top:4px;
-    }
-    .notes-input {
-      flex:1; min-width:200px; padding:7px 10px; font-size:0.82rem;
-      border:1.5px solid var(--border); border-radius:8px;
+    .num-inp {
+      width:80px; padding:4px 7px; font-size:0.81rem; text-align:center;
+      border:1.5px solid var(--border); border-radius:5px;
       background:var(--bg-subtle); color:var(--text);
     }
-    .notes-input:focus { border-color:var(--orange); outline:none; }
+    .num-inp:focus { border-color:var(--orange); outline:none; }
+    .rwarn { font-size:0.72rem; padding:2px 7px; border-radius:4px; display:none; }
+    .rwarn.out { display:inline; background:rgba(249,115,22,0.1); color:#c2410c; border:1px solid rgba(249,115,22,0.3); }
+    .rwarn.ok  { display:inline; background:rgba(22,163,74,0.08); color:#15803d; border:1px solid rgba(22,163,74,0.3); }
 
-    .overall-badge {
-      font-size:0.8rem; font-weight:700; padding:5px 12px;
-      border-radius:20px; white-space:nowrap;
+    .eq-foot {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding-top:8px; border-top:1px solid var(--border); margin-top:2px;
     }
-    .ob-normal { background:rgba(22,163,74,0.12); color:#15803d; }
-    .ob-abnormal { background:rgba(249,115,22,0.12); color:#c2410c; }
-    .ob-repair { background:rgba(220,38,38,0.1); color:#dc2626; }
-    .ob-idle { background:rgba(148,163,184,0.12); color:#64748b; }
+    .note-inp {
+      flex:1; min-width:180px; padding:6px 9px; font-size:0.81rem;
+      border:1.5px solid var(--border); border-radius:7px;
+      background:var(--bg-subtle); color:var(--text);
+    }
+    .note-inp:focus { border-color:var(--orange); outline:none; }
 
-    /* 하단 고정 저장 버튼 */
-    .bulk-submit-bar {
+    .obadge {
+      font-size:0.78rem; font-weight:700; padding:4px 11px; border-radius:20px;
+    }
+    .ob-n { background:rgba(22,163,74,0.1); color:#15803d; }
+    .ob-a { background:rgba(249,115,22,0.1); color:#c2410c; }
+    .ob-r { background:rgba(220,38,38,0.08); color:#dc2626; }
+    .ob-i { background:rgba(148,163,184,0.1); color:#64748b; }
+
+    .done-msg { font-size:0.83rem; color:#15803d; font-weight:700; padding:10px 14px; background:rgba(22,163,74,0.05); }
+
+    .submit-bar {
       position:fixed; bottom:0; left:0; right:0; z-index:200;
       background:var(--bg); border-top:1.5px solid var(--border);
-      padding:12px 20px; display:flex; justify-content:center; gap:12px;
-      box-shadow:0 -2px 12px rgba(0,0,0,0.1);
+      padding:11px 20px; display:flex; justify-content:center; align-items:center; gap:12px;
+      box-shadow:0 -2px 10px rgba(0,0,0,0.09);
     }
+    .submit-info { font-size:0.8rem; color:var(--text-sub); }
 
-    /* 완료된 설비 오버레이 텍스트 */
-    .done-overlay {
-      font-size:0.85rem; color:#15803d; font-weight:700;
-      padding:10px 16px; background:rgba(22,163,74,0.06);
-    }
-
-    @media (max-width:640px) {
-      .bulk-header { top:0; }
-      .bulk-eq-header { padding:10px 12px; }
-      .bulk-items-table { font-size:0.75rem; }
-      .bulk-items-table th, .bulk-items-table td { padding:5px 6px; }
+    @media (max-width:600px) {
+      .bulk-topbar { top:0; }
+      .items-tbl { font-size:0.74rem; }
+      .items-tbl th, .items-tbl td { padding:4px 5px; }
     }
   </style>
 </head>
@@ -185,358 +145,246 @@
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
-        <div class="alert alert-{{ cat }}" style="margin-bottom:14px;">{{ msg }}</div>
+        <div class="alert alert-{{ cat }}" style="margin-bottom:12px;">{{ msg }}</div>
       {% endfor %}
     {% endwith %}
 
-    <form method="POST" id="bulkForm">
+    <form method="POST" id="bForm">
 
-      <!-- ── 상단 고정 헤더 ── -->
-      <div class="bulk-header">
-        <div class="card-title">⚡ 일괄 점검</div>
+      <!-- 상단 고정 헤더 -->
+      <div class="bulk-topbar">
+        <span class="title">⚡ 일괄 점검</span>
         <input type="date" name="inspect_date" id="inspect_date"
                value="{{ today_date }}" max="{{ today_date }}"
                class="bulk-date-input">
-        <div class="progress-wrap">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
-          </div>
-          <span class="progress-label" id="progressLabel">0 / {{ eq_data | length }}</span>
+        <div class="prog-wrap">
+          <div class="prog-bg"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
+          <span class="prog-txt" id="pTxt">0 / {{ eq_data | length }}</span>
         </div>
-        <a href="/dashboard" class="btn btn-outline" style="width:auto; padding:8px 14px; font-size:0.82rem; white-space:nowrap;">← 홈으로</a>
+        <a href="/dashboard" class="btn btn-outline"
+           style="width:auto;padding:7px 13px;font-size:0.8rem;white-space:nowrap;">← 홈</a>
       </div>
 
-      <!-- ── 설비 목록 ── -->
-      {% set total = eq_data | length %}
+      <!-- 설비 목록 -->
       {% for item in eq_data %}
-      {% set eq = item.eq %}
-      {% set items = item.eq_items %}
-      {% set done = item.already_done %}
+      {% set e = item['eq_dict'] %}
+      {% set its = item['items_list'] %}
+      {% set done = item['already_done'] %}
+      {% set eid = e['id'] %}
 
-      <div class="bulk-eq-card {{ 'already-done' if done else '' }}"
-           id="card-{{ eq.id }}" data-done="{{ 'true' if done else 'false' }}">
+      <div class="eq-card {{ 'done' if done }}" id="ec-{{ eid }}" data-done="{{ 'true' if done else 'false' }}">
+        <input type="hidden" name="eq_ids" value="{{ eid }}">
 
-        <input type="hidden" name="eq_ids" value="{{ eq.id }}">
-
-        <div class="bulk-eq-header" onclick="toggleBody({{ eq.id }})">
-          <span class="bulk-eq-name">{{ eq.name }}</span>
-          <span class="bulk-eq-meta">
-            {% if eq.location %}📍 {{ eq.location }}{% endif %}
-            {% if eq.department %} · {{ eq.department }}{% endif %}
+        <div class="eq-hdr" onclick="togBody({{ eid }})">
+          <span class="eq-hdr-name">{{ e['name'] }}</span>
+          <span class="eq-hdr-meta">
+            {% if e['location'] %}📍 {{ e['location'] }}{% endif %}
+            {% if e['department'] %} · {{ e['department'] }}{% endif %}
           </span>
-
           {% if done %}
-            <span class="st-done" style="font-size:0.75rem;">✅ 점검완료</span>
+            <span class="st-done" style="font-size:0.73rem;">✅ 완료</span>
           {% else %}
-            <span class="st-todo" style="font-size:0.75rem;" id="status-{{ eq.id }}">⚠️ 미점검</span>
+            <span class="st-todo" style="font-size:0.73rem;" id="est-{{ eid }}">⚠️ 미점검</span>
+            <label class="skip-lbl" onclick="event.stopPropagation()">
+              <input type="checkbox" name="skip_eq_{{ eid }}" id="sk-{{ eid }}"
+                     onchange="onSkip({{ eid }}, this.checked)">
+              건너뜀
+            </label>
           {% endif %}
-
-          {% if not done %}
-          <label class="skip-label" onclick="event.stopPropagation()">
-            <input type="checkbox" name="skip_eq_{{ eq.id }}" id="skip-{{ eq.id }}"
-                   onchange="onSkipChange({{ eq.id }}, this.checked)">
-            <span>건너뜀</span>
-          </label>
-          {% endif %}
-
-          <span class="bulk-eq-toggle" id="toggle-{{ eq.id }}">
-            {{ '▶' if done else '▼' }}
-          </span>
+          <span class="eq-hdr-tog" id="tog-{{ eid }}">{{ '▶' if done else '▼' }}</span>
         </div>
 
-        <!-- ── 본문 ── -->
-        <div class="bulk-eq-body" id="body-{{ eq.id }}" style="{{ 'display:none' if done else '' }}">
-
+        <div class="eq-body" id="eb-{{ eid }}" {% if done %}style="display:none"{% endif %}>
           {% if done %}
-          <div class="done-overlay">✅ 오늘 이미 점검이 완료된 설비입니다.</div>
-
-          {% elif items %}
-          <!-- 항목 테이블 -->
-          <table class="bulk-items-table">
+          <div class="done-msg">✅ 오늘 이미 점검 완료된 설비입니다.</div>
+          {% elif its %}
+          <table class="items-tbl">
             <thead>
               <tr>
-                <th style="width:28px;">#</th>
+                <th style="width:26px;">#</th>
                 <th>분류</th>
                 <th>점검항목</th>
-                <th>기준</th>
-                <th style="min-width:200px;">결과</th>
-                <th style="min-width:130px;">특이사항</th>
+                <th>기준/범위</th>
+                <th style="min-width:190px;">결과</th>
+                <th style="min-width:110px;">비고</th>
               </tr>
             </thead>
             <tbody>
-              {% for it in items %}
-              <tr id="item-row-{{ it.id }}">
-                <td style="color:var(--text-muted); font-size:0.75rem;">{{ loop.index }}</td>
-                <td style="font-size:0.75rem; color:var(--text-sub);">{{ it.category or '-' }}</td>
-                <td><strong>{{ it.item_name }}</strong></td>
-                <td style="font-size:0.75rem; color:var(--text-sub);">
-                  {% if it.item_type == '수치' %}
-                    {% if it.min_val %}<span style="color:#3b82f6; font-size:0.7rem;">▼{{ it.min_val }}</span>{% endif %}
-                    {% if it.center_val %} <span style="color:#f97316; font-size:0.7rem;">●{{ it.center_val }}</span>{% endif %}
-                    {% if it.max_val %} <span style="color:#ef4444; font-size:0.7rem;">▲{{ it.max_val }}</span>{% endif %}
-                    {% if it.unit %} <span style="color:var(--text-muted);">({{ it.unit }})</span>{% endif %}
+              {% for it in its %}
+              {% set iid = it['id'] %}
+              <tr>
+                <td style="color:var(--text-muted);font-size:0.73rem;">{{ loop.index }}</td>
+                <td style="font-size:0.73rem;color:var(--text-sub);">{{ it['category'] or '-' }}</td>
+                <td><strong>{{ it['item_name'] }}</strong></td>
+                <td style="font-size:0.73rem;color:var(--text-sub);">
+                  {% if it['item_type'] == '수치' %}
+                    {% if it['min_val'] %}<span style="color:#3b82f6;">▼{{ it['min_val'] }}</span> {% endif %}
+                    {% if it['center_val'] %}<span style="color:#f97316;">●{{ it['center_val'] }}</span> {% endif %}
+                    {% if it['max_val'] %}<span style="color:#ef4444;">▲{{ it['max_val'] }}</span>{% endif %}
+                    {% if it['unit'] %} ({{ it['unit'] }}){% endif %}
                   {% else %}
-                    {{ it.criteria or '-' }}
+                    {{ it['criteria'] or '-' }}
                   {% endif %}
                 </td>
                 <td>
-                  {% if it.item_type == '수치' %}
-                  <!-- 수치 항목 -->
-                  <div class="numeric-group">
-                    <select class="numeric-special-sel"
-                            name="special_item_{{ it.id }}"
-                            id="spec-{{ it.id }}"
-                            onchange="onSpecialChange({{ it.id }}, this.value, {{ eq.id }})">
+                  {% if it['item_type'] == '수치' %}
+                  <div class="num-grp">
+                    <select class="num-sel" name="special_item_{{ iid }}" id="sp-{{ iid }}"
+                            onchange="onSpec({{ iid }}, this.value, {{ eid }})">
                       <option value="">🔢 수치입력</option>
                       <option value="수리중">🔧 수리중</option>
                       <option value="휴동">⏸ 휴동</option>
                     </select>
-                    <input type="number" step="any"
-                           class="numeric-input"
-                           name="numeric_val_{{ it.id }}"
-                           id="num-{{ it.id }}"
-                           placeholder="{{ it.unit or '값' }}"
-                           data-min="{{ it.min_val or '' }}"
-                           data-max="{{ it.max_val or '' }}"
-                           oninput="onNumericInput(this, {{ it.id }}, {{ eq.id }})">
-                    <span class="range-warn" id="rwarn-{{ it.id }}"></span>
+                    <input type="number" step="any" class="num-inp"
+                           name="numeric_val_{{ iid }}" id="ni-{{ iid }}"
+                           placeholder="{{ it['unit'] or '값' }}"
+                           data-min="{{ it['min_val'] or '' }}"
+                           data-max="{{ it['max_val'] or '' }}"
+                           oninput="onNum(this,{{ iid }},{{ eid }})">
+                    <span class="rwarn" id="rw-{{ iid }}"></span>
                   </div>
                   {% else %}
-                  <!-- 일반 항목 -->
-                  <div class="result-radio-group" id="rg-{{ it.id }}"
-                       onchange="onRadioChange({{ eq.id }})">
-                    {% for val, lbl in [('정상','✅ 정상'),('이상','⚠️ 이상'),('수리중','🔧 수리중'),('휴동','⏸ 휴동')] %}
-                    <label>
-                      <input type="radio" name="result_item_{{ it.id }}"
-                             value="{{ val }}" {{ 'checked' if val == '정상' else '' }}>
-                      <span>{{ lbl }}</span>
-                    </label>
-                    {% endfor %}
+                  <div class="rg" id="rg-{{ iid }}" onchange="onRad({{ eid }})">
+                    <label><input type="radio" name="result_item_{{ iid }}" value="정상" checked><span>✅ 정상</span></label>
+                    <label><input type="radio" name="result_item_{{ iid }}" value="이상"><span>⚠️ 이상</span></label>
+                    <label><input type="radio" name="result_item_{{ iid }}" value="수리중"><span>🔧 수리중</span></label>
+                    <label><input type="radio" name="result_item_{{ iid }}" value="휴동"><span>⏸ 휴동</span></label>
                   </div>
                   {% endif %}
                 </td>
                 <td>
-                  <input type="text" class="notes-input" style="min-width:100px; width:100%;"
-                         name="notes_item_{{ it.id }}" placeholder="특이사항">
+                  <input type="text" class="note-inp" style="min-width:90px;width:100%;"
+                         name="notes_item_{{ iid }}" placeholder="비고">
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
-
           {% else %}
-          <!-- 항목 없는 설비 - 단순 선택 -->
-          <div style="padding:4px 0 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <span style="font-size:0.82rem; color:var(--text-sub);">점검 결과:</span>
-            <div class="result-radio-group" onchange="onSimpleChange({{ eq.id }})">
-              {% for val, lbl in [('정상','✅ 정상'),('이상','⚠️ 이상'),('수리중','🔧 수리중'),('휴동','⏸ 휴동')] %}
-              <label>
-                <input type="radio" name="simple_result_eq_{{ eq.id }}"
-                       value="{{ val }}" {{ 'checked' if val == '정상' else '' }}>
-                <span>{{ lbl }}</span>
-              </label>
-              {% endfor %}
+          <div style="padding:4px 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.81rem;color:var(--text-sub);">점검 결과:</span>
+            <div class="rg" onchange="onRad({{ eid }})">
+              <label><input type="radio" name="simple_result_eq_{{ eid }}" value="정상" checked><span>✅ 정상</span></label>
+              <label><input type="radio" name="simple_result_eq_{{ eid }}" value="이상"><span>⚠️ 이상</span></label>
+              <label><input type="radio" name="simple_result_eq_{{ eid }}" value="수리중"><span>🔧 수리중</span></label>
+              <label><input type="radio" name="simple_result_eq_{{ eid }}" value="휴동"><span>⏸ 휴동</span></label>
             </div>
           </div>
           {% endif %}
 
           {% if not done %}
-          <div class="bulk-eq-footer">
-            <input type="text" class="notes-input" name="notes_eq_{{ eq.id }}"
-                   placeholder="전체 특이사항 (선택)">
-            <span class="overall-badge ob-normal" id="overall-{{ eq.id }}">✅ 정상</span>
+          <div class="eq-foot">
+            <input type="text" class="note-inp" name="notes_eq_{{ eid }}" placeholder="전체 특이사항 (선택)">
+            <span class="obadge ob-n" id="ob-{{ eid }}">✅ 정상</span>
           </div>
           {% endif %}
-
         </div>
+
       </div>
       {% endfor %}
 
-      <!-- 하단 여백 -->
-      <div style="height:70px;"></div>
+      <div style="height:65px;"></div>
     </form>
-
   </div>
 
-  <!-- ── 하단 고정 저장 버튼 ── -->
-  <div class="bulk-submit-bar">
-    <span id="submitSummary" style="font-size:0.82rem; color:var(--text-sub); align-self:center;"></span>
-    <button type="submit" form="bulkForm" class="btn btn-primary"
-            style="width:auto; padding:10px 32px; font-size:0.95rem;">
+  <!-- 하단 고정 저장 버튼 -->
+  <div class="submit-bar">
+    <span class="submit-info" id="sInfo"></span>
+    <button type="submit" form="bForm" class="btn btn-primary"
+            style="width:auto;padding:10px 28px;font-size:0.93rem;">
       ✅ 일괄 점검 저장
     </button>
   </div>
 
   <script>
-    // ── 접기/펼치기 ──
-    function toggleBody(eqId) {
-      const body = document.getElementById('body-' + eqId);
-      const tog  = document.getElementById('toggle-' + eqId);
-      if (!body) return;
-      const open = body.style.display !== 'none';
-      body.style.display = open ? 'none' : '';
-      if (tog) tog.textContent = open ? '▶' : '▼';
+    function togBody(id) {
+      const b = document.getElementById('eb-' + id);
+      const t = document.getElementById('tog-' + id);
+      if (!b) return;
+      const o = b.style.display !== 'none';
+      b.style.display = o ? 'none' : '';
+      if (t) t.textContent = o ? '▶' : '▼';
     }
 
-    // ── 건너뜀 체크박스 ──
-    function onSkipChange(eqId, checked) {
-      const card = document.getElementById('card-' + eqId);
-      const body = document.getElementById('body-' + eqId);
-      if (checked) {
-        card.style.opacity = '0.4';
-        body.style.display = 'none';
-        document.getElementById('toggle-' + eqId).textContent = '▶';
-      } else {
-        card.style.opacity = '';
-        body.style.display = '';
-        document.getElementById('toggle-' + eqId).textContent = '▼';
-      }
-      updateProgress();
+    function onSkip(id, chk) {
+      const c = document.getElementById('ec-' + id);
+      const b = document.getElementById('eb-' + id);
+      c.style.opacity = chk ? '0.4' : '';
+      if (chk) { b.style.display = 'none'; document.getElementById('tog-'+id).textContent='▶'; }
+      else { b.style.display = ''; document.getElementById('tog-'+id).textContent='▼'; }
+      updProg();
     }
 
-    // ── 일반 항목 라디오 변경 → 종합결과 업데이트 ──
-    function onRadioChange(eqId) {
-      updateOverall(eqId);
-    }
-    function onSimpleChange(eqId) {
-      updateOverall(eqId);
-    }
+    function onRad(eid)  { updOverall(eid); }
 
-    // ── 수치 항목 특수 선택 ──
-    function onSpecialChange(itemId, val, eqId) {
-      const numEl = document.getElementById('num-' + itemId);
-      const warnEl = document.getElementById('rwarn-' + itemId);
-      if (val === '수리중' || val === '휴동') {
-        numEl.style.display = 'none';
-        if (warnEl) { warnEl.className = 'range-warn'; warnEl.textContent = ''; }
-      } else {
-        numEl.style.display = '';
-      }
-      updateOverall(eqId);
+    function onSpec(iid, val, eid) {
+      const ni = document.getElementById('ni-' + iid);
+      const rw = document.getElementById('rw-' + iid);
+      ni.style.display = (val === '수리중' || val === '휴동') ? 'none' : '';
+      if (rw) { rw.className = 'rwarn'; rw.textContent = ''; }
+      updOverall(eid);
     }
 
-    // ── 수치 입력 범위 경고 ──
-    function onNumericInput(el, itemId, eqId) {
-      const val = parseFloat(el.value);
-      const minV = parseFloat(el.dataset.min);
-      const maxV = parseFloat(el.dataset.max);
-      const warn = document.getElementById('rwarn-' + itemId);
-      if (!warn) { updateOverall(eqId); return; }
-
-      if (isNaN(val)) { warn.className = 'range-warn'; warn.textContent = ''; }
-      else {
-        const tooLow  = !isNaN(minV) && val < minV;
-        const tooHigh = !isNaN(maxV) && val > maxV;
-        if (tooLow || tooHigh) {
-          warn.className = 'range-warn out';
-          warn.textContent = tooLow ? '⚠ 하한 이탈' : '⚠ 상한 이탈';
-        } else {
-          warn.className = 'range-warn ok';
-          warn.textContent = '✓ 정상';
+    function onNum(el, iid, eid) {
+      const v = parseFloat(el.value);
+      const mn = parseFloat(el.dataset.min), mx = parseFloat(el.dataset.max);
+      const rw = document.getElementById('rw-' + iid);
+      if (rw) {
+        if (isNaN(v)) { rw.className = 'rwarn'; rw.textContent = ''; }
+        else {
+          const lo = !isNaN(mn) && v < mn, hi = !isNaN(mx) && v > mx;
+          rw.className = (lo || hi) ? 'rwarn out' : 'rwarn ok';
+          rw.textContent = lo ? '⚠ 하한이탈' : hi ? '⚠ 상한이탈' : '✓ 정상';
         }
       }
-      updateOverall(eqId);
+      updOverall(eid);
     }
 
-    // ── 설비별 종합결과 배지 업데이트 ──
-    function updateOverall(eqId) {
-      const card = document.getElementById('card-' + eqId);
-      const badge = document.getElementById('overall-' + eqId);
-      const statusEl = document.getElementById('status-' + eqId);
+    function updOverall(eid) {
+      const card = document.getElementById('ec-' + eid);
+      const badge = document.getElementById('ob-' + eid);
       if (!badge) return;
-
-      // 일반 라디오 결과 수집
-      const radios = card.querySelectorAll('input[type=radio]:checked');
       let vals = [];
-      radios.forEach(r => vals.push(r.value));
-
-      // 수치 항목 결과 추론
-      card.querySelectorAll('.numeric-input').forEach(el => {
-        const specSel = document.getElementById('spec-' + el.id.replace('num-',''));
-        if (specSel && (specSel.value === '수리중' || specSel.value === '휴동')) {
-          vals.push(specSel.value);
-          return;
-        }
+      card.querySelectorAll('input[type=radio]:checked').forEach(r => vals.push(r.value));
+      card.querySelectorAll('.num-inp').forEach(el => {
+        const sp = document.getElementById('sp-' + el.id.replace('ni-',''));
+        if (sp && (sp.value === '수리중' || sp.value === '휴동')) { vals.push(sp.value); return; }
         const v = parseFloat(el.value);
         if (!isNaN(v)) {
-          const minV = parseFloat(el.dataset.min);
-          const maxV = parseFloat(el.dataset.max);
-          if ((!isNaN(minV) && v < minV) || (!isNaN(maxV) && v > maxV)) {
-            vals.push('이상');
-          } else {
-            vals.push('정상');
-          }
+          const mn = parseFloat(el.dataset.min), mx = parseFloat(el.dataset.max);
+          vals.push((!isNaN(mn) && v < mn) || (!isNaN(mx) && v > mx) ? '이상' : '정상');
         }
       });
-
-      let overall = '정상';
-      if (vals.includes('이상'))  overall = '이상';
-      else if (vals.includes('수리중')) overall = '수리중';
-      else if (vals.length > 0 && vals.every(v => v === '휴동')) overall = '휴동';
-
-      const map = {
-        '정상':  ['ob-normal',   '✅ 정상'],
-        '이상':  ['ob-abnormal', '⚠️ 이상'],
-        '수리중':['ob-repair',   '🔧 수리중'],
-        '휴동':  ['ob-idle',     '⏸ 휴동'],
-      };
-      badge.className = 'overall-badge ' + (map[overall]?.[0] || 'ob-normal');
-      badge.textContent = map[overall]?.[1] || overall;
-
-      // 카드 테두리 강조
-      card.classList.toggle('has-abnormal', overall === '이상' || overall === '수리중');
-
-      updateProgress();
+      let ov = '정상';
+      if (vals.includes('이상')) ov = '이상';
+      else if (vals.includes('수리중')) ov = '수리중';
+      else if (vals.length > 0 && vals.every(x => x === '휴동')) ov = '휴동';
+      const m = {'정상':['ob-n','✅ 정상'],'이상':['ob-a','⚠️ 이상'],'수리중':['ob-r','🔧 수리중'],'휴동':['ob-i','⏸ 휴동']};
+      badge.className = 'obadge ' + (m[ov]?.[0] || 'ob-n');
+      badge.textContent = m[ov]?.[1] || ov;
+      card.classList.toggle('abnormal', ov === '이상' || ov === '수리중');
+      updProg();
     }
 
-    // ── 진행률 업데이트 ──
-    function updateProgress() {
-      const cards = document.querySelectorAll('.bulk-eq-card');
-      let total = cards.length;
+    function updProg() {
+      const cards = document.querySelectorAll('.eq-card');
       let done = 0;
-
-      cards.forEach(card => {
-        const eqId = card.id.replace('card-','');
-        const isDone = card.dataset.done === 'true';
-        const skipped = document.getElementById('skip-' + eqId)?.checked;
-        if (isDone || skipped) {
-          done++;
-          return;
-        }
-        // 항목 있는 설비: 수치입력이 있는지 체크 (입력했으면 진행으로 간주)
-        const hasNumeric = card.querySelectorAll('.numeric-input').length > 0;
-        if (!hasNumeric) {
-          // 라디오만 있으면 기본값 있으므로 항상 완료
-          done++;
-        } else {
-          // 수치 항목 중 하나라도 입력됐으면 진행
-          const filled = [...card.querySelectorAll('.numeric-input')].some(el => el.value.trim() !== '');
-          const allSpecial = [...card.querySelectorAll('.numeric-special-sel')].every(
-            s => s.value === '수리중' || s.value === '휴동'
-          );
-          if (filled || allSpecial) done++;
-        }
+      cards.forEach(c => {
+        const id = c.id.replace('ec-', '');
+        if (c.dataset.done === 'true' || document.getElementById('sk-'+id)?.checked) { done++; return; }
+        const hasNum = c.querySelectorAll('.num-inp').length > 0;
+        if (!hasNum) done++;
+        else if ([...c.querySelectorAll('.num-inp')].some(e => e.value.trim()) ||
+                 [...c.querySelectorAll('.num-sel')].every(s => s.value === '수리중' || s.value === '휴동')) done++;
       });
-
-      const pct = total > 0 ? Math.round(done / total * 100) : 0;
-      document.getElementById('progressFill').style.width = pct + '%';
-      document.getElementById('progressLabel').textContent = done + ' / ' + total;
-      document.getElementById('submitSummary').textContent =
-        done + '개 설비 점검 준비 완료';
+      const t = cards.length;
+      const pct = t ? Math.round(done/t*100) : 0;
+      document.getElementById('pFill').style.width = pct + '%';
+      document.getElementById('pTxt').textContent = done + ' / ' + t;
+      document.getElementById('sInfo').textContent = done + '개 설비 저장 준비 완료';
     }
 
-    // ── 날짜 변경 시 이미 완료된 설비 재확인 알림 ──
-    document.getElementById('inspect_date').addEventListener('change', function() {
-      const today = '{{ today_date }}';
-      if (this.value !== today) {
-        document.querySelectorAll('.already-done .done-overlay').forEach(el => {
-          el.textContent = '⚠️ 선택 날짜(' + this.value + ')의 점검 여부는 저장 시 확인됩니다.';
-        });
-      }
-    });
-
-    // ── 초기화 ──
-    updateProgress();
+    updProg();
   </script>
 
   <script src="/static/nav.js"></script>

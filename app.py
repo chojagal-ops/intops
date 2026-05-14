@@ -1988,30 +1988,49 @@ def bulk_inspect():
         return redirect(url_for('bulk_inspect'))
 
     # GET: 모든 설비 + 항목 + 오늘 점검 여부 로드
-    equipments = conn.execute('''
-        SELECT e.*, a.name AS approver_name
-        FROM equipment e
-        LEFT JOIN users a ON e.approver_id = a.id
-        ORDER BY e.department, e.name
-    ''').fetchall()
+    def _to_dict(row):
+        """DB Row(sqlite3.Row / _PGRow) → 순수 Python dict 변환"""
+        if row is None:
+            return None
+        if isinstance(row, dict):
+            return dict(row)
+        return {k: row[k] for k in row.keys()}
 
-    eq_data = []
-    for eq in equipments:
-        eq_id = eq['id']
-        db_items = conn.execute(
-            'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
-            (eq_id,)
-        ).fetchall()
-        today_insp = conn.execute(f'''
-            SELECT id FROM inspections
-            WHERE equipment_id=? AND {conn.date_col("inspected_at")}={conn.today}
-            AND status IN ('점검완료','승인완료')
-        ''', (eq_id,)).fetchone()
-        eq_data.append({
-            'eq': eq,
-            'eq_items': db_items,
-            'already_done': bool(today_insp)
-        })
+    try:
+        equipments = conn.execute('''
+            SELECT e.*, a.name AS approver_name
+            FROM equipment e
+            LEFT JOIN users a ON e.approver_id = a.id
+            ORDER BY e.name
+        ''').fetchall()
+
+        eq_data = []
+        for eq_row in equipments:
+            eq_id = eq_row['id']
+            eq_dict = _to_dict(eq_row)
+
+            items_raw = conn.execute(
+                'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
+                (eq_id,)
+            ).fetchall()
+            items_list = [_to_dict(r) for r in items_raw]
+
+            today_insp = conn.execute(f'''
+                SELECT id FROM inspections
+                WHERE equipment_id=? AND {conn.date_col("inspected_at")}={conn.today}
+                AND status IN ('점검완료','승인완료')
+            ''', (eq_id,)).fetchone()
+
+            eq_data.append({
+                'eq_dict': eq_dict,
+                'items_list': items_list,
+                'already_done': bool(today_insp)
+            })
+    except Exception as e:
+        app.logger.exception('bulk_inspect GET error')
+        conn.close()
+        flash(f'페이지 로드 중 오류가 발생했습니다: {e}', 'error')
+        return redirect(url_for('dashboard'))
 
     conn.close()
     return render_template('bulk_inspect.html', eq_data=eq_data, today_date=today_str)
