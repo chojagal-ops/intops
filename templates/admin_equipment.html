@@ -258,12 +258,32 @@
 
       {% if equipments %}
       <div class="qr-guide">
-        <div class="qr-guide-title">사용 흐름</div>
+        <a href="/bulk-approve" style="text-decoration:none;">
+          <div class="qr-guide-title" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+            사용 흐름
+            <span style="font-size:0.72rem; background:rgba(249,115,22,0.12); color:var(--orange);
+                         border:1px solid rgba(249,115,22,0.3); border-radius:20px;
+                         padding:2px 8px; font-weight:600; white-space:nowrap;">
+              ✔ 일괄 승인 →
+            </span>
+          </div>
+        </a>
         <div class="qr-guide-steps">
           <div class="qr-step"><span class="qr-step-num">1</span><span>설비 등록 → <strong>승인자 지정</strong> (드롭다운 선택 시 자동 저장)</span></div>
           <div class="qr-step"><span class="qr-step-num">2</span><span><strong>QR 다운</strong> 버튼으로 QR 이미지 출력 → 설비에 부착</span></div>
           <div class="qr-step"><span class="qr-step-num">3</span><span>점검자가 QR 스캔 → 점검 입력 → <strong>점검완료</strong> 제출</span></div>
           <div class="qr-step"><span class="qr-step-num">4</span><span>지정된 승인자가 로그인 → 대시보드에서 <strong>승인확인</strong></span></div>
+          <div class="qr-step" style="background:rgba(249,115,22,0.04); border:1px dashed rgba(249,115,22,0.3); border-radius:8px; padding:8px 12px; margin-top:4px;">
+            <span class="qr-step-num" style="background:var(--orange);">5</span>
+            <span>또는 <strong>일괄 승인</strong> 페이지에서 날짜별 전체 점검 한 번에 승인
+              <a href="/bulk-approve"
+                 style="margin-left:10px; padding:4px 12px; background:var(--orange);
+                        color:#fff; border-radius:6px; font-size:0.78rem; font-weight:700;
+                        text-decoration:none; white-space:nowrap;">
+                → 일괄 승인 바로가기
+              </a>
+            </span>
+          </div>
         </div>
       </div>
       {% endif %}
