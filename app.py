@@ -1092,6 +1092,26 @@ def change_role(user_id):
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/delete-user/<int:user_id>')
+@admin_required
+def admin_delete_user(user_id):
+    # 자기 자신은 삭제 불가
+    if user_id == session.get('user_id'):
+        flash('자기 자신은 삭제할 수 없습니다.', 'error')
+        return redirect(url_for('admin'))
+    conn = get_db()
+    target = conn.execute('SELECT name FROM users WHERE id=?', (user_id,)).fetchone()
+    if not target:
+        conn.close()
+        flash('해당 사용자를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('admin'))
+    conn.execute('DELETE FROM users WHERE id=?', (user_id,))
+    conn.commit()
+    conn.close()
+    flash(f'{target["name"]} 님의 계정이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin'))
+
+
 # ── 관리자: 설비 관리 ─────────────────────────────────────────────────────────
 @app.route('/admin/equipment')
 @admin_required

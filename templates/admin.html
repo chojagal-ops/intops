@@ -49,7 +49,7 @@
           {% if pending %}
             {% for u in pending %}
             <tr>
-              <td><strong style="color:#e0e6ed;">{{ u.name }}</strong></td>
+              <td><strong style="color:var(--text);">{{ u.name }}</strong></td>
               <td>{{ u.employee_id }}</td>
               <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
               <td>{{ u.phone }}</td>
@@ -88,20 +88,22 @@
       <table>
         <thead>
           <tr>
-            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th>
+            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th><th>삭제</th>
           </tr>
         </thead>
         <tbody>
           {% if approved %}
             {% for u in approved %}
             <tr>
-              <td><strong style="color:#e0e6ed;">{{ u.name }}</strong></td>
+              <td><strong style="color:var(--text);">{{ u.name }}</strong></td>
               <td>{{ u.employee_id }}</td>
               <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
               <td>{{ u.team }}</td>
               <td>
                 {% if u.role == '승인자' %}
                   <span class="badge" style="background:rgba(30,136,229,0.2);color:#90caf9;">승인자</span>
+                {% elif u.is_admin %}
+                  <span class="badge" style="background:rgba(249,115,22,0.15);color:var(--orange);">관리자</span>
                 {% else %}
                   <span class="badge badge-approved">점검자</span>
                 {% endif %}
@@ -115,10 +117,22 @@
                   <button type="submit" class="btn btn-outline" style="width:auto; padding:6px 12px; font-size:0.8rem; margin:0; white-space:nowrap;">변경</button>
                 </form>
               </td>
+              <td>
+                {% if u.id != session.user_id %}
+                <a href="/admin/delete-user/{{ u.id }}"
+                   onclick="return confirm('{{ u.name }} ({{ u.employee_id }}) 님의 계정을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')"
+                   class="btn btn-danger"
+                   style="width:auto; padding:5px 12px; font-size:0.8rem; white-space:nowrap;">
+                  🗑 삭제
+                </a>
+                {% else %}
+                <span style="font-size:0.78rem; color:var(--text-muted);">본인</span>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           {% else %}
-            <tr><td colspan="6" class="empty-row">승인된 사용자가 없습니다.</td></tr>
+            <tr><td colspan="7" class="empty-row">승인된 사용자가 없습니다.</td></tr>
           {% endif %}
         </tbody>
       </table>
