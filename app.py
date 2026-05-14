@@ -2137,7 +2137,7 @@ def bulk_inspect():
                             )
                 else:
                     result = request.form.get(f'simple_result_eq_{eq_id}', '정상')
-                    conn.execute(
+                    conn.insert(
                         '''INSERT INTO inspections
                            (equipment_id, inspector_id, result, notes, status, inspected_at)
                            VALUES (?,?,?,?,'점검완료',?)''',
@@ -2146,13 +2146,41 @@ def bulk_inspect():
                     conn.commit()
                     success_count += 1
 
+                    approver_id = eq.get('approver_id')
+                    if approver_id:
+                        approver = _to_dict(conn.execute(
+                            'SELECT name, email FROM users WHERE id=?', (approver_id,)
+                        ).fetchone())
+                        if approver and approver.get('email'):
+                            send_approval_request(
+                                to_email       = approver['email'],
+                                approver_name  = approver['name'],
+                                inspector_name = session['user_name'],
+                                eq_name        = eq.get('name', ''),
+                                location       = eq.get('location') or '-',
+                                result         = result,
+                                notes          = overall_notes,
+                                eq_id          = eq_id,
+                                host_url       = request.host_url,
+                            )
+
         except Exception as e:
             app.logger.exception('bulk_inspect POST error')
-            conn.close()
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
             flash(f'저장 중 오류가 발생했습니다: {e}', 'error')
             return redirect(url_for('bulk_inspect'))
 
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
         flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
         return redirect(url_for('bulk_inspect'))
 
@@ -2197,13 +2225,28 @@ def bulk_inspect():
             })
     except Exception as e:
         app.logger.exception('bulk_inspect GET error')
-        conn.close()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
         flash(f'페이지 로드 중 오류가 발생했습니다: {e}', 'error')
         return redirect(url_for('dashboard'))
 
-    conn.close()
-    return render_template('bulk_inspect.html', eq_data=eq_data,
-                           today_date=today_str, selected_date=selected_date)
+    try:
+        conn.close()
+    except Exception:
+        pass
+    try:
+        return render_template('bulk_inspect.html', eq_data=eq_data,
+                               today_date=today_str, selected_date=selected_date)
+    except Exception as e:
+        app.logger.exception('bulk_inspect render error')
+        flash(f'화면 렌더링 오류: {e}', 'error')
+        return redirect(url_for('dashboard'))
 
 
 # ── 일괄 승인 ─────────────────────────────────────────────────────────────────
