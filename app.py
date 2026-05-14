@@ -138,8 +138,9 @@ class DBConn:
         cur = self._conn.execute(sql, params)
         return cur.lastrowid
 
-    def commit(self): self._conn.commit()
-    def close(self):  self._conn.close()
+    def commit(self):   self._conn.commit()
+    def rollback(self): self._conn.rollback()
+    def close(self):    self._conn.close()
 
     # 연결 타입에 맞는 SQL 방언 헬퍼
     def date_col(self, col):
@@ -2165,11 +2166,15 @@ def bulk_inspect():
                             )
 
         except Exception as e:
-            app.logger.exception('bulk_inspect POST error')
+            import traceback
+            err_detail = traceback.format_exc()
+            app.logger.error(f'[bulk_inspect POST] 오류 발생: {e}\n{err_detail}')
+            print(f'[bulk_inspect POST ERROR] {e}', flush=True)
+            print(err_detail, flush=True)
             try:
                 conn.rollback()
-            except Exception:
-                pass
+            except Exception as re:
+                print(f'[rollback error] {re}', flush=True)
             try:
                 conn.close()
             except Exception:
