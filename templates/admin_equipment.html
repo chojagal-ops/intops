@@ -112,6 +112,21 @@
       </div>
       {% endif %}
 
+      {% if has_qrcode %}
+      <div style="margin-top:14px;">
+        <a href="/admin/equipment/qr-print"
+           style="display:inline-flex; align-items:center; gap:7px;
+                  padding:9px 20px; background:rgba(249,115,22,0.1);
+                  border:1.5px solid rgba(249,115,22,0.4); border-radius:9px;
+                  color:var(--orange); font-size:0.88rem; font-weight:700;
+                  text-decoration:none; transition:background 0.2s;"
+           onmouseover="this.style.background='rgba(249,115,22,0.2)'"
+           onmouseout="this.style.background='rgba(249,115,22,0.1)'">
+          🖨️ 전체 QR 일괄 출력 &nbsp;<span style="font-size:0.76rem; opacity:0.7;">(A4 · 5열×7행)</span>
+        </a>
+      </div>
+      {% endif %}
+
       <div style="overflow-x:auto; margin-top:20px; border-radius:10px; border:1px solid var(--border);">
       <table class="eq-manage-table" id="eqManageTable">
         <thead>

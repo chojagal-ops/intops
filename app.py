@@ -5,6 +5,7 @@ if sys.stderr.encoding and sys.stderr.encoding.lower() not in ('utf-8', 'utf8'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+import base64
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
@@ -1450,6 +1451,44 @@ def equipment_qr_download(eq_id):
     buf       = _make_qr_label(eq['name'], qr_url, serial_no)
     return send_file(buf, mimetype='image/png', as_attachment=True,
                      download_name=f'{eq["name"]}_{serial_no}_QR라벨.png')
+
+
+# ── QR 전체 인쇄 ─────────────────────────────────────────────────────────────
+@app.route('/admin/equipment/qr-print')
+@admin_required
+def equipment_qr_print():
+    if not HAS_QRCODE:
+        flash('QR 생성 패키지 필요: pip install "qrcode[pil]"', 'error')
+        return redirect(url_for('admin_equipment'))
+
+    conn = get_db()
+    equipments = conn.execute(
+        'SELECT id, name, qr_code, location, department, mgmt_no FROM equipment ORDER BY name'
+    ).fetchall()
+    conn.close()
+
+    host_url = request.host_url.rstrip('/')
+    qr_items = []
+    for i, eq in enumerate(equipments):
+        qr_url = host_url + url_for('qr_redirect', code=eq['qr_code'])
+        qr_obj = qrcode.QRCode(version=1, box_size=6, border=2)
+        qr_obj.add_data(qr_url)
+        qr_obj.make(fit=True)
+        qr_img = qr_obj.make_image(fill_color='black', back_color='white')
+        buf = BytesIO()
+        qr_img.save(buf, format='PNG')
+        b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        qr_items.append({
+            'name':     eq['name'],
+            'location': eq['location'] or '',
+            'mgmt_no':  eq['mgmt_no']  or '',
+            'serial':   f'{i + 1:04d}',
+            'qr_b64':   b64,
+        })
+
+    # 35개(5×7)씩 페이지 분할
+    pages = [qr_items[i:i + 35] for i in range(0, len(qr_items), 35)]
+    return render_template('qr_print.html', pages=pages, total=len(qr_items))
 
 
 # ── QR 리다이렉트 ─────────────────────────────────────────────────────────────

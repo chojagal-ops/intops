@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR 코드 일괄 출력 - INTOPS</title>
+  <style>
+    /* ── 공통 ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', 'NanumGothic', sans-serif; background: #e5e7eb; }
+
+    /* ── 화면 컨트롤 바 ── */
+    .ctrl-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: #1f2937; color: #f9fafb;
+      padding: 12px 24px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .ctrl-bar .logo { font-weight: 700; font-size: 1rem; color: #f97316; flex-shrink: 0; }
+    .ctrl-bar .info { font-size: 0.82rem; color: #9ca3af; flex: 1; }
+    .btn-print {
+      padding: 9px 24px; background: #f97316; color: white;
+      border: none; border-radius: 8px; font-size: 0.93rem; font-weight: 700;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-print:hover { background: #ea580c; }
+    .btn-back {
+      padding: 9px 18px; background: #374151; color: #d1d5db;
+      border: 1px solid #4b5563; border-radius: 8px; font-size: 0.85rem;
+      font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-back:hover { background: #4b5563; }
+
+    /* ── 페이지 래퍼 (화면 미리보기) ── */
+    .pages-wrap { padding: 72px 20px 40px; }
+
+    .a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 20px;
+      background: white;
+      padding: 10mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+    }
+
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 0.5mm solid #f97316; padding-bottom: 2mm; margin-bottom: 4mm;
+    }
+    .page-header-title { font-size: 9pt; font-weight: 700; color: #f97316; }
+    .page-header-info  { font-size: 7pt; color: #9ca3af; }
+
+    /* ── QR 그리드 : 5열 × 7행 ── */
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2mm;
+    }
+
+    .qr-cell {
+      border: 0.4mm solid #d1d5db;
+      border-radius: 1.5mm;
+      padding: 1.5mm;
+      text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      min-height: 34mm;
+      overflow: hidden;
+    }
+
+    .qr-cell img {
+      width: 100%;
+      max-width: 28mm;
+      height: auto;
+      display: block;
+    }
+
+    .qr-cell .c-name {
+      font-size: 6pt;
+      font-weight: 700;
+      color: #111827;
+      margin-top: 1mm;
+      line-height: 1.25;
+      word-break: keep-all;
+      max-width: 100%;
+    }
+    .qr-cell .c-loc {
+      font-size: 5pt;
+      color: #6b7280;
+      margin-top: 0.5mm;
+      line-height: 1.2;
+    }
+    .qr-cell .c-sn {
+      font-size: 5pt;
+      color: #f97316;
+      font-weight: 600;
+      margin-top: 0.5mm;
+    }
+
+    /* ── 인쇄 전용 ── */
+    @media print {
+      @page { size: A4 portrait; margin: 10mm; }
+
+      body    { background: white; }
+      .ctrl-bar { display: none !important; }
+      .pages-wrap { padding: 0; }
+
+      .a4-page {
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .a4-page + .a4-page { page-break-before: always; }
+
+      .qr-grid { gap: 1.5mm; }
+      .qr-cell { border-color: #aaa; min-height: 32mm; }
+      .qr-cell img { max-width: 26mm; }
+
+      .page-header { border-color: #f97316; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 화면 컨트롤 바 (인쇄 시 숨김) -->
+  <div class="ctrl-bar">
+    <span class="logo">🖨️ INTOPS QR 출력</span>
+    <span class="info">
+      총 {{ total }}개 설비 &nbsp;·&nbsp;
+      {{ pages | length }}페이지 &nbsp;·&nbsp;
+      A4 · 5열 × 7행 (35개/페이지)
+    </span>
+    <a href="/admin/equipment" class="btn-back">← 관리자</a>
+    <button onclick="window.print()" class="btn-print">🖨️ 인쇄 / PDF 저장</button>
+  </div>
+
+  <div class="pages-wrap">
+    {% for page in pages %}
+    <div class="a4-page">
+
+      <!-- 페이지 헤더 -->
+      <div class="page-header">
+        <span class="page-header-title">INTOPS 설비 QR 코드</span>
+        <span class="page-header-info">
+          {{ loop.index }} / {{ pages | length }} 페이지 &nbsp;·&nbsp;
+          S/N {{ page[0].serial }} ~ {{ page[-1].serial }}
+        </span>
+      </div>
+
+      <!-- QR 그리드 -->
+      <div class="qr-grid">
+        {% for q in page %}
+        <div class="qr-cell">
+          <img src="data:image/png;base64,{{ q.qr_b64 }}" alt="{{ q.name }}">
+          <div class="c-name">{{ q.name }}</div>
+          {% if q.location %}
+          <div class="c-loc">📍 {{ q.location }}</div>
+          {% endif %}
+          <div class="c-sn">S/N: {{ q.serial }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:80px 20px; color:#6b7280; font-size:1rem;">
+      등록된 설비가 없습니다.
+    </div>
+    {% endfor %}
+  </div>
+
+</body>
+</html>
