@@ -155,8 +155,14 @@
       <div class="bulk-topbar">
         <span class="title">⚡ 일괄 점검</span>
         <input type="date" name="inspect_date" id="inspect_date"
-               value="{{ today_date }}" max="{{ today_date }}"
-               class="bulk-date-input">
+               value="{{ selected_date }}" max="{{ today_date }}"
+               class="bulk-date-input"
+               onchange="reloadDate(this.value)">
+        {% if selected_date != today_date %}
+        <span style="font-size:0.78rem;color:#c2410c;font-weight:600;white-space:nowrap;">
+          📅 {{ selected_date }} 기준 조회
+        </span>
+        {% endif %}
         <div class="prog-wrap">
           <div class="prog-bg"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
           <span class="prog-txt" id="pTxt">0 / {{ eq_data | length }}</span>
@@ -304,6 +310,11 @@
   </div>
 
   <script>
+    // 날짜 변경 → 해당 날짜 기준으로 페이지 재조회
+    function reloadDate(val) {
+      window.location.href = '/bulk-inspect?date=' + encodeURIComponent(val);
+    }
+
     function togBody(id) {
       const b = document.getElementById('eb-' + id);
       const t = document.getElementById('tog-' + id);

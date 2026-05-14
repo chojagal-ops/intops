@@ -2002,7 +2002,15 @@ def bulk_inspect():
         flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
         return redirect(url_for('bulk_inspect'))
 
-    # GET: 모든 설비 + 항목 + 오늘 점검 여부 로드
+    # GET: 날짜 파라미터 (없으면 오늘)
+    selected_date = request.args.get('date', today_str).strip()
+    try:
+        datetime.strptime(selected_date, '%Y-%m-%d')
+    except ValueError:
+        selected_date = today_str
+    if selected_date > today_str:
+        selected_date = today_str
+
     try:
         equipments = conn.execute('''
             SELECT e.*, a.name AS approver_name
@@ -2022,16 +2030,16 @@ def bulk_inspect():
             ).fetchall()
             items_list = [_to_dict(r) for r in items_raw]
 
-            today_insp = conn.execute(f'''
+            date_insp = conn.execute(f'''
                 SELECT id FROM inspections
-                WHERE equipment_id=? AND {conn.date_col("inspected_at")}={conn.today}
+                WHERE equipment_id=? AND {conn.date_col("inspected_at")}=?
                 AND status IN ('점검완료','승인완료')
-            ''', (eq_id,)).fetchone()
+            ''', (eq_id, selected_date)).fetchone()
 
             eq_data.append({
                 'eq_dict': eq_dict,
                 'items_list': items_list,
-                'already_done': bool(today_insp)
+                'already_done': bool(date_insp)
             })
     except Exception as e:
         app.logger.exception('bulk_inspect GET error')
@@ -2040,7 +2048,8 @@ def bulk_inspect():
         return redirect(url_for('dashboard'))
 
     conn.close()
-    return render_template('bulk_inspect.html', eq_data=eq_data, today_date=today_str)
+    return render_template('bulk_inspect.html', eq_data=eq_data,
+                           today_date=today_str, selected_date=selected_date)
 
 
 @app.route('/daily-results')
