@@ -257,26 +257,7 @@
       </table>
       </div>
 
-      {% if equipments %}
-      <div class="qr-guide">
-        <div class="qr-guide-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          사용 흐름
-          <a href="/bulk-approve"
-             style="font-size:0.8rem; padding:5px 14px; background:var(--orange);
-                    color:#fff; border-radius:8px; font-weight:700;
-                    text-decoration:none; white-space:nowrap; letter-spacing:0.01em;">
-            일괄 승인 →
-          </a>
-        </div>
-        <div class="qr-guide-steps">
-          <div class="qr-step"><span class="qr-step-num">1</span><span>설비 등록 → <strong>승인자 지정</strong></span></div>
-          <div class="qr-step"><span class="qr-step-num">2</span><span><strong>QR 다운</strong> → 설비에 부착</span></div>
-          <div class="qr-step"><span class="qr-step-num">3</span><span>점검자 QR 스캔 → 점검 입력 → <strong>제출</strong></span></div>
-          <div class="qr-step"><span class="qr-step-num">4</span><span>승인자 로그인 → <strong>승인 확인</strong></span></div>
-          <div class="qr-step"><span class="qr-step-num">5</span><span><strong>일괄 승인</strong>으로 날짜별 전체 점검 한 번에 처리</span></div>
-        </div>
-      </div>
-      {% endif %}
+      {% if equipments %}{% endif %}
 
     </div>
   </div>
