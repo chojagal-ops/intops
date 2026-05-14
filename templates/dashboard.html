@@ -254,6 +254,15 @@
     </div>
   </div>
 
+  <!-- 히든 일괄점검 진입 아이콘 -->
+  <div id="hiddenBulk"
+       onclick="window.location='/bulk-inspect'"
+       title=""
+       style="position:fixed; bottom:10px; right:14px; opacity:0.07; cursor:pointer;
+              font-size:1rem; z-index:9999; user-select:none; transition:opacity 0.3s;"
+       onmouseover="this.style.opacity='0.35'"
+       onmouseout="this.style.opacity='0.07'">🔒</div>
+
   <script src="/static/nav.js"></script>
   <script>
     if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
