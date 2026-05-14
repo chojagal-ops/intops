@@ -439,8 +439,8 @@
         else if (!isNaN(minV) && !isNaN(maxV)) base = (minV + maxV) / 2;
         if (isNaN(base)) return;
 
-        // ±10% 랜덤
-        const range = Math.abs(base) * 0.10 || 0.1;
+        // ±5% 랜덤
+        const range = Math.abs(base) * 0.05 || 0.05;
         const rand  = base + (Math.random() * 2 - 1) * range;
         el.value = rand.toFixed(decimals);
         el.dispatchEvent(new Event('input'));
