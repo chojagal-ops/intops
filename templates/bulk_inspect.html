@@ -402,44 +402,47 @@
       document.getElementById('sInfo').textContent = done + '개 설비 저장 준비 완료';
     }
 
-    // ── 수치 자동입력: 중심치 ±10% 랜덤 ──
+    // ── 수치 자동입력 ──
+    // 상한 = 중앙값 = 하한 → 정확히 중앙값 입력
+    // 그 외 → 중심치(또는 상하한 평균) ±10% 랜덤
     function autoFillAll() {
       document.querySelectorAll('.num-inp').forEach(el => {
-        // 수리중/휴동 선택된 항목은 건너뜀
-        const iid  = el.id.replace('ni-', '');
-        const sp   = document.getElementById('sp-' + iid);
+        const iid = el.id.replace('ni-', '');
+        const sp  = document.getElementById('sp-' + iid);
         if (sp && (sp.value === '수리중' || sp.value === '휴동')) return;
-
-        // 이미 값이 입력된 항목도 건너뜀
         if (el.value.trim() !== '') return;
 
         const center = parseFloat(el.dataset.center);
         const minV   = parseFloat(el.dataset.min);
         const maxV   = parseFloat(el.dataset.max);
 
-        let base = NaN;
-        if (!isNaN(center)) {
-          base = center;                          // 중심치 우선
-        } else if (!isNaN(minV) && !isNaN(maxV)) {
-          base = (minV + maxV) / 2;               // 없으면 상하한 평균
-        }
-
-        if (isNaN(base)) return;                  // 기준값 없으면 건너뜀
-
-        // base ±10% 랜덤
-        const range = Math.abs(base) * 0.10 || 0.1;   // base=0 이면 ±0.1
-        const rand  = base + (Math.random() * 2 - 1) * range;
-
-        // 소수점 자릿수는 center/min/max 중 가장 긴 것 기준
+        // 소수점 자릿수 (center/min/max 중 최대)
         const decimals = Math.max(
           (el.dataset.center || '').split('.')[1]?.length || 0,
           (el.dataset.min    || '').split('.')[1]?.length || 0,
           (el.dataset.max    || '').split('.')[1]?.length || 0,
           1
         );
-        el.value = rand.toFixed(decimals);
 
-        // range 경고 및 종합 결과 업데이트
+        // 상한 = 중앙값 = 하한 → 정확히 중앙값
+        const allSame = !isNaN(center) && !isNaN(minV) && !isNaN(maxV)
+                        && center === minV && center === maxV;
+        if (allSame) {
+          el.value = center.toFixed(decimals);
+          el.dispatchEvent(new Event('input'));
+          return;
+        }
+
+        // 기준값 결정 (중심치 우선, 없으면 상하한 평균)
+        let base = NaN;
+        if (!isNaN(center))                  base = center;
+        else if (!isNaN(minV) && !isNaN(maxV)) base = (minV + maxV) / 2;
+        if (isNaN(base)) return;
+
+        // ±10% 랜덤
+        const range = Math.abs(base) * 0.10 || 0.1;
+        const rand  = base + (Math.random() * 2 - 1) * range;
+        el.value = rand.toFixed(decimals);
         el.dispatchEvent(new Event('input'));
       });
     }
