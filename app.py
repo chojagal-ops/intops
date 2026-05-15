@@ -3037,6 +3037,18 @@ def dashboard():
         'SELECT COUNT(*) AS cnt FROM equipment'
     ).fetchone()['cnt']
 
+    # 오늘 휴동 여부: 주말이거나 전 설비가 휴동 처리된 날
+    _today_kst = now_kst()
+    today_is_idle = _today_kst.weekday() >= 5  # 토(5)/일(6)
+    if not today_is_idle and total_eq > 0:
+        idle_cnt = conn.execute(f'''
+            SELECT COUNT(DISTINCT equipment_id) AS cnt
+            FROM inspections
+            WHERE {conn.date_col("inspected_at")} = {conn.today}
+              AND result = '휴동'
+        ''').fetchone()['cnt']
+        today_is_idle = (idle_cnt >= total_eq)
+
     pending_list = []
     approved_count = 0
     if session.get('role') == '승인자' or session.get('is_admin'):
@@ -3067,7 +3079,7 @@ def dashboard():
 
     conn.close()
     return render_template('dashboard.html', today_count=today_count,
-                           today_list=today_list,
+                           today_list=today_list, today_is_idle=today_is_idle,
                            total_eq=total_eq, pending_list=pending_list,
                            approved_count=approved_count)
 

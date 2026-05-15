@@ -52,6 +52,20 @@
 
       <!-- 요약 카드 -->
       <div class="dash-grid">
+        {% if today_is_idle %}
+        <!-- 오늘 = 휴동일 -->
+        <div class="dash-card" id="today-card"
+             style="border-color:rgba(107,114,128,0.30); background:rgba(107,114,128,0.04);
+                    transition:box-shadow 0.2s, transform 0.2s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(107,114,128,0.15)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div class="dash-card-icon">⏸</div>
+          <div class="dash-card-label">오늘 점검</div>
+          <div class="dash-card-value" style="font-size:1.5rem; color:#6b7280;">휴동일</div>
+          <div style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">점검 제외일</div>
+        </div>
+        {% else %}
+        <!-- 오늘 = 일반 점검일 -->
         <div class="dash-card" id="today-card"
              onclick="toggleToday()"
              style="cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;"
@@ -64,6 +78,7 @@
           <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">내역 보기 →</div>
           {% endif %}
         </div>
+        {% endif %}
         <a href="/equipment-list{% if session.team and session.team != '관리자' %}?dept={{ session.team }}{% endif %}"
            class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;"
            onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'"
@@ -93,8 +108,8 @@
         {% endif %}
       </div>
 
-      <!-- 오늘 점검 상세 목록 (토글) -->
-      {% if today_list %}
+      <!-- 오늘 점검 상세 목록 (토글, 휴동일 제외) -->
+      {% if today_list and not today_is_idle %}
       <div id="today-detail" style="display:none; margin-top:16px;">
         <hr class="divider" style="margin-top:0;">
         <div class="section-title" style="margin-bottom:12px;">🔍 오늘 점검 내역</div>
