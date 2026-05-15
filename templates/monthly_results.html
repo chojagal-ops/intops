@@ -232,10 +232,17 @@
     </div>
 
     <!-- 요약 -->
-    {% set total_days = insp_by_day | length %}
+    {% set ns_sum = namespace(done=0, idle=0) %}
+    {% for d, ins in insp_by_day.items() %}
+      {% if ins.result == '휴동' %}{% set ns_sum.idle = ns_sum.idle + 1 %}
+      {% else %}{% set ns_sum.done = ns_sum.done + 1 %}{% endif %}
+    {% endfor %}
     <div class="mr-summary">
-      <span class="sum-badge sum-ok">✅ 점검완료 {{ total_days }}일</span>
-      <span class="sum-badge sum-ng">⚠️ 미점검 {{ days_in_month - total_days }}일</span>
+      <span class="sum-badge sum-ok">✅ 점검완료 {{ ns_sum.done }}일</span>
+      {% if ns_sum.idle > 0 %}
+      <span class="sum-badge" style="background:rgba(107,114,128,0.12);color:#6b7280;">⏸ 휴동 {{ ns_sum.idle }}일</span>
+      {% endif %}
+      <span class="sum-badge sum-ng">⚠️ 미점검 {{ days_in_month - ns_sum.done - ns_sum.idle }}일</span>
     </div>
 
     {% set items = db_items if db_items else tmpl_rows %}
@@ -250,9 +257,9 @@
             {% for d in range(1, days_in_month+1) %}
             {% set dow = day_weekday[d] %}
             <th class="col-day" style="{% if d in weekend_days %}background:rgba(107,114,128,0.08);{% endif %}">
-              <span class="th-day-num" style="{% if d in insp_by_day %}color:var(--orange);{% elif d in weekend_days %}color:#6b7280;{% endif %}">{{ d }}</span>
+              <span class="th-day-num" style="{% if d in insp_by_day and insp_by_day[d].result == '휴동' %}color:#6b7280;{% elif d in insp_by_day %}color:var(--orange);{% elif d in weekend_days %}color:#6b7280;{% endif %}">{{ d }}</span>
               <span class="th-day-dow {% if dow == '토' %}sat{% elif dow == '일' %}sun{% endif %}">{{ dow }}</span>
-              <span class="th-day-time">{% if d in insp_by_day %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% endif %}</span>
+              <span class="th-day-time">{% if d in insp_by_day and insp_by_day[d].result != '휴동' %}{{ insp_by_day[d]['inspected_at'][11:16] }}{% elif d in insp_by_day %}휴동{% endif %}</span>
             </th>
             {% endfor %}
           </tr>
@@ -274,7 +281,8 @@
                 <td class="col-std">{{ item.criteria or '-' }}</td>
                 {% for d in range(1, days_in_month+1) %}
                   {% if d in insp_by_day %}
-                    {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(item.id) %}
+                    {% set ins_day = insp_by_day[d] %}
+                    {% set det = details_by_insp.get(ins_day.id, {}).get(item.id) %}
                     {% if det %}
                       {% if det.result == '정상' %}
                         <td class="td-ok"><span class="mark-ok">O</span></td>
@@ -282,11 +290,14 @@
                         <td class="td-ng"><span class="mark-ng">X</span></td>
                       {% elif det.result == '수리중' %}
                         <td class="td-fix"><span class="mark-fix">R</span></td>
-                      {% elif det.result == '휴동' %}
+                      {% elif det.result in ('휴동', '해당없음') %}
                         <td class="td-idle"><span class="mark-idle">P</span></td>
                       {% else %}
                         <td><span class="mark-na">–</span></td>
                       {% endif %}
+                    {% elif ins_day.result == '휴동' %}
+                      {# 관리자 일괄 휴동: inspection_details 없음 → 전체결과로 표시 #}
+                      <td class="td-idle"><span class="mark-idle">P</span></td>
                     {% else %}
                       <td class="td-none"></td>
                     {% endif %}
@@ -311,7 +322,8 @@
                   <td class="col-std">{{ row.cells[2] if row.cells|length > 2 else '-' }}</td>
                   {% for d in range(1, days_in_month+1) %}
                     {% if d in insp_by_day %}
-                      {% set det = details_by_insp.get(insp_by_day[d].id, {}).get(row_idx) %}
+                      {% set ins_day = insp_by_day[d] %}
+                      {% set det = details_by_insp.get(ins_day.id, {}).get(row_idx) %}
                       {% if det %}
                         {% if det.result == '정상' %}
                           <td class="td-ok"><span class="mark-ok">O</span></td>
@@ -319,11 +331,14 @@
                           <td class="td-ng"><span class="mark-ng">X</span></td>
                         {% elif det.result == '수리중' %}
                           <td class="td-fix"><span class="mark-fix">R</span></td>
-                        {% elif det.result == '휴동' %}
+                        {% elif det.result in ('휴동', '해당없음') %}
                           <td class="td-idle"><span class="mark-idle">P</span></td>
                         {% else %}
                           <td><span class="mark-na">–</span></td>
                         {% endif %}
+                      {% elif ins_day.result == '휴동' %}
+                        {# 관리자 일괄 휴동: inspection_details 없음 → 전체결과로 표시 #}
+                        <td class="td-idle"><span class="mark-idle">P</span></td>
                       {% else %}
                         <td class="td-none"></td>
                       {% endif %}
@@ -366,8 +381,13 @@
             <td></td>
             {% for d in range(1, days_in_month+1) %}
               {% if d in insp_by_day %}
-                {% if insp_by_day[d].result == '정상' %}
+                {% set r = insp_by_day[d].result %}
+                {% if r == '정상' %}
                   <td class="td-ok"><span class="mark-ok">O</span></td>
+                {% elif r == '휴동' %}
+                  <td class="td-idle"><span class="mark-idle">P</span></td>
+                {% elif r == '수리중' %}
+                  <td class="td-fix"><span class="mark-fix">R</span></td>
                 {% else %}
                   <td class="td-ng"><span class="mark-ng">X</span></td>
                 {% endif %}
