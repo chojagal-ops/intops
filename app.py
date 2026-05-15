@@ -2992,6 +2992,146 @@ def dashboard():
                            approved_count=approved_count)
 
 
+# ── 모니터링 (점검율 대시보드) ───────────────────────────────────────────────
+@app.route('/monitoring')
+@login_required
+def monitoring():
+    import json as _json
+    now   = now_kst()
+    year  = int(request.args.get('year',  now.year))
+    month = int(request.args.get('month', now.month))
+    ym    = f"{year}-{month:02d}"
+
+    conn = get_db()
+    dept_sql_m, dept_params_m, current_dept = _dept_filter(conn)
+
+    # ── 기본 정보 ────────────────────────────────────────────────────────────
+    total_eq = conn.execute(
+        f'SELECT COUNT(*) AS cnt FROM equipment WHERE 1=1{dept_sql_m}',
+        dept_params_m
+    ).fetchone()['cnt']
+
+    days_in_month = calendar.monthrange(year, month)[1]
+    passed_days   = now.day if (year == now.year and month == now.month) else days_in_month
+
+    today_str = now.strftime('%Y-%m-%d')
+
+    if conn._pg:
+        ym_expr  = "LEFT(inspected_at, 7)"
+        day_expr = "LEFT(inspected_at, 10)"
+    else:
+        ym_expr  = "strftime('%Y-%m', inspected_at)"
+        day_expr = "date(inspected_at)"
+
+    # ── 오늘 점검율 ──────────────────────────────────────────────────────────
+    today_done = conn.execute(f'''
+        SELECT COUNT(DISTINCT i.equipment_id) AS cnt
+        FROM inspections i
+        JOIN equipment e ON i.equipment_id = e.id
+        WHERE {conn.date_col("i.inspected_at")} = ?
+          AND i.status IN ('점검완료','승인완료')
+          {''.join([f"AND e.department = {('%s' if conn._pg else '?')}" if dept_params_m else ''])}
+    ''', [today_str] + dept_params_m).fetchone()['cnt']
+
+    today_rate = round(today_done / total_eq * 100, 1) if total_eq else 0
+
+    # ── 이번 달 모든 (equipment_id, day) 점검 완료 쌍 ───────────────────────
+    if dept_params_m:
+        dept_join = f"JOIN equipment _e ON i.equipment_id = _e.id AND _e.department = {('%s' if conn._pg else '?')}"
+    else:
+        dept_join = "JOIN equipment _e ON i.equipment_id = _e.id"
+
+    insp_pairs_raw = conn.execute(f'''
+        SELECT DISTINCT i.equipment_id, {day_expr} AS day
+        FROM inspections i
+        {dept_join}
+        WHERE {ym_expr} = ?
+          AND i.status IN ('점검완료','승인완료')
+    ''', dept_params_m + [ym]).fetchall()
+
+    # {day_num: set of equipment_ids}
+    from collections import defaultdict as _dd
+    day_eq_set = _dd(set)
+    for r in insp_pairs_raw:
+        day_str2 = str(r['day'])
+        day_num  = int(day_str2.split('-')[2])
+        day_eq_set[day_num].add(r['equipment_id'])
+
+    # ── 일별 점검율 (차트용) ──────────────────────────────────────────────────
+    chart_labels = [f"{month}/{d}" for d in range(1, passed_days + 1)]
+    chart_values = [
+        round(len(day_eq_set[d]) / total_eq * 100, 1) if total_eq else 0
+        for d in range(1, passed_days + 1)
+    ]
+    avg_rate = round(sum(chart_values) / len(chart_values), 1) if chart_values else 0
+
+    # ── 팀(부서)별 점검율 ────────────────────────────────────────────────────
+    all_eq_rows = conn.execute(
+        f'SELECT id, department FROM equipment WHERE 1=1{dept_sql_m}',
+        dept_params_m
+    ).fetchall()
+
+    dept_eq = _dd(set)   # dept → set of eq_ids
+    for r in all_eq_rows:
+        dept_eq[r['department'] or '미지정'].add(r['id'])
+
+    dept_done = _dd(set)  # dept → set of (eq_id, day) pairs done
+    for r in insp_pairs_raw:
+        day_str2 = str(r['day'])
+        eq_dept  = next(
+            ((_r['department'] or '미지정') for _r in all_eq_rows if _r['id'] == r['equipment_id']),
+            '미지정'
+        )
+        dept_done[eq_dept].add((r['equipment_id'], day_str2))
+
+    dept_data = []
+    for dept, eq_ids in sorted(dept_eq.items()):
+        eq_cnt = len(eq_ids)
+        done_cnt = len(dept_done[dept])
+        max_possible = eq_cnt * passed_days
+        rate = round(done_cnt / max_possible * 100, 1) if max_possible else 0
+        dept_data.append({
+            'dept': dept, 'eq_cnt': eq_cnt,
+            'done_cnt': done_cnt, 'max_possible': max_possible, 'rate': rate,
+        })
+    dept_data.sort(key=lambda x: -x['rate'])
+
+    # ── 설비별 점검율 ─────────────────────────────────────────────────────────
+    eq_done_days = _dd(int)   # eq_id → 점검 일수
+    for r in insp_pairs_raw:
+        eq_done_days[r['equipment_id']] += 1
+
+    eq_detail = conn.execute(
+        f'SELECT id, name, department, location FROM equipment WHERE 1=1{dept_sql_m} ORDER BY name',
+        dept_params_m
+    ).fetchall()
+
+    eq_data = []
+    for r in eq_detail:
+        done_days = eq_done_days[r['id']]
+        rate = round(done_days / passed_days * 100, 1) if passed_days else 0
+        eq_data.append({
+            'id': r['id'], 'name': r['name'],
+            'dept': r['department'] or '-', 'location': r['location'] or '-',
+            'done_days': done_days, 'passed_days': passed_days, 'rate': rate,
+        })
+    eq_data.sort(key=lambda x: (-x['rate'], x['name']))
+
+    conn.close()
+
+    return render_template('monitoring.html',
+        year=year, month=month, days_in_month=days_in_month,
+        passed_days=passed_days, total_eq=total_eq,
+        today_done=today_done, today_rate=today_rate,
+        avg_rate=avg_rate,
+        chart_labels=_json.dumps(chart_labels, ensure_ascii=False),
+        chart_values=_json.dumps(chart_values),
+        dept_data=dept_data, eq_data=eq_data,
+        now_year=now.year, now_month=now.month,
+        current_dept=current_dept, all_teams=TEAMS,
+    )
+
+
 # ── 전체 설비 리스트 ──────────────────────────────────────────────────────────
 @app.route('/equipment-list')
 @login_required

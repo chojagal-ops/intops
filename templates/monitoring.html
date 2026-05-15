@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>모니터링 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .mon-wrap { max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
+
+    /* 컨트롤 바 */
+    .mon-ctrl {
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      margin-bottom:20px;
+    }
+
+    /* KPI 카드 */
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:14px; margin-bottom:28px; }
+    .kpi-card {
+      background:var(--bg); border:1.5px solid var(--border);
+      border-radius:14px; padding:18px 20px;
+      display:flex; flex-direction:column; gap:6px;
+      transition:box-shadow 0.15s;
+    }
+    .kpi-card:hover { box-shadow:var(--shadow-md); }
+    .kpi-label { font-size:0.78rem; color:var(--text-sub); font-weight:600; }
+    .kpi-value { font-size:2rem; font-weight:800; line-height:1.1; }
+    .kpi-sub   { font-size:0.75rem; color:var(--text-muted); }
+    .kpi-ok    { color:#15803d; }
+    .kpi-warn  { color:#c2410c; }
+    .kpi-blue  { color:#2563eb; }
+    .kpi-gray  { color:#6b7280; }
+
+    /* 섹션 */
+    .mon-section { margin-bottom:32px; }
+    .mon-section-title {
+      font-size:0.95rem; font-weight:800; color:var(--text);
+      margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    }
+    .mon-section-title::before {
+      content:''; display:inline-block; width:4px; height:18px;
+      background:var(--orange); border-radius:2px;
+    }
+
+    /* 차트 행 */
+    .chart-row { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:28px; }
+    .chart-box {
+      background:var(--bg); border:1.5px solid var(--border);
+      border-radius:14px; padding:20px;
+    }
+    .chart-box-title { font-size:0.82rem; font-weight:700; color:var(--text-sub); margin-bottom:14px; }
+    .chart-full { grid-column:1/-1; }
+
+    /* 점검율 테이블 */
+    .rate-table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+    .rate-table th {
+      background:var(--orange-faint); color:var(--text-sub);
+      font-size:0.75rem; font-weight:700;
+      padding:10px 12px; border-bottom:1px solid var(--border);
+      text-align:left; white-space:nowrap;
+    }
+    .rate-table td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .rate-table tbody tr:hover { background:var(--bg-subtle); }
+    .rate-table td:first-child { font-weight:600; }
+
+    /* 진행 바 */
+    .prog-bar-wrap { display:flex; align-items:center; gap:8px; }
+    .prog-bar-bg { flex:1; height:8px; border-radius:10px; background:var(--bg-inner); overflow:hidden; min-width:80px; }
+    .prog-bar-fill { height:100%; border-radius:10px; transition:width 0.4s; }
+    .prog-bar-pct { font-size:0.78rem; font-weight:700; white-space:nowrap; min-width:40px; text-align:right; }
+
+    /* 결과 뱃지 */
+    .rate-badge {
+      display:inline-block; padding:2px 9px; border-radius:12px;
+      font-size:0.73rem; font-weight:700; white-space:nowrap;
+    }
+    .rate-hi  { background:rgba(22,163,74,0.12);  color:#15803d; }
+    .rate-mid { background:rgba(234,179,8,0.15);  color:#92400e; }
+    .rate-lo  { background:rgba(220,38,38,0.10);  color:#dc2626; }
+
+    @media(max-width:768px){
+      .chart-row { grid-template-columns:1fr; }
+      .kpi-grid  { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      {% if session.role == '승인자' %}
+      <a href="/my-approvals" class="nav-link">내 승인 결과</a>
+      {% else %}
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      {% endif %}
+      <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      <a href="/monitoring" class="nav-link active">모니터링</a>
+      {% if session.is_admin %}
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link">설비 관리</a>
+      <a href="/admin/data" class="nav-link">데이터 관리</a>
+      {% endif %}
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/help" class="help-btn">❓ 도움말</a>
+      <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="mon-wrap">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}" style="margin-bottom:14px;">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- 페이지 헤더 -->
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+      <div>
+        <h1 style="font-size:1.3rem; font-weight:800; margin:0 0 3px;">📊 점검율 모니터링</h1>
+        <p style="font-size:0.82rem; color:var(--text-sub); margin:0;">설비 점검 현황과 점검율을 한눈에 확인합니다.</p>
+      </div>
+      <!-- 월 선택 -->
+      <form method="GET" id="ctrlForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="hidden" name="dept" id="deptHiddenM" value="{{ current_dept }}">
+        <select name="year" onchange="this.form.submit()"
+                style="padding:7px 10px; font-size:0.85rem; border-radius:7px; border:1px solid var(--border); background:var(--bg-subtle); color:var(--text); height:36px;">
+          {% for y in range(2024, now_year+2) %}
+          <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}년</option>
+          {% endfor %}
+        </select>
+        <select name="month" onchange="this.form.submit()"
+                style="padding:7px 10px; font-size:0.85rem; border-radius:7px; border:1px solid var(--border); background:var(--bg-subtle); color:var(--text); height:36px;">
+          {% for m in range(1,13) %}
+          <option value="{{ m }}" {% if m==month %}selected{% endif %}>{{ m }}월</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <!-- 팀 필터 -->
+    <div class="dept-filter-bar" style="margin-bottom:20px;">
+      <span class="df-label">🏭 팀 필터:</span>
+      <a class="dept-pill {% if current_dept=='전체' %}active{% endif %}"
+         onclick="setDeptM('전체')" href="javascript:void(0)">전체</a>
+      {% for t in all_teams %}{% if t != '관리자' %}
+      <a class="dept-pill {% if current_dept==t %}active{% endif %}"
+         onclick="setDeptM('{{ t }}')" href="javascript:void(0)">{{ t }}</a>
+      {% endif %}{% endfor %}
+    </div>
+
+    <!-- KPI 카드 -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">📅 오늘 점검율</div>
+        <div class="kpi-value {% if today_rate >= 80 %}kpi-ok{% elif today_rate >= 50 %}kpi-warn{% else %}kpi-warn{% endif %}">
+          {{ today_rate }}%
+        </div>
+        <div class="kpi-sub">{{ today_done }} / {{ total_eq }} 대 완료</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">📆 {{ month }}월 평균 점검율</div>
+        <div class="kpi-value {% if avg_rate >= 80 %}kpi-ok{% elif avg_rate >= 50 %}kpi-warn{% else %}kpi-warn{% endif %}">
+          {{ avg_rate }}%
+        </div>
+        <div class="kpi-sub">{{ passed_days }}일 경과 기준</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">⚙️ 관리 설비 수</div>
+        <div class="kpi-value kpi-blue">{{ total_eq }}</div>
+        <div class="kpi-sub">{% if current_dept != '전체' %}{{ current_dept }}{% else %}전체 설비{% endif %}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">📋 팀 수</div>
+        <div class="kpi-value kpi-gray">{{ dept_data | length }}</div>
+        <div class="kpi-sub">부서/팀 집계</div>
+      </div>
+    </div>
+
+    <!-- 차트 행 1: 일별 추이 (전체 폭) -->
+    <div class="mon-section">
+      <div class="mon-section-title">{{ month }}월 일별 점검율 추이</div>
+      <div class="chart-box" style="padding:20px 20px 16px;">
+        <canvas id="lineChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <!-- 차트 행 2: 도넛 + 팀별 -->
+    <div class="chart-row">
+      <!-- 오늘 점검율 도넛 -->
+      <div class="chart-box" style="display:flex; flex-direction:column; align-items:center;">
+        <div class="chart-box-title" style="align-self:flex-start;">오늘 점검 현황 ({{ today_done }} / {{ total_eq }} 대)</div>
+        <div style="max-width:220px; width:100%; margin:0 auto;">
+          <canvas id="donutChart"></canvas>
+        </div>
+        <div style="display:flex; gap:16px; margin-top:12px; font-size:0.78rem;">
+          <span style="display:flex; align-items:center; gap:5px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#f97316;display:inline-block;"></span> 점검완료
+          </span>
+          <span style="display:flex; align-items:center; gap:5px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#e5e7eb;display:inline-block;"></span> 미점검
+          </span>
+        </div>
+      </div>
+
+      <!-- 팀별 점검율 가로 막대 -->
+      <div class="chart-box">
+        <div class="chart-box-title">{{ month }}월 팀별 점검율</div>
+        <canvas id="deptChart" height="{% if dept_data|length > 4 %}{{ dept_data|length * 30 }}{% else %}160{% endif %}"></canvas>
+      </div>
+    </div>
+
+    <!-- 팀별 점검율 테이블 -->
+    {% if dept_data %}
+    <div class="mon-section">
+      <div class="mon-section-title">팀별 점검율 상세</div>
+      <div style="border:1.5px solid var(--border); border-radius:12px; overflow:hidden;">
+        <table class="rate-table">
+          <thead>
+            <tr>
+              <th>팀 / 부서</th>
+              <th style="text-align:center;">설비 수</th>
+              <th style="text-align:center;">점검 건수</th>
+              <th style="text-align:center;">목표 건수</th>
+              <th style="min-width:200px;">점검율</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in dept_data %}
+            <tr>
+              <td>{{ d.dept }}</td>
+              <td style="text-align:center; color:var(--text-sub);">{{ d.eq_cnt }} 대</td>
+              <td style="text-align:center; color:var(--text-sub);">{{ d.done_cnt }} 건</td>
+              <td style="text-align:center; color:var(--text-muted);">{{ d.max_possible }} 건</td>
+              <td>
+                <div class="prog-bar-wrap">
+                  <div class="prog-bar-bg">
+                    <div class="prog-bar-fill"
+                         style="width:{{ d.rate }}%;
+                                background:{% if d.rate>=80 %}#16a34a{% elif d.rate>=50 %}#f97316{% else %}#dc2626{% endif %};">
+                    </div>
+                  </div>
+                  <span class="prog-bar-pct"
+                        style="color:{% if d.rate>=80 %}#15803d{% elif d.rate>=50 %}#c2410c{% else %}#dc2626{% endif %};">
+                    {{ d.rate }}%
+                  </span>
+                  <span class="rate-badge {% if d.rate>=80 %}rate-hi{% elif d.rate>=50 %}rate-mid{% else %}rate-lo{% endif %}">
+                    {% if d.rate>=80 %}양호{% elif d.rate>=50 %}보통{% else %}미흡{% endif %}
+                  </span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 설비별 점검율 테이블 -->
+    <div class="mon-section">
+      <div class="mon-section-title" style="justify-content:space-between;">
+        <span>설비별 {{ month }}월 점검율</span>
+        <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted);">기준: {{ passed_days }}일 경과</span>
+      </div>
+
+      <!-- 검색 + 필터 -->
+      <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+        <input type="text" id="eqSearch" placeholder="설비명 / 팀 검색..."
+               oninput="filterEqTable()"
+               style="padding:7px 12px; font-size:0.83rem; border-radius:7px;
+                      border:1px solid var(--border); background:var(--bg-subtle); color:var(--text); min-width:200px;">
+        <select id="rateFilter" onchange="filterEqTable()"
+                style="padding:7px 10px; font-size:0.83rem; border-radius:7px;
+                       border:1px solid var(--border); background:var(--bg-subtle); color:var(--text);">
+          <option value="">전체</option>
+          <option value="hi">양호 (80%↑)</option>
+          <option value="mid">보통 (50~79%)</option>
+          <option value="lo">미흡 (50%↓)</option>
+          <option value="zero">0% (미점검)</option>
+        </select>
+        <span id="eqCount" style="font-size:0.78rem; color:var(--text-muted); align-self:center;"></span>
+      </div>
+
+      <div style="border:1.5px solid var(--border); border-radius:12px; overflow:hidden; overflow-x:auto;">
+        <table class="rate-table" id="eqTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>설비명</th>
+              <th>팀 / 부서</th>
+              <th>위치</th>
+              <th style="text-align:center;">점검일수</th>
+              <th style="min-width:220px;">점검율</th>
+              <th style="text-align:center;">월별 상세</th>
+            </tr>
+          </thead>
+          <tbody id="eqTbody">
+            {% for eq in eq_data %}
+            <tr data-rate="{{ eq.rate }}" data-name="{{ eq.name }}" data-dept="{{ eq.dept }}">
+              <td style="color:var(--text-muted);">{{ loop.index }}</td>
+              <td><strong>{{ eq.name }}</strong></td>
+              <td style="color:var(--text-sub);">{{ eq.dept }}</td>
+              <td style="color:var(--text-sub);">{{ eq.location }}</td>
+              <td style="text-align:center; color:var(--text-sub);">
+                {{ eq.done_days }} / {{ eq.passed_days }}일
+              </td>
+              <td>
+                <div class="prog-bar-wrap">
+                  <div class="prog-bar-bg">
+                    <div class="prog-bar-fill"
+                         style="width:{{ eq.rate }}%;
+                                background:{% if eq.rate>=80 %}#16a34a{% elif eq.rate>=50 %}#f97316{% else %}#dc2626{% endif %};">
+                    </div>
+                  </div>
+                  <span class="prog-bar-pct"
+                        style="color:{% if eq.rate>=80 %}#15803d{% elif eq.rate>=50 %}#c2410c{% else %}#dc2626{% endif %};">
+                    {{ eq.rate }}%
+                  </span>
+                  <span class="rate-badge {% if eq.rate>=80 %}rate-hi{% elif eq.rate>=50 %}rate-mid{% else %}rate-lo{% endif %}">
+                    {% if eq.rate>=80 %}양호{% elif eq.rate>=50 %}보통{% elif eq.rate>0 %}미흡{% else %}미점검{% endif %}
+                  </span>
+                </div>
+              </td>
+              <td style="text-align:center;">
+                <a href="/monthly/{{ eq.id }}?year={{ year }}&month={{ month }}"
+                   class="btn btn-outline btn-sm" style="margin:0; font-size:0.75rem; padding:3px 10px;">
+                  월별 →
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /mon-wrap -->
+
+  <script src="/static/nav.js"></script>
+  <script>
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/static/sw.js'); }
+
+    // ── Chart.js 공통 색상 ────────────────────────────────────────────────────
+    const C_ORANGE = '#f97316';
+    const C_GREEN  = '#16a34a';
+    const C_RED    = '#dc2626';
+    const C_GRAY   = '#e5e7eb';
+
+    // ── 1. 일별 점검율 라인 차트 ─────────────────────────────────────────────
+    (function(){
+      const labels = {{ chart_labels | safe }};
+      const values = {{ chart_values | safe }};
+      const colors = values.map(v => v >= 80 ? C_GREEN : v >= 50 ? C_ORANGE : C_RED);
+
+      new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '점검율 (%)',
+            data: values,
+            borderColor: C_ORANGE,
+            backgroundColor: 'rgba(249,115,22,0.08)',
+            pointBackgroundColor: colors,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` 점검율: ${ctx.parsed.y}%`
+              }
+            }
+          },
+          scales: {
+            y: {
+              min: 0, max: 100,
+              ticks: { callback: v => v + '%', font: { size: 11 } },
+              grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            x: { ticks: { font: { size: 10 }, maxRotation: 45 } }
+          }
+        }
+      });
+    })();
+
+    // ── 2. 오늘 점검율 도넛 ──────────────────────────────────────────────────
+    (function(){
+      const done = {{ today_done }};
+      const total = {{ total_eq }};
+      const notDone = Math.max(0, total - done);
+      new Chart(document.getElementById('donutChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['점검완료', '미점검'],
+          datasets: [{
+            data: [done, notDone],
+            backgroundColor: [C_ORANGE, C_GRAY],
+            borderWidth: 0,
+            hoverOffset: 4,
+          }]
+        },
+        options: {
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.parsed} 대`
+              }
+            }
+          }
+        },
+        plugins: [{
+          id: 'centerText',
+          beforeDraw(chart) {
+            const { ctx, chartArea: { width, height, left, top } } = chart;
+            ctx.save();
+            const x = left + width / 2, y = top + height / 2;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillStyle = done === total ? '#15803d' : '#f97316';
+            ctx.fillText('{{ today_rate }}%', x, y - 8);
+            ctx.font = '11px sans-serif'; ctx.fillStyle = '#6b7280';
+            ctx.fillText('오늘 점검율', x, y + 14);
+            ctx.restore();
+          }
+        }]
+      });
+    })();
+
+    // ── 3. 팀별 점검율 가로 막대 ─────────────────────────────────────────────
+    (function(){
+      const depts  = {{ dept_data | map(attribute='dept')  | list | tojson }};
+      const rates  = {{ dept_data | map(attribute='rate')  | list | tojson }};
+      const bcolors = rates.map(r => r >= 80 ? '#16a34a' : r >= 50 ? '#f97316' : '#dc2626');
+
+      new Chart(document.getElementById('deptChart'), {
+        type: 'bar',
+        data: {
+          labels: depts,
+          datasets: [{
+            label: '점검율 (%)',
+            data: rates,
+            backgroundColor: bcolors,
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}%` } }
+          },
+          scales: {
+            x: {
+              min: 0, max: 100,
+              ticks: { callback: v => v + '%', font: { size: 10 } },
+              grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            y: { ticks: { font: { size: 11 } } }
+          }
+        }
+      });
+    })();
+
+    // ── 설비 테이블 검색·필터 ─────────────────────────────────────────────────
+    function filterEqTable() {
+      const kw     = document.getElementById('eqSearch').value.toLowerCase();
+      const rateF  = document.getElementById('rateFilter').value;
+      const rows   = document.querySelectorAll('#eqTbody tr');
+      let visible  = 0;
+      rows.forEach(function(tr) {
+        const name = (tr.dataset.name || '').toLowerCase();
+        const dept = (tr.dataset.dept || '').toLowerCase();
+        const rate = parseFloat(tr.dataset.rate || '0');
+        let show = true;
+        if (kw && !name.includes(kw) && !dept.includes(kw)) show = false;
+        if (rateF === 'hi'   && rate < 80)           show = false;
+        if (rateF === 'mid'  && (rate < 50 || rate >= 80)) show = false;
+        if (rateF === 'lo'   && (rate <= 0 || rate >= 50)) show = false;
+        if (rateF === 'zero' && rate > 0)             show = false;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('eqCount').textContent = visible + '개 표시';
+    }
+
+    // 팀 필터 (URL 이동)
+    function setDeptM(dept) {
+      document.getElementById('deptHiddenM').value = dept;
+      document.getElementById('ctrlForm').submit();
+    }
+
+    // 초기 카운트 표시
+    filterEqTable();
+  </script>
+</body>
+</html>
