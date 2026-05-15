@@ -312,6 +312,8 @@ def send_approval_request(to_email, approver_name, inspector_name,
                           eq_name, location, result, notes, eq_id, host_url):
     if not email_config.ENABLED or not to_email:
         return
+    if get_setting('email_enabled', '1') != '1':
+        return
     inspect_url = host_url.rstrip('/') + url_for('inspect', eq_id=eq_id)
     subject     = f'[설비점검] 승인 요청 - {eq_name}'
     html_body   = _build_email_html(approver_name, inspector_name,
@@ -433,6 +435,13 @@ def init_db():
         )
     ''')
 
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT DEFAULT ''
+        )
+    ''')
+
     # 마이그레이션
     if conn._pg:
         migrations = [
@@ -508,6 +517,38 @@ def init_db():
     conn.close()
 
 
+# ── 시스템 설정 헬퍼 ──────────────────────────────────────────────────────────
+def get_setting(key, default=''):
+    """system_settings 테이블에서 값을 읽는다."""
+    try:
+        conn = get_db()
+        ph   = '%s' if conn._pg else '?'
+        row  = conn.execute(
+            f'SELECT value FROM system_settings WHERE key = {ph}', (key,)
+        ).fetchone()
+        conn.close()
+        return row['value'] if row else default
+    except Exception:
+        return default
+
+def set_setting(key, value):
+    """system_settings 테이블에 값을 저장(upsert)한다."""
+    conn = get_db()
+    if conn._pg:
+        conn.execute(
+            'INSERT INTO system_settings (key, value) VALUES (%s, %s) '
+            'ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+            (key, str(value))
+        )
+    else:
+        conn.execute(
+            'INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)',
+            (key, str(value))
+        )
+    conn.commit()
+    conn.close()
+
+
 def hash_pw(pw):
     # 신규 비밀번호: werkzeug pbkdf2 해시 사용 (SHA256 대비 보안 강화)
     return generate_password_hash(pw)
@@ -564,6 +605,9 @@ def _send_inspection_reminders():
     """평일 오전 11시(KST), 당일 미점검 설비 담당자(정/부)에게 알림 이메일 발송"""
     if not email_config.ENABLED:
         print('[알림] SMTP 미설정 - 점검 알림 스킵', flush=True)
+        return
+    if get_setting('email_enabled', '1') != '1':
+        print('[알림] 관리자 설정으로 이메일 발송 OFF - 점검 알림 스킵', flush=True)
         return
 
     now = datetime.now()
@@ -815,9 +859,11 @@ def forgot_password():
         mail_sent = False
         if not email_config.ENABLED:
             mail_sent = f'SMTP 환경변수 미설정 (EMAIL={email_config.SENDER_EMAIL!r})'
+        elif get_setting('email_enabled', '1') != '1':
+            mail_sent = '관리자 설정으로 이메일 발송 OFF'
         elif not user['email']:
             mail_sent = '계정에 이메일 주소가 없음'
-        if email_config.ENABLED and user['email']:
+        if email_config.ENABLED and get_setting('email_enabled', '1') == '1' and user['email']:
             # 동기 발송으로 성공 여부 즉시 확인
             subject = '[INTOPS] 비밀번호 재설정 인증번호'
             html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
@@ -1080,7 +1126,12 @@ def admin():
 @admin_required
 def admin_data():
     now_ym = now_kst().strftime('%Y-%m')
-    return render_template('admin_data.html', now_ym=now_ym)
+    email_enabled = get_setting('email_enabled', '1') == '1'
+    smtp_ok = email_config.ENABLED
+    return render_template('admin_data.html',
+                           now_ym=now_ym,
+                           email_enabled=email_enabled,
+                           smtp_ok=smtp_ok)
 
 
 
@@ -2140,6 +2191,18 @@ def admin_delete_month():
     conn.commit()
     conn.close()
     flash(f'{ym} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin_data'))
+
+
+# ── 이메일 알림 ON/OFF 토글 (관리자 전용) ────────────────────────────────────
+@app.route('/admin/toggle-email', methods=['POST'])
+@admin_required
+def admin_toggle_email():
+    current = get_setting('email_enabled', '1')
+    new_val = '0' if current == '1' else '1'
+    set_setting('email_enabled', new_val)
+    state = 'ON' if new_val == '1' else 'OFF'
+    flash(f'이메일 알림이 {state}으로 변경되었습니다.', 'success')
     return redirect(url_for('admin_data'))
 
 
