@@ -2072,6 +2072,28 @@ def reset_inspection():
     return redirect(request.referrer or url_for('daily_results'))
 
 
+# ── 월별 점검 기록 전체 삭제 GET 버전 (긴급용, 관리자 전용) ──────────────────
+@app.route('/admin/delete-month/<ym>')
+@admin_required
+def admin_delete_month_get(ym):
+    """URL 직접 접근용: /admin/delete-month/2026-05"""
+    if not ym or len(ym) != 7:
+        flash('올바른 연월 형식이 아닙니다 (예: 2026-05).', 'error')
+        return redirect(url_for('admin'))
+    conn = get_db()
+    if conn._pg:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE LEFT(inspected_at,7) = %s", (ym,))
+    else:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE substr(inspected_at,1,7) = ?", (ym,))
+    cnt = result.rowcount if hasattr(result, 'rowcount') else '?'
+    conn.commit()
+    conn.close()
+    flash(f'✅ {ym} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin'))
+
+
 # ── 월별 점검 기록 전체 삭제 (관리자 전용) ────────────────────────────────────
 @app.route('/admin/delete-month', methods=['POST'])
 @admin_required
