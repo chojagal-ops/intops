@@ -408,20 +408,22 @@
     }
 
     // ── 수치 자동입력 ──
-    // 상한 = 중앙값 = 하한 → 정확히 중앙값 입력
-    // 그 외 → 중심치(또는 상하한 평균) ±10% 랜덤
+    // 규칙: 항상 스펙 범위(min~max) 안에서 랜덤 생성
     function autoFillAll() {
       document.querySelectorAll('.num-inp').forEach(el => {
         const iid = el.id.replace('ni-', '');
         const sp  = document.getElementById('sp-' + iid);
         if (sp && (sp.value === '수리중' || sp.value === '휴동')) return;
-        if (el.value.trim() !== '') return;
+        if (el.value.trim() !== '') return;   // 이미 입력된 값은 건드리지 않음
 
         const center = parseFloat(el.dataset.center);
         const minV   = parseFloat(el.dataset.min);
         const maxV   = parseFloat(el.dataset.max);
+        const hasCenter = !isNaN(center);
+        const hasMin    = !isNaN(minV);
+        const hasMax    = !isNaN(maxV);
 
-        // 소수점 자릿수 (center/min/max 중 최대)
+        // 소수점 자릿수 (center/min/max 원본 자릿수 중 최대, 최소 1자리)
         const decimals = Math.max(
           (el.dataset.center || '').split('.')[1]?.length || 0,
           (el.dataset.min    || '').split('.')[1]?.length || 0,
@@ -429,24 +431,42 @@
           1
         );
 
-        // 상한 = 중앙값 = 하한 → 정확히 중앙값
-        const allSame = !isNaN(center) && !isNaN(minV) && !isNaN(maxV)
-                        && center === minV && center === maxV;
-        if (allSame) {
-          el.value = center.toFixed(decimals);
-          el.dispatchEvent(new Event('input'));
-          return;
+        let rand = NaN;
+
+        if (hasMin && hasMax) {
+          // ① min~max 모두 있음 → 그 범위 안에서 균등 랜덤
+          if (minV === maxV) {
+            rand = minV;
+          } else {
+            // 양 끝에서 5% 안쪽 구간으로 제한 (너무 극단값 방지)
+            const span   = maxV - minV;
+            const margin = span * 0.05;
+            rand = (minV + margin) + Math.random() * (span - margin * 2);
+          }
+        } else if (hasCenter && hasMin && !hasMax) {
+          // ② center + min만 있음 → min~center 사이 랜덤
+          rand = minV + Math.random() * (center - minV);
+        } else if (hasCenter && hasMax && !hasMin) {
+          // ③ center + max만 있음 → center~max 사이 랜덤
+          rand = center + Math.random() * (maxV - center);
+        } else if (hasCenter) {
+          // ④ center만 있음 → ±3% 랜덤 (범위 정보 없음)
+          const jitter = Math.abs(center) * 0.03 || 0.03;
+          rand = center + (Math.random() * 2 - 1) * jitter;
+        } else if (hasMin && !hasMax) {
+          // ⑤ min만 있음 → min 이상으로 소폭 랜덤
+          rand = minV + Math.random() * Math.max(Math.abs(minV) * 0.05, 0.05);
+        } else if (hasMax && !hasMin) {
+          // ⑥ max만 있음 → max 이하로 소폭 랜덤
+          rand = maxV - Math.random() * Math.max(Math.abs(maxV) * 0.05, 0.05);
+        } else {
+          return;  // 범위 정보 전혀 없음 → 건너뜀
         }
 
-        // 기준값 결정 (중심치 우선, 없으면 상하한 평균)
-        let base = NaN;
-        if (!isNaN(center))                  base = center;
-        else if (!isNaN(minV) && !isNaN(maxV)) base = (minV + maxV) / 2;
-        if (isNaN(base)) return;
+        // 안전 클램프: 범위 초과 시 강제로 맞춤
+        if (hasMin && rand < minV) rand = minV;
+        if (hasMax && rand > maxV) rand = maxV;
 
-        // ±5% 랜덤
-        const range = Math.abs(base) * 0.05 || 0.05;
-        const rand  = base + (Math.random() * 2 - 1) * range;
         el.value = rand.toFixed(decimals);
         el.dispatchEvent(new Event('input'));
       });
