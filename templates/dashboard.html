@@ -120,6 +120,22 @@
         {% endif %}
       </div>
 
+      <!-- 휴동일 안내 + 점검하기 버튼 -->
+      {% if today_is_idle %}
+      <div style="margin-top:14px; padding:16px 20px; background:rgba(107,114,128,0.06); border:1px solid rgba(107,114,128,0.18); border-radius:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div style="font-size:0.88rem; font-weight:700; color:var(--text); margin-bottom:3px;">⏸ 오늘은 휴동일입니다</div>
+          <div style="font-size:0.78rem; color:var(--text-sub);">주말·공휴일 기본 휴동 — 점검이 필요한 경우 아래 버튼을 눌러 진행하세요.</div>
+        </div>
+        <a href="/equipment-list"
+           style="padding:10px 22px; background:var(--orange); color:#fff; border:none; border-radius:10px;
+                  font-size:0.88rem; font-weight:700; text-decoration:none; white-space:nowrap;
+                  display:inline-flex; align-items:center; gap:6px;">
+          🔍 점검하러 가기
+        </a>
+      </div>
+      {% endif %}
+
       <!-- 오늘 점검 상세 목록 (토글, 휴동일 제외) -->
       {% if today_list and not today_is_idle %}
       <div id="today-detail" style="display:none; margin-top:16px;">
@@ -236,11 +252,25 @@
 
       {% if session.is_admin %}
       <hr class="divider">
-      <div class="section-title" style="margin-bottom:10px;">🛠 관리자 도구</div>
-      <a href="/admin/data" class="btn btn-outline"
-         style="width:auto; padding:8px 18px; font-size:0.85rem; border-color:var(--orange); color:var(--orange);">
-        🗂 데이터 관리 페이지로 이동
-      </a>
+      <div class="section-title" style="margin-bottom:12px;">🛠 관리자 도구</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <a href="/admin/data" class="btn btn-outline"
+           style="width:auto; padding:9px 18px; font-size:0.85rem; border-color:var(--orange); color:var(--orange);">
+          🗂 데이터 관리 페이지로 이동
+        </a>
+        {% if not today_is_idle %}
+        <form method="POST" action="/dashboard/bulk-idle-today" style="margin:0;"
+              onsubmit="return confirm('오늘({{ today_str }}) 전체 설비를 휴동 처리합니다.\n기존 점검 기록은 삭제됩니다. 계속하시겠습니까?')">
+          <button type="submit"
+                  style="padding:9px 18px; background:rgba(100,116,139,0.10); border:1.5px solid rgba(100,116,139,0.35);
+                         border-radius:8px; color:#475569; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap;">
+            ⏸ 오늘 전체 휴동 처리
+          </button>
+        </form>
+        {% else %}
+        <span style="font-size:0.82rem; color:#9ca3af; padding:9px 4px;">✅ 오늘({{ today_str }}) 휴동 처리 완료</span>
+        {% endif %}
+      </div>
       {% endif %}
 
       <!-- 시스템 안내 -->

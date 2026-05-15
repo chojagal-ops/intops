@@ -2304,6 +2304,42 @@ def admin_bulk_idle():
     return redirect(url_for('admin_data'))
 
 
+# ── 대시보드: 오늘 날짜 전 설비 휴동 처리 (관리자 전용 빠른 버튼) ──────────────
+@app.route('/dashboard/bulk-idle-today', methods=['POST'])
+@admin_required
+def dashboard_bulk_idle_today():
+    """오늘 날짜의 모든 설비를 즉시 휴동 처리하고 대시보드로 복귀."""
+    today_str = now_kst().strftime('%Y-%m-%d')
+    admin_id  = session['user_id']
+    conn      = get_db()
+    ph        = '%s' if conn._pg else '?'
+
+    equipments = conn.execute('SELECT id, approver_id FROM equipment').fetchall()
+    for eq in equipments:
+        eq_id       = eq['id']
+        approver_id = eq['approver_id'] or admin_id
+        ts          = today_str + ' 00:00:00'
+        if conn._pg:
+            conn.execute("DELETE FROM inspections WHERE equipment_id=%s AND LEFT(inspected_at,10)=%s",
+                         (eq_id, today_str))
+            conn.execute("""INSERT INTO inspections
+                (equipment_id, inspector_id, result, status, notes, inspected_at, approved_by, approved_at)
+                VALUES (%s,%s,'휴동','승인완료','공휴일/휴동',%s,%s,NOW())""",
+                (eq_id, admin_id, ts, approver_id))
+        else:
+            conn.execute("DELETE FROM inspections WHERE equipment_id=? AND substr(inspected_at,1,10)=?",
+                         (eq_id, today_str))
+            conn.execute("""INSERT INTO inspections
+                (equipment_id, inspector_id, result, status, notes, inspected_at, approved_by, approved_at)
+                VALUES (?,?,'휴동','승인완료','공휴일/휴동',?,?,datetime('now','localtime'))""",
+                (eq_id, admin_id, ts, approver_id))
+
+    conn.commit()
+    conn.close()
+    flash(f'{today_str} — {len(equipments)}개 설비 휴동 처리 완료되었습니다.', 'success')
+    return redirect(url_for('dashboard'))
+
+
 # ── 중복 점검 기록 일괄 정리 (관리자 전용) ────────────────────────────────────
 @app.route('/admin/cleanup-duplicates', methods=['POST'])
 @login_required
@@ -3082,6 +3118,7 @@ def dashboard():
     conn.close()
     return render_template('dashboard.html', today_count=today_count,
                            today_list=today_list, today_is_idle=today_is_idle,
+                           today_str=_today_kst.strftime('%Y-%m-%d'),
                            total_eq=total_eq, pending_list=pending_list,
                            approved_count=approved_count)
 
