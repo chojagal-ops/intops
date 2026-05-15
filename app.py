@@ -3060,6 +3060,7 @@ def dashboard():
             JOIN equipment e ON i.equipment_id = e.id
             JOIN users u ON i.inspector_id = u.id
             WHERE e.approver_id=? AND i.status='점검완료'
+              AND i.result != '휴동'
               AND i.id = (
                   SELECT MAX(id) FROM inspections
                   WHERE equipment_id = i.equipment_id
@@ -3074,6 +3075,7 @@ def dashboard():
             FROM inspections i
             JOIN equipment e ON i.equipment_id = e.id
             WHERE e.approver_id=? AND i.status='승인완료'
+              AND i.result != '휴동'
               AND {conn.date_col("i.inspected_at")}={conn.today}
         ''', (session['user_id'],)).fetchone()['cnt']
 
