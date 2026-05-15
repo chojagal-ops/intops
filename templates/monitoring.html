@@ -101,7 +101,7 @@
       @page { margin: 10mm; size: A4 landscape; }
       body { background: #fff !important; }
       .topbar, .dept-filter-bar, #ctrlForm, #printBtn,
-      #eqSearch, #rateFilter, #eqCount,
+      #eqSearch, #rateFilter, #eqCount, #eq-section,
       .btn, .nav-link, .help-btn { display: none !important; }
       .mon-wrap { max-width: 100% !important; padding: 0 !important; }
       .kpi-grid { grid-template-columns: repeat(4,1fr) !important; }
@@ -325,7 +325,7 @@
     {% endif %}
 
     <!-- 설비별 점검율 테이블 -->
-    <div class="mon-section">
+    <div class="mon-section" id="eq-section">
       <div class="mon-section-title" style="justify-content:space-between;">
         <span>설비별 {{ month }}월 점검율</span>
         <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted);">

@@ -3049,7 +3049,11 @@ def monitoring():
               AND i.result = {ph}
               {dept_sql_m}
         ''', [today_str, '휴동'] + dept_params_m).fetchone()['cnt']
-        today_is_idle = (total_eq > 0 and today_idle_cnt >= total_eq)
+        # 오늘이 주말(토=5, 일=6)이거나 DB 전체 휴동이면 휴동일
+        today_is_idle = (
+            (total_eq > 0 and today_idle_cnt >= total_eq) or
+            now.weekday() >= 5
+        )
         today_rate = 0 if today_is_idle else (round(today_done / total_eq * 100, 1) if total_eq else 0)
 
         # ── 해당 월 점검 완료 쌍 (휴동 제외) ───────────────────────────────────
@@ -3092,6 +3096,25 @@ def monitoring():
     # eq_id → department 빠른 조회용 dict
     eq_dept_map = {r['id']: (r['department'] or '미지정') for r in all_eq_rows}
 
+    # ── ① 휴동일 먼저 확정 (DB 기록 + 주말 자동) ─────────────────────────────
+    idle_day_eq = _dd(set)
+    for r in idle_pairs_raw:
+        day_str2 = str(r['day'])
+        day_num  = int(day_str2.split('-')[2])
+        idle_day_eq[day_num].add(r['equipment_id'])
+
+    idle_days_set = set()
+    for d in range(1, passed_days + 1):
+        # DB에 전체 설비 휴동 기록이 있는 날
+        if total_eq and len(idle_day_eq[d]) >= total_eq:
+            idle_days_set.add(d)
+        # 주말(토=5, 일=6) 자동 휴동
+        elif datetime(year, month, d).weekday() >= 5:
+            idle_days_set.add(d)
+
+    passed_days_work = max(passed_days - len(idle_days_set), 0)
+
+    # ── ② 점검 집계 (휴동일 제외) ────────────────────────────────────────────
     # 일별: day_num → set of equipment_ids
     day_eq_set = _dd(set)
     # 팀별: dept → set of (eq_id, day_str) 중복제거
@@ -3102,26 +3125,14 @@ def monitoring():
     for r in insp_pairs_raw:
         day_str2 = str(r['day'])
         day_num  = int(day_str2.split('-')[2])
-        eq_id    = r['equipment_id']
-        dept_nm  = eq_dept_map.get(eq_id, '미지정')
+        if day_num in idle_days_set:
+            continue           # 휴동일 점검은 집계 제외
+        eq_id   = r['equipment_id']
+        dept_nm = eq_dept_map.get(eq_id, '미지정')
 
         day_eq_set[day_num].add(eq_id)
         dept_done[dept_nm].add((eq_id, day_str2))
         eq_done_days[eq_id] += 1
-
-    # ── 휴동일 집계 ───────────────────────────────────────────────────────────
-    idle_day_eq = _dd(set)
-    for r in idle_pairs_raw:
-        day_str2 = str(r['day'])
-        day_num  = int(day_str2.split('-')[2])
-        idle_day_eq[day_num].add(r['equipment_id'])
-
-    # 해당 필터의 전체 설비가 모두 휴동인 날만 "휴동일"로 인정
-    idle_days_set = {
-        d for d in range(1, passed_days + 1)
-        if total_eq and len(idle_day_eq[d]) >= total_eq
-    }
-    passed_days_work = max(passed_days - len(idle_days_set), 0)
 
     # 일별 점검율 (차트) — 휴동일은 None(null)으로
     chart_labels = [f"{month}/{d}" for d in range(1, passed_days + 1)]
