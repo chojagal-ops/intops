@@ -3029,27 +3029,49 @@ def monitoring():
             dept_params_m
         ).fetchone()['cnt']
 
-        # ── 오늘 점검 완료 수 ─────────────────────────────────────────────────
+        # ── 오늘 점검 완료 수 (휴동 제외) ───────────────────────────────────────
         today_done = conn.execute(f'''
             SELECT COUNT(DISTINCT i.equipment_id) AS cnt
             FROM inspections i
             JOIN equipment e ON i.equipment_id = e.id
             WHERE {conn.date_col("i.inspected_at")} = {ph}
               AND i.status IN ('점검완료','승인완료')
+              AND i.result != {ph}
               {dept_sql_m}
-        ''', [today_str] + dept_params_m).fetchone()['cnt']
+        ''', [today_str, '휴동'] + dept_params_m).fetchone()['cnt']
 
-        today_rate = round(today_done / total_eq * 100, 1) if total_eq else 0
+        # 오늘 휴동 여부
+        today_idle_cnt = conn.execute(f'''
+            SELECT COUNT(DISTINCT i.equipment_id) AS cnt
+            FROM inspections i
+            JOIN equipment e ON i.equipment_id = e.id
+            WHERE {conn.date_col("i.inspected_at")} = {ph}
+              AND i.result = {ph}
+              {dept_sql_m}
+        ''', [today_str, '휴동'] + dept_params_m).fetchone()['cnt']
+        today_is_idle = (total_eq > 0 and today_idle_cnt >= total_eq)
+        today_rate = 0 if today_is_idle else (round(today_done / total_eq * 100, 1) if total_eq else 0)
 
-        # ── 해당 월 (equipment_id, day) 점검 완료 쌍 전체 ────────────────────
+        # ── 해당 월 점검 완료 쌍 (휴동 제외) ───────────────────────────────────
         insp_pairs_raw = conn.execute(f'''
             SELECT DISTINCT i.equipment_id, {day_expr} AS day
             FROM inspections i
             JOIN equipment e ON i.equipment_id = e.id
             WHERE {ym_expr} = {ph}
               AND i.status IN ('점검완료','승인완료')
+              AND i.result != {ph}
               {dept_sql_m}
-        ''', [ym] + dept_params_m).fetchall()
+        ''', [ym, '휴동'] + dept_params_m).fetchall()
+
+        # ── 해당 월 휴동 기록 ──────────────────────────────────────────────────
+        idle_pairs_raw = conn.execute(f'''
+            SELECT DISTINCT i.equipment_id, {day_expr} AS day
+            FROM inspections i
+            JOIN equipment e ON i.equipment_id = e.id
+            WHERE {ym_expr} = {ph}
+              AND i.result = {ph}
+              {dept_sql_m}
+        ''', [ym, '휴동'] + dept_params_m).fetchall()
 
         # ── 전체 설비 목록 (id, department) ──────────────────────────────────
         all_eq_rows = conn.execute(
@@ -3087,13 +3109,30 @@ def monitoring():
         dept_done[dept_nm].add((eq_id, day_str2))
         eq_done_days[eq_id] += 1
 
-    # 일별 점검율 (차트)
+    # ── 휴동일 집계 ───────────────────────────────────────────────────────────
+    idle_day_eq = _dd(set)
+    for r in idle_pairs_raw:
+        day_str2 = str(r['day'])
+        day_num  = int(day_str2.split('-')[2])
+        idle_day_eq[day_num].add(r['equipment_id'])
+
+    # 해당 필터의 전체 설비가 모두 휴동인 날만 "휴동일"로 인정
+    idle_days_set = {
+        d for d in range(1, passed_days + 1)
+        if total_eq and len(idle_day_eq[d]) >= total_eq
+    }
+    passed_days_work = max(passed_days - len(idle_days_set), 0)
+
+    # 일별 점검율 (차트) — 휴동일은 None(null)으로
     chart_labels = [f"{month}/{d}" for d in range(1, passed_days + 1)]
-    chart_values = [
-        round(len(day_eq_set[d]) / total_eq * 100, 1) if total_eq else 0
-        for d in range(1, passed_days + 1)
-    ]
-    avg_rate = round(sum(chart_values) / len(chart_values), 1) if chart_values else 0
+    chart_values = []
+    for d in range(1, passed_days + 1):
+        if d in idle_days_set:
+            chart_values.append(None)
+        else:
+            chart_values.append(round(len(day_eq_set[d]) / total_eq * 100, 1) if total_eq else 0)
+    non_idle_vals = [v for v in chart_values if v is not None]
+    avg_rate = round(sum(non_idle_vals) / len(non_idle_vals), 1) if non_idle_vals else 0
 
     # 팀별 집계
     dept_eq = _dd(set)
@@ -3104,7 +3143,7 @@ def monitoring():
     for dept_nm, eq_ids in sorted(dept_eq.items()):
         eq_cnt       = len(eq_ids)
         done_cnt     = len(dept_done[dept_nm])
-        max_possible = eq_cnt * passed_days
+        max_possible = eq_cnt * passed_days_work   # 휴동일 제외
         rate = round(done_cnt / max_possible * 100, 1) if max_possible else 0
         dept_data.append({
             'dept': dept_nm, 'eq_cnt': eq_cnt,
@@ -3116,19 +3155,23 @@ def monitoring():
     eq_data = []
     for r in all_eq_rows:
         done_days = eq_done_days[r['id']]
-        rate = round(done_days / passed_days * 100, 1) if passed_days else 0
+        rate = round(done_days / passed_days_work * 100, 1) if passed_days_work else 0
         eq_data.append({
             'id': r['id'], 'name': r['name'],
             'dept': r['department'] or '-', 'location': r['location'] or '-',
-            'done_days': done_days, 'passed_days': passed_days, 'rate': rate,
+            'done_days': done_days, 'passed_days': passed_days_work, 'rate': rate,
         })
     eq_data.sort(key=lambda x: (-x['rate'], x['name']))
 
     return render_template('monitoring.html',
         year=year, month=month, days_in_month=days_in_month,
-        passed_days=passed_days, total_eq=total_eq,
+        passed_days=passed_days, passed_days_work=passed_days_work,
+        total_eq=total_eq,
         today_done=today_done, today_rate=today_rate,
+        today_is_idle=today_is_idle,
         avg_rate=avg_rate,
+        idle_days_count=len(idle_days_set),
+        idle_days_list=_json.dumps(sorted(idle_days_set)),
         chart_labels=_json.dumps(chart_labels, ensure_ascii=False),
         chart_values=_json.dumps(chart_values),
         dept_data=dept_data, eq_data=eq_data,

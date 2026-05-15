@@ -81,9 +81,37 @@
     .rate-mid { background:rgba(234,179,8,0.15);  color:#92400e; }
     .rate-lo  { background:rgba(220,38,38,0.10);  color:#dc2626; }
 
+    /* 휴동일 범례 */
+    .idle-legend {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:0.75rem; color:#6b7280; margin-left:12px;
+    }
+    .idle-pill {
+      background:rgba(107,114,128,0.15); color:#4b5563;
+      padding:2px 9px; border-radius:10px; font-size:0.72rem; font-weight:700;
+    }
+
     @media(max-width:768px){
       .chart-row { grid-template-columns:1fr; }
       .kpi-grid  { grid-template-columns:repeat(2,1fr); }
+    }
+
+    /* ── 인쇄 스타일 ─────────────────────────────────────────────────── */
+    @media print {
+      @page { margin: 10mm; size: A4 landscape; }
+      body { background: #fff !important; }
+      .topbar, .dept-filter-bar, #ctrlForm, #printBtn,
+      #eqSearch, #rateFilter, #eqCount,
+      .btn, .nav-link, .help-btn { display: none !important; }
+      .mon-wrap { max-width: 100% !important; padding: 0 !important; }
+      .kpi-grid { grid-template-columns: repeat(4,1fr) !important; }
+      .chart-row { grid-template-columns: 1fr 1fr !important; break-inside: avoid; }
+      .chart-box { break-inside: avoid; border: 1px solid #e5e7eb !important; }
+      .mon-section { break-inside: avoid; }
+      .rate-table { font-size: 0.75rem !important; }
+      canvas { max-width: 100% !important; }
+      .mon-section-title { font-size: 0.85rem !important; }
+      h1 { font-size: 1.1rem !important; }
     }
   </style>
 </head>
@@ -103,7 +131,7 @@
       {% endif %}
       <a href="/daily-results" class="nav-link">일별 점검 결과</a>
       <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
-      <a href="/monitoring" class="nav-link active">모니터링</a>
+      <a href="/monitoring" class="nav-link active">점검율 모니터링</a>
       {% if session.is_admin %}
       <a href="/admin" class="nav-link">회원 관리</a>
       <a href="/admin/equipment" class="nav-link">설비 관리</a>
@@ -133,7 +161,14 @@
         <h1 style="font-size:1.3rem; font-weight:800; margin:0 0 3px;">📊 점검율 모니터링</h1>
         <p style="font-size:0.82rem; color:var(--text-sub); margin:0;">설비 점검 현황과 점검율을 한눈에 확인합니다.</p>
       </div>
-      <!-- 월 선택 -->
+      <!-- 월 선택 + 인쇄 -->
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button id="printBtn" type="button" onclick="window.print()"
+              style="padding:0 16px; height:36px; border-radius:7px; border:1.5px solid var(--border);
+                     background:var(--bg-subtle); color:var(--text-sub); font-size:0.83rem;
+                     font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        🖨️ 인쇄
+      </button>
       <form method="GET" id="ctrlForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="hidden" name="dept" id="deptHiddenM" value="{{ current_dept }}">
         <select name="year" onchange="this.form.submit()"
@@ -149,6 +184,7 @@
           {% endfor %}
         </select>
       </form>
+      </div><!-- /월선택+인쇄 -->
     </div>
 
     <!-- 팀 필터 -->
@@ -166,17 +202,27 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-label">📅 오늘 점검율</div>
+        {% if today_is_idle %}
+        <div class="kpi-value kpi-gray" style="font-size:1.5rem;">⏸ 휴동일</div>
+        <div class="kpi-sub">공휴일 / 휴동 처리됨</div>
+        {% else %}
         <div class="kpi-value {% if today_rate >= 80 %}kpi-ok{% elif today_rate >= 50 %}kpi-warn{% else %}kpi-warn{% endif %}">
           {{ today_rate }}%
         </div>
         <div class="kpi-sub">{{ today_done }} / {{ total_eq }} 대 완료</div>
+        {% endif %}
       </div>
       <div class="kpi-card">
         <div class="kpi-label">📆 {{ month }}월 평균 점검율</div>
         <div class="kpi-value {% if avg_rate >= 80 %}kpi-ok{% elif avg_rate >= 50 %}kpi-warn{% else %}kpi-warn{% endif %}">
           {{ avg_rate }}%
         </div>
-        <div class="kpi-sub">{{ passed_days }}일 경과 기준</div>
+        <div class="kpi-sub">
+          {{ passed_days_work }}일 기준
+          {% if idle_days_count > 0 %}
+          <span class="idle-pill" style="margin-left:4px;">휴동 {{ idle_days_count }}일 제외</span>
+          {% endif %}
+        </div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">⚙️ 관리 설비 수</div>
@@ -192,7 +238,15 @@
 
     <!-- 차트 행 1: 일별 추이 (전체 폭) -->
     <div class="mon-section">
-      <div class="mon-section-title">{{ month }}월 일별 점검율 추이</div>
+      <div class="mon-section-title">
+        {{ month }}월 일별 점검율 추이
+        {% if idle_days_count > 0 %}
+        <span class="idle-legend">
+          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(107,114,128,0.25);"></span>
+          P = 휴동일 (점검율 집계 제외, {{ idle_days_count }}일)
+        </span>
+        {% endif %}
+      </div>
       <div class="chart-box" style="padding:20px 20px 16px;">
         <canvas id="lineChart" height="90"></canvas>
       </div>
@@ -234,7 +288,7 @@
               <th>팀 / 부서</th>
               <th style="text-align:center;">설비 수</th>
               <th style="text-align:center;">점검 건수</th>
-              <th style="text-align:center;">목표 건수</th>
+              <th style="text-align:center;">목표 건수 <span style="font-weight:400;color:var(--text-muted);">(휴동 제외)</span></th>
               <th style="min-width:200px;">점검율</th>
             </tr>
           </thead>
@@ -274,7 +328,10 @@
     <div class="mon-section">
       <div class="mon-section-title" style="justify-content:space-between;">
         <span>설비별 {{ month }}월 점검율</span>
-        <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted);">기준: {{ passed_days }}일 경과</span>
+        <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted);">
+          기준: {{ passed_days_work }}일 ({{ passed_days }}일 경과
+          {% if idle_days_count > 0 %}, 휴동 {{ idle_days_count }}일 제외{% endif %})
+        </span>
       </div>
 
       <!-- 검색 + 필터 -->
@@ -363,8 +420,52 @@
     // ── 1. 일별 점검율 라인 차트 ─────────────────────────────────────────────
     (function(){
       const labels = {{ chart_labels | safe }};
-      const values = {{ chart_values | safe }};
-      const colors = values.map(v => v >= 80 ? C_GREEN : v >= 50 ? C_ORANGE : C_RED);
+      const values = {{ chart_values | safe }};   // null = 휴동일
+      const idleDays = new Set({{ idle_days_list | safe }});  // day numbers
+
+      // 각 값에 맞는 포인트 색상 (휴동은 회색)
+      const colors = values.map((v, i) => {
+        const dayNum = parseInt((labels[i] || '').split('/')[1]);
+        if (idleDays.has(dayNum)) return 'rgba(107,114,128,0.5)';
+        if (v === null) return C_GRAY;
+        return v >= 80 ? C_GREEN : v >= 50 ? C_ORANGE : C_RED;
+      });
+
+      // 휴동일 배경 + "P" 텍스트를 그리는 커스텀 플러그인
+      const idleBgPlugin = {
+        id: 'idleBg',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          ctx.save();
+          labels.forEach((lbl, i) => {
+            const dayNum = parseInt((lbl || '').split('/')[1]);
+            if (!idleDays.has(dayNum)) return;
+            const xCenter = scales.x.getPixelForValue(i);
+            const bandW   = scales.x.width / labels.length;
+            ctx.fillStyle = 'rgba(107,114,128,0.10)';
+            ctx.fillRect(xCenter - bandW / 2, chartArea.top, bandW, chartArea.height);
+          });
+          ctx.restore();
+        },
+        afterDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          ctx.save();
+          labels.forEach((lbl, i) => {
+            const dayNum = parseInt((lbl || '').split('/')[1]);
+            if (!idleDays.has(dayNum)) return;
+            const x = scales.x.getPixelForValue(i);
+            const y = chartArea.top + chartArea.height / 2;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText('P', x, y);
+          });
+          ctx.restore();
+        }
+      };
 
       new Chart(document.getElementById('lineChart'), {
         type: 'line',
@@ -376,11 +477,15 @@
             borderColor: C_ORANGE,
             backgroundColor: 'rgba(249,115,22,0.08)',
             pointBackgroundColor: colors,
-            pointRadius: 4,
+            pointRadius: values.map((v, i) => {
+              const d = parseInt((labels[i]||'').split('/')[1]);
+              return idleDays.has(d) ? 0 : 4;  // 휴동일은 포인트 숨김
+            }),
             pointHoverRadius: 6,
             fill: true,
             tension: 0.35,
             borderWidth: 2,
+            spanGaps: false,   // null 구간은 선 끊음
           }]
         },
         options: {
@@ -388,6 +493,7 @@
           plugins: {
             legend: { display: false },
             tooltip: {
+              filter: item => item.parsed.y !== null,
               callbacks: {
                 label: ctx => ` 점검율: ${ctx.parsed.y}%`
               }
@@ -401,7 +507,8 @@
             },
             x: { ticks: { font: { size: 10 }, maxRotation: 45 } }
           }
-        }
+        },
+        plugins: [idleBgPlugin]
       });
     })();
 
