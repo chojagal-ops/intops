@@ -41,36 +41,67 @@
 
       <!-- 통계 카드 -->
       <div class="dash-grid" style="grid-template-columns:repeat(6,1fr); margin-bottom:28px;">
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-all" onclick="filterRows('all')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.2)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">📋</div>
           <div class="dash-card-label">전체 점검</div>
-          <div class="dash-card-value">{{ stats.total }}</div>
+          <div class="dash-card-value" id="cnt-all">{{ stats.total }}</div>
+          <div style="font-size:0.72rem; color:var(--orange); margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-normal" onclick="filterRows('정상')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(74,222,128,0.2)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">✅</div>
           <div class="dash-card-label">정상</div>
-          <div class="dash-card-value" style="color:#a5d6a7;">{{ stats.normal }}</div>
+          <div class="dash-card-value" style="color:#a5d6a7;" id="cnt-normal">{{ stats.normal }}</div>
+          <div style="font-size:0.72rem; color:#4ade80; margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-abnormal" onclick="filterRows('이상')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s; {% if stats.abnormal > 0 %}border-color:rgba(251,191,36,0.5);{% endif %}"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(251,191,36,0.25)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⚠️</div>
           <div class="dash-card-label">이상</div>
-          <div class="dash-card-value" style="color:#ffe082;">{{ stats.abnormal }}</div>
+          <div class="dash-card-value" style="color:#ffe082;" id="cnt-abnormal">{{ stats.abnormal }}</div>
+          <div style="font-size:0.72rem; color:#fbbf24; margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-repair" onclick="filterRows('수리중')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(239,154,154,0.25)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">🔴</div>
           <div class="dash-card-label">수리필요</div>
-          <div class="dash-card-value" style="color:#ef9a9a;">{{ stats.repair }}</div>
+          <div class="dash-card-value" style="color:#ef9a9a;" id="cnt-repair">{{ stats.repair }}</div>
+          <div style="font-size:0.72rem; color:#ef9a9a; margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-idle" onclick="filterRows('휴동')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(176,190,197,0.25)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⏸</div>
           <div class="dash-card-label">휴동</div>
-          <div class="dash-card-value" style="color:#b0bec5;">{{ stats.idle }}</div>
+          <div class="dash-card-value" style="color:#b0bec5;" id="cnt-idle">{{ stats.idle }}</div>
+          <div style="font-size:0.72rem; color:#b0bec5; margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card stat-card" id="sc-approved" onclick="filterRows('승인완료')"
+             style="cursor:pointer; transition:box-shadow 0.15s, transform 0.15s, border-color 0.15s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(144,202,249,0.25)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">🔏</div>
           <div class="dash-card-label">승인완료</div>
-          <div class="dash-card-value" style="color:#90caf9;">{{ stats.approved }}</div>
+          <div class="dash-card-value" style="color:#90caf9;" id="cnt-approved">{{ stats.approved }}</div>
+          <div style="font-size:0.72rem; color:#90caf9; margin-top:4px; opacity:0.8;">클릭하여 보기</div>
         </div>
+      </div>
+
+      <!-- 활성 필터 표시 -->
+      <div id="active-filter-bar" style="display:none; margin-bottom:12px; padding:8px 14px; background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.25); border-radius:8px; font-size:0.83rem; display:none; align-items:center; gap:10px;">
+        <span id="active-filter-label" style="color:var(--orange); font-weight:600;"></span>
+        <span id="active-filter-count" style="color:var(--text-muted);"></span>
+        <button onclick="filterRows('all')" style="margin-left:auto; background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:0.8rem; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">✕ 필터 해제</button>
       </div>
 
       <!-- 필터 -->
@@ -124,7 +155,7 @@
           </thead>
           <tbody>
             {% for r in records %}
-            <tr style="border-bottom:1px solid var(--border);">
+            <tr class="data-row" data-result="{{ r.result }}" data-status="{{ r.status }}" style="border-bottom:1px solid var(--border);">
               <td style="padding:10px 12px; font-size:0.82rem; color:var(--text-sub);">{{ r.inspected_at }}</td>
               <td style="padding:10px 12px;"><strong>{{ r.eq_name }}</strong></td>
               <td style="padding:10px 12px; color:var(--text-sub);">{{ r.eq_location or '-' }}</td>
@@ -167,5 +198,101 @@
 
   <script src="/static/nav.js"></script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    let currentFilter = 'all';
+
+    const FILTER_LABELS = {
+      'all':    '전체 점검',
+      '정상':   '✅ 정상',
+      '이상':   '⚠️ 이상',
+      '수리중': '🔴 수리필요',
+      '휴동':   '⏸ 휴동',
+      '승인완료': '🔏 승인완료',
+    };
+
+    const CARD_IDS = {
+      'all':    'sc-all',
+      '정상':   'sc-normal',
+      '이상':   'sc-abnormal',
+      '수리중': 'sc-repair',
+      '휴동':   'sc-idle',
+      '승인완료': 'sc-approved',
+    };
+
+    function filterRows(filter) {
+      currentFilter = filter;
+      const rows = document.querySelectorAll('tr.data-row');
+      let visibleCount = 0;
+
+      rows.forEach(function(row) {
+        const result = row.getAttribute('data-result') || '';
+        const status = row.getAttribute('data-status') || '';
+        let show = false;
+
+        if (filter === 'all') {
+          show = true;
+        } else if (filter === '수리중') {
+          // 수리필요 + 수리중 둘 다 포함
+          show = (result === '수리필요' || result === '수리중');
+        } else if (filter === '승인완료') {
+          show = (status === '승인완료');
+        } else {
+          show = (result === filter);
+        }
+
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+      });
+
+      // 카드 활성 스타일 업데이트
+      Object.keys(CARD_IDS).forEach(function(key) {
+        const card = document.getElementById(CARD_IDS[key]);
+        if (!card) return;
+        if (key === filter) {
+          card.style.border = '2px solid var(--orange)';
+          card.style.background = 'rgba(249,115,22,0.07)';
+        } else {
+          card.style.border = '';
+          card.style.background = '';
+        }
+      });
+
+      // 필터 바 표시
+      const bar = document.getElementById('active-filter-bar');
+      const lbl = document.getElementById('active-filter-label');
+      const cnt = document.getElementById('active-filter-count');
+
+      if (filter === 'all') {
+        bar.style.display = 'none';
+      } else {
+        bar.style.display = 'flex';
+        lbl.textContent = FILTER_LABELS[filter] || filter;
+        cnt.textContent = visibleCount + '건 표시 중';
+      }
+
+      // 테이블로 스크롤
+      if (filter !== 'all') {
+        const tbl = document.querySelector('table');
+        if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // 이상 항목 있으면 강조 애니메이션
+    window.addEventListener('DOMContentLoaded', function() {
+      const abnormalCount = parseInt(document.getElementById('cnt-abnormal').textContent || '0');
+      if (abnormalCount > 0) {
+        const card = document.getElementById('sc-abnormal');
+        if (card) {
+          card.style.animation = 'pulse-warn 1.5s ease-in-out 2';
+        }
+      }
+    });
+  </script>
+  <style>
+    @keyframes pulse-warn {
+      0%, 100% { box-shadow: none; }
+      50% { box-shadow: 0 0 0 4px rgba(251,191,36,0.3); border-color: rgba(251,191,36,0.6); }
+    }
+  </style>
 </body>
 </html>
