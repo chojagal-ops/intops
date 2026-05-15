@@ -25,7 +25,7 @@
 
         <!-- 닫기 버튼 -->
         <button onclick="dismissInstall()" title="닫기"
-                style="position:absolute;top:10px;right:12px;background:none;border:none;color:#9ca3af;font-size:1.25rem;line-height:1;cursor:pointer;padding:0;">×</button>
+                style="position:absolute;top:10px;right:12px;background:none;border:none;color:#9ca3af;font-size:1.3rem;line-height:1;cursor:pointer;padding:2px 4px;">×</button>
 
         <!-- 헤더 -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -36,23 +36,33 @@
           </div>
         </div>
 
-        <!-- Android 설치 버튼 -->
+        <!-- Android: 원클릭 설치 버튼 (beforeinstallprompt 이벤트 발생 시 표시) -->
         <div id="androidBtnWrap" style="display:none;">
           <button onclick="doInstall()"
-                  style="width:100%;padding:11px 0;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:0.93rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                  style="width:100%;padding:12px 0;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
             ⬇&nbsp; 홈 화면에 설치하기
           </button>
         </div>
 
+        <!-- Android: 수동 안내 (이벤트 없을 때 기본 표시) -->
+        <div id="androidGuide" style="display:none;">
+          <div style="background:rgba(255,255,255,0.45);border-radius:10px;padding:12px 14px;font-size:0.83rem;color:var(--text);line-height:2.0;">
+            <div style="margin-bottom:4px;font-weight:700;font-size:0.79rem;color:var(--text-sub);">설치 방법 (Chrome)</div>
+            <div>① 주소창 오른쪽 <strong>⋮ 메뉴</strong> 탭</div>
+            <div>② <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong> 선택</div>
+            <div>③ <strong>설치</strong> 탭</div>
+          </div>
+        </div>
+
         <!-- iOS 안내 -->
         <div id="iosGuide" style="display:none;">
-          <div style="background:rgba(255,255,255,0.55);border-radius:10px;padding:12px 14px;font-size:0.82rem;color:var(--text);line-height:1.9;">
-            <div style="margin-bottom:4px;font-weight:700;font-size:0.8rem;color:var(--text-sub);">설치 방법 (Safari)</div>
-            <div>① 하단 공유 버튼 <span style="font-size:1rem;">⬆️</span> 탭</div>
+          <div style="background:rgba(255,255,255,0.45);border-radius:10px;padding:12px 14px;font-size:0.83rem;color:var(--text);line-height:2.0;">
+            <div style="margin-bottom:4px;font-weight:700;font-size:0.79rem;color:var(--text-sub);">설치 방법 (Safari)</div>
+            <div>① 하단 공유 버튼 <strong>⬆</strong> 탭</div>
             <div>② <strong>홈 화면에 추가</strong> 선택</div>
             <div>③ 오른쪽 상단 <strong>추가</strong> 탭</div>
           </div>
-          <div style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;">※ Chrome이 아닌 Safari에서만 설치 가능합니다</div>
+          <div style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;">※ Safari에서만 설치 가능합니다 (Chrome 불가)</div>
         </div>
 
       </div>
@@ -88,46 +98,66 @@
 
     </div>
   </div>
+
   <script>
-    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/static/sw.js'); }
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
 
     // ── PWA 설치 배너 ──────────────────────────────────────────────────────────
-    let deferredPrompt = null;
+    var deferredPrompt = null;
 
-    function isIOS()        { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
-    function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone; }
+    function isIOS() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
+    }
+    function isAndroid() {
+      return /android/i.test(navigator.userAgent);
+    }
+    function isMobile() {
+      return isIOS() || isAndroid() || window.innerWidth <= 768;
+    }
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    }
 
-    // Android: beforeinstallprompt 이벤트 캡처
-    window.addEventListener('beforeinstallprompt', function(e) {
+    // Android Chrome: 원클릭 설치 이벤트 캡처
+    window.addEventListener('beforeinstallprompt', function (e) {
       e.preventDefault();
       deferredPrompt = e;
-      if (!sessionStorage.getItem('installDismissed')) showBanner('android');
-    });
-
-    // 이미 설치됐으면 배너 제거
-    window.addEventListener('appinstalled', function() { hideBanner(); });
-
-    window.addEventListener('DOMContentLoaded', function() {
-      if (isStandalone()) return;                              // 이미 앱으로 실행 중
-      if (sessionStorage.getItem('installDismissed')) return; // 이번 세션에 닫은 적 있음
-      if (isIOS()) showBanner('ios');                         // iOS: 바로 표시
-      // Android는 beforeinstallprompt 이벤트 후 표시
-    });
-
-    function showBanner(type) {
-      var banner = document.getElementById('installBanner');
-      var btnWrap = document.getElementById('androidBtnWrap');
-      var iosGuide = document.getElementById('iosGuide');
-
-      if (type === 'android') {
-        btnWrap.style.display = 'block';
-        iosGuide.style.display = 'none';
-      } else {
-        btnWrap.style.display = 'none';
-        iosGuide.style.display = 'block';
+      if (!sessionStorage.getItem('installDismissed') && !isStandalone()) {
+        // 원클릭 설치 버튼으로 업그레이드
+        document.getElementById('androidGuide').style.display = 'none';
+        document.getElementById('androidBtnWrap').style.display = 'block';
+        document.getElementById('installBanner').style.display = 'block';
       }
-      banner.style.display = 'block';
-    }
+    });
+
+    // 설치 완료 시 배너 숨김
+    window.addEventListener('appinstalled', function () { hideBanner(); });
+
+    // 페이지 로드 시 배너 표시 여부 결정
+    document.addEventListener('DOMContentLoaded', function () {
+      if (isStandalone()) return;                               // 이미 앱으로 실행 중
+      if (sessionStorage.getItem('installDismissed')) return;  // 이번 세션에 닫은 적 있음
+      if (!isMobile()) return;                                  // PC에서는 미표시
+
+      var banner   = document.getElementById('installBanner');
+      var iosGuide = document.getElementById('iosGuide');
+      var aGuide   = document.getElementById('androidGuide');
+      var aBtn     = document.getElementById('androidBtnWrap');
+
+      if (isIOS()) {
+        // iOS: 공유 버튼 안내 바로 표시
+        iosGuide.style.display = 'block';
+        aGuide.style.display   = 'none';
+        aBtn.style.display     = 'none';
+        banner.style.display   = 'block';
+      } else {
+        // Android/기타: 수동 안내 먼저 표시 (beforeinstallprompt 오면 버튼으로 교체)
+        aGuide.style.display   = 'block';
+        iosGuide.style.display = 'none';
+        aBtn.style.display     = 'none';
+        banner.style.display   = 'block';
+      }
+    });
 
     function hideBanner() {
       document.getElementById('installBanner').style.display = 'none';
@@ -141,7 +171,7 @@
     function doInstall() {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function(r) {
+      deferredPrompt.userChoice.then(function (r) {
         if (r.outcome === 'accepted') hideBanner();
         deferredPrompt = null;
       });
