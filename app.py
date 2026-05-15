@@ -3096,9 +3096,11 @@ def monitoring():
     today_str     = now.strftime('%Y-%m-%d')
 
     if conn._pg:
+        yr_expr  = "LEFT(i.inspected_at, 4)"
         ym_expr  = "LEFT(i.inspected_at, 7)"
         day_expr = "LEFT(i.inspected_at, 10)"
     else:
+        yr_expr  = "strftime('%Y', i.inspected_at)"
         ym_expr  = "strftime('%Y-%m', i.inspected_at)"
         day_expr = "date(i.inspected_at)"
 
@@ -3162,6 +3164,17 @@ def monitoring():
             f'SELECT e.id, e.name, e.department, e.location FROM equipment e WHERE 1=1{dept_sql_m} ORDER BY e.name',
             dept_params_m
         ).fetchall()
+
+        # ── 해당 연도 전체 점검 완료 쌍 (연간 월별 집계용, 휴동 제외) ────────────
+        yearly_insp_raw = conn.execute(f'''
+            SELECT DISTINCT i.equipment_id, {day_expr} AS day
+            FROM inspections i
+            JOIN equipment e ON i.equipment_id = e.id
+            WHERE {yr_expr} = {ph}
+              AND i.status IN ('점검완료','승인완료')
+              AND i.result != {ph}
+              {dept_sql_m}
+        ''', [str(year), '휴동'] + dept_params_m).fetchall()
 
     except Exception as _e:
         conn.close()
@@ -3254,6 +3267,39 @@ def monitoring():
         })
     eq_data.sort(key=lambda x: (-x['rate'], x['name']))
 
+    # ── 연간 월별 점검율 집계 (주말 제외) ────────────────────────────────────
+    yearly_by_month = _dd(set)   # month_num → set of (eq_id, day_str)
+    for r in yearly_insp_raw:
+        ds   = str(r['day'])
+        prts = ds.split('-')
+        m_n, d_n = int(prts[1]), int(prts[2])
+        try:
+            if datetime(year, m_n, d_n).weekday() < 5:  # 평일만
+                yearly_by_month[m_n].add((r['equipment_id'], ds))
+        except Exception:
+            pass
+
+    yearly_labels = [f'{m}월' for m in range(1, 13)]
+    yearly_values = []
+    for m in range(1, 13):
+        days_in_m = calendar.monthrange(year, m)[1]
+        if year < now.year or (year == now.year and m < now.month):
+            last_day = days_in_m
+        elif year == now.year and m == now.month:
+            last_day = now.day
+        else:
+            yearly_values.append(None)   # 미래 월
+            continue
+        work_days_m = sum(
+            1 for d in range(1, last_day + 1)
+            if datetime(year, m, d).weekday() < 5
+        )
+        if work_days_m == 0 or total_eq == 0:
+            yearly_values.append(0)
+        else:
+            done_m = len(yearly_by_month[m])
+            yearly_values.append(round(done_m / (work_days_m * total_eq) * 100, 1))
+
     return render_template('monitoring.html',
         year=year, month=month, days_in_month=days_in_month,
         passed_days=passed_days, passed_days_work=passed_days_work,
@@ -3265,6 +3311,8 @@ def monitoring():
         idle_days_list=_json.dumps(sorted(idle_days_set)),
         chart_labels=_json.dumps(chart_labels, ensure_ascii=False),
         chart_values=_json.dumps(chart_values),
+        yearly_labels=_json.dumps(yearly_labels, ensure_ascii=False),
+        yearly_values=_json.dumps(yearly_values),
         dept_data=dept_data, eq_data=eq_data,
         now_year=now.year, now_month=now.month,
         current_dept=current_dept, all_teams=TEAMS,
