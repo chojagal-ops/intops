@@ -1052,9 +1052,17 @@ def admin():
         ORDER BY r.created_at DESC
     ''').fetchall()
     conn.close()
-    now_ym = now_kst().strftime('%Y-%m')
     return render_template('admin.html', pending=pending, approved=approved,
-                           reset_requests=reset_requests, now_ym=now_ym)
+                           reset_requests=reset_requests)
+
+
+# ── 데이터 관리 페이지 (관리자 전용) ──────────────────────────────────────────
+@app.route('/admin/data')
+@admin_required
+def admin_data():
+    now_ym = now_kst().strftime('%Y-%m')
+    return render_template('admin_data.html', now_ym=now_ym)
+
 
 
 @app.route('/admin/approve/<int:user_id>', methods=['POST'])
@@ -2091,7 +2099,7 @@ def admin_delete_month_get(ym):
     conn.commit()
     conn.close()
     flash(f'✅ {ym} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_data'))
 
 
 # ── 월별 점검 기록 전체 삭제 (관리자 전용) ────────────────────────────────────
@@ -2101,7 +2109,7 @@ def admin_delete_month():
     ym = request.form.get('ym', '').strip()   # 형식: 2026-05
     if not ym or len(ym) != 7:
         flash('올바른 연월을 입력하세요 (예: 2026-05).', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin_data'))
     conn = get_db()
     if conn._pg:
         result = conn.execute(
@@ -2113,7 +2121,7 @@ def admin_delete_month():
     conn.commit()
     conn.close()
     flash(f'{ym} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_data'))
 
 
 # ── 날짜별 전 설비 휴동 처리 (관리자 전용) ───────────────────────────────────
@@ -2172,7 +2180,7 @@ def admin_bulk_idle():
     conn.commit()
     conn.close()
     flash(f'{date_str} — {inserted}개 설비 휴동 처리 완료되었습니다.', 'success')
-    return redirect(url_for('admin'))
+    return redirect(url_for('admin_data'))
 
 
 # ── 중복 점검 기록 일괄 정리 (관리자 전용) ────────────────────────────────────
@@ -2204,7 +2212,7 @@ def cleanup_duplicates():
     conn.commit()
     conn.close()
     flash('중복 점검 기록 정리가 완료되었습니다.', 'success')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('admin_data'))
 
 
 @app.route('/bulk-inspect', methods=['GET', 'POST'])

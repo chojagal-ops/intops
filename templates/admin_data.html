@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>데이터 관리 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link">설비 관리</a>
+      <a href="/admin/data" class="nav-link active">데이터 관리</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/help" class="help-btn">❓ 도움말</a>
+      <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card" style="max-width:780px; width:100%;">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="card-header" style="text-align:left; margin-bottom:24px;">
+        <div class="card-icon" style="background:rgba(249,115,22,0.12);">
+          <svg viewBox="0 0 24 24" style="fill:#f97316;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        </div>
+        <div class="card-title">데이터 관리</div>
+        <div class="card-desc">점검 기록 관리 및 데이터 백업을 처리합니다.</div>
+      </div>
+
+      <!-- ① 월별 점검 기록 삭제 -->
+      <div class="section-title" style="margin-bottom:12px;">🗑 월별 점검 기록 삭제</div>
+      <div style="background:rgba(220,38,38,0.06); border:1px solid rgba(220,38,38,0.2);
+                  border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          선택한 달의 모든 점검 기록(승인 완료 포함)을 완전히 삭제합니다.<br>
+          <strong style="color:#dc2626;">⚠ 이 작업은 되돌릴 수 없습니다. 삭제 전 백업을 권장합니다.</strong>
+        </div>
+        <form method="POST" action="/admin/delete-month"
+              onsubmit="return confirm('⚠️ ' + this.ym.value + ' 월의 점검 기록을 전부 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?')"
+              style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="month" name="ym" required value="{{ now_ym }}"
+                 style="padding:9px 14px; border-radius:8px; border:1px solid var(--border);
+                        background:var(--bg-subtle); color:var(--text); font-size:0.9rem;">
+          <button type="submit"
+                  style="padding:9px 20px; background:rgba(220,38,38,0.12); border:1px solid rgba(220,38,38,0.4);
+                         border-radius:8px; color:#dc2626; font-size:0.88rem; font-weight:700; cursor:pointer;">
+            🗑 해당 월 기록 삭제
+          </button>
+        </form>
+      </div>
+
+      <!-- ② 날짜별 휴동 일괄 처리 -->
+      <div class="section-title" style="margin-bottom:12px;">⏸ 날짜별 전 설비 휴동 처리</div>
+      <div style="background:rgba(100,116,139,0.08); border:1px solid rgba(100,116,139,0.22);
+                  border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          선택한 날짜의 기존 점검 기록을 삭제하고,<br>
+          모든 설비에 <strong>휴동(승인완료)</strong> 기록을 자동 생성합니다. (공휴일·휴무일 등)
+        </div>
+        <form method="POST" action="/admin/bulk-idle"
+              onsubmit="return confirm(this.idle_date.value + ' 날짜의 모든 설비를 휴동 처리합니다.\n기존 점검 기록은 삭제됩니다. 계속하시겠습니까?')"
+              style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="date" name="idle_date" required
+                 style="padding:9px 14px; border-radius:8px; border:1px solid var(--border);
+                        background:var(--bg-subtle); color:var(--text); font-size:0.9rem;">
+          <button type="submit"
+                  style="padding:9px 20px; background:rgba(100,116,139,0.12); border:1px solid rgba(100,116,139,0.35);
+                         border-radius:8px; color:#475569; font-size:0.88rem; font-weight:700; cursor:pointer;">
+            ⏸ 휴동 일괄 처리
+          </button>
+        </form>
+      </div>
+
+      <!-- ③ 중복 기록 정리 -->
+      <div class="section-title" style="margin-bottom:12px;">🔧 중복 점검 기록 정리</div>
+      <div style="background:rgba(249,115,22,0.06); border:1px solid rgba(249,115,22,0.2);
+                  border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          설비·날짜별로 중복된 점검 기록을 정리합니다.<br>
+          각 날짜마다 최신 1건만 남기고 나머지 중복 기록은 삭제됩니다.
+        </div>
+        <form method="POST" action="/admin/cleanup-duplicates"
+              onsubmit="return confirm('날짜·설비별 중복 점검 기록을 정리합니다.\n각 날짜마다 최신 1건만 남기고 나머지는 삭제됩니다.\n계속하시겠습니까?')">
+          <button type="submit"
+                  style="padding:9px 20px; background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.3);
+                         border-radius:8px; color:var(--orange); font-size:0.88rem; font-weight:700; cursor:pointer;">
+            🔧 중복 기록 일괄 정리
+          </button>
+        </form>
+      </div>
+
+      <!-- ④ 데이터 백업 -->
+      <div class="section-title" style="margin-bottom:12px;">🗄️ 데이터 백업</div>
+      <div style="background:var(--bg-subtle); border:1px solid var(--border);
+                  border-radius:12px; padding:20px 22px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          전체 데이터베이스(사용자·설비·점검기록 등)를 CSV ZIP 파일로 다운로드합니다.<br>
+          정기적으로 백업해두면 데이터 손실 시 복구가 가능합니다.
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+          <a href="/admin/backup" class="btn btn-primary"
+             style="display:inline-flex; align-items:center; gap:6px; width:auto; padding:10px 22px;">
+            ⬇️ DB 전체 백업 다운로드
+          </a>
+          <span style="font-size:0.78rem; color:var(--text-muted);">
+            intops_backup_YYYYMMDD_HHMMSS.zip 형태로 저장됩니다
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/static/nav.js"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+</body>
+</html>
