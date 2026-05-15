@@ -63,11 +63,16 @@
           <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">내역 보기 →</div>
           {% endif %}
         </div>
-        <a href="/equipment-list" class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
+        <a href="/equipment-list{% if session.team and session.team != '관리자' %}?dept={{ session.team }}{% endif %}"
+           class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;"
+           onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⚙️</div>
           <div class="dash-card-label">전체 설비</div>
           <div class="dash-card-value">{{ total_eq }} 대</div>
-          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">목록 보기 →</div>
+          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">
+            {% if session.team and session.team != '관리자' %}{{ session.team }} 설비 →{% else %}목록 보기 →{% endif %}
+          </div>
         </a>
         {% if session.role == '승인자' or session.is_admin %}
         <div class="dash-card" style="border-color:{% if pending_list %}rgba(249,115,22,0.35){% else %}var(--border){% endif %};">

@@ -114,7 +114,7 @@
   <div class="eq-wrap">
 
     <!-- 헤더 -->
-    <div class="admin-header" style="margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+    <div class="admin-header" style="margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <div>
         <div class="card-title" style="text-align:left;">전체 설비 현황</div>
         <div class="card-desc">오늘 점검 여부와 최근 점검 결과를 확인합니다.</div>
@@ -125,6 +125,15 @@
         <span class="st-done">✅ 오늘 점검 {{ ins_list | length }}대</span>
         <span class="st-todo">⚠️ 미점검 {{ mis_list | length }}대</span>
       </div>
+    </div>
+
+    <!-- 팀 필터 바 -->
+    <div class="dept-filter-bar">
+      <span class="df-label">🏭 팀 필터:</span>
+      <a class="dept-pill {% if current_dept == '전체' %}active{% endif %}" href="?dept=전체">전체</a>
+      {% for t in all_teams %}{% if t != '관리자' %}
+      <a class="dept-pill {% if current_dept == t %}active{% endif %}" href="?dept={{ t }}">{{ t }}</a>
+      {% endif %}{% endfor %}
     </div>
 
     <!-- 상태 필터 + 텍스트 검색 -->

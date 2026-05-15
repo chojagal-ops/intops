@@ -40,8 +40,20 @@
 
       <div class="section-title" style="margin-bottom:16px;">📅 일별 점검 결과</div>
 
+      <!-- 팀 필터 바 -->
+      <div class="dept-filter-bar">
+        <span class="df-label">🏭 팀 필터:</span>
+        <a class="dept-pill {% if current_dept == '전체' %}active{% endif %}"
+           onclick="setDeptFilter('전체')" href="javascript:void(0)">전체</a>
+        {% for t in all_teams %}{% if t != '관리자' %}
+        <a class="dept-pill {% if current_dept == t %}active{% endif %}"
+           onclick="setDeptFilter('{{ t }}')" href="javascript:void(0)">{{ t }}</a>
+        {% endif %}{% endfor %}
+      </div>
+
       <!-- 날짜 선택 -->
-      <form method="GET" style="display:flex; gap:8px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">
+      <form method="GET" id="dateForm" style="display:flex; gap:8px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">
+        <input type="hidden" name="dept" id="deptHidden" value="{{ current_dept }}">
         <input type="date" name="date" value="{{ selected_date }}"
                style="padding:7px 12px; border-radius:8px; border:1.5px solid var(--border);
                       background:var(--bg); color:var(--text); font-size:0.88rem; height:36px;">
@@ -146,6 +158,12 @@
   </div>
 
   <script src="/static/nav.js"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
+    function setDeptFilter(dept) {
+      document.getElementById('deptHidden').value = dept;
+      document.getElementById('dateForm').submit();
+    }
+  </script>
 </body>
 </html>

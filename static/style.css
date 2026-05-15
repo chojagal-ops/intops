@@ -860,10 +860,15 @@ td { padding: 12px 14px; color: var(--text); }
   .topbar-title {
     font-size: 0.78rem;
     letter-spacing: 0;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .topbar-title img { width: 22px; height: 22px; margin-right: 5px; }
   .topbar-nav { display: none; }          /* 네비 숨김 – 홈/로그아웃만 표시 */
-  .topbar-user { font-size: 0.72rem; gap: 8px; }
+  .hist-nav   { display: none; }          /* 이전/다음 버튼 숨김 – 모바일 스와이프 사용 */
+  .topbar-user { font-size: 0.72rem; gap: 8px; flex-shrink: 0; }
   .role-badge-sm { display: none; }
 
   /* 페이지 패딩 */
@@ -1142,4 +1147,48 @@ td { padding: 12px 14px; color: var(--text); }
   .help-flow { flex-direction: column; }
   .help-flow-arrow { transform: rotate(90deg); align-self: center; }
   .help-flow-step { min-width: unset; width: 100%; }
+}
+
+/* ── 팀(부서) 필터 바 ─────────────────────────────── */
+.dept-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.dept-filter-bar .df-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.dept-pill {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-sub);
+  text-decoration: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.dept-pill:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: var(--orange-light);
+  text-decoration: none;
+}
+.dept-pill.active {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+@media (max-width: 600px) {
+  .dept-pill { font-size: 0.72rem; padding: 4px 10px; }
 }

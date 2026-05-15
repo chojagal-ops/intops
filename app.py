@@ -174,6 +174,24 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 TEAMS = ['품질팀', 'EMS제조팀', '생산기술팀', '개발팀', '환경안전팀', '사출팀', '코팅팀', '관리자']
 
 
+def _dept_filter(conn, alias='e'):
+    """URL 파라미터·세션 팀을 읽어 (WHERE절 조각, params리스트, 현재dept값) 반환.
+    team='관리자' 또는 dept='전체' → 필터 없음.
+    관리자도 명시적으로 팀 선택 가능.
+    """
+    dept = request.args.get('dept', '').strip()
+    if not dept:
+        # 기본값: 팀이 '관리자'가 아니고 관리자 계정도 아니면 자기 팀
+        if not session.get('is_admin') and session.get('team') and session.get('team') != '관리자':
+            dept = session.get('team', '')
+        else:
+            dept = '전체'
+    if dept == '전체':
+        return '', [], dept
+    ph = '%s' if (USE_PG and conn._pg) else '?'
+    return f' AND {alias}.department = {ph}', [dept], dept
+
+
 # ── 엑셀 파싱 ─────────────────────────────────────────────────────────────────
 def parse_excel(file):
     wb = openpyxl.load_workbook(file, data_only=True)
@@ -750,6 +768,7 @@ def login():
             session['user_name'] = user['name']
             session['is_admin']  = bool(user['is_admin'])
             session['role']      = user['role'] or '점검자'
+            session['team']      = user.get('team') or ''
             if next_url:
                 return redirect(next_url)
             if user['is_admin']:
@@ -2523,15 +2542,20 @@ def _bulk_inspect_inner():
     if selected_date > today_str:
         selected_date = today_str
 
+    eq_data      = []
+    current_dept = '전체'
+
     try:
         print(f'[bulk_inspect GET] selected_date={selected_date}', flush=True)
-        equipments = conn.execute('''
+        dept_sql_g, dept_params_g, current_dept = _dept_filter(conn)
+        equipments = conn.execute(f'''
             SELECT e.id, e.name, e.location, e.department, e.approver_id,
                    e.inspection_cycle, a.name AS approver_name
             FROM equipment e
             LEFT JOIN users a ON e.approver_id = a.id
+            WHERE 1=1 {dept_sql_g}
             ORDER BY e.name
-        ''').fetchall()
+        ''', dept_params_g).fetchall()
         print(f'[bulk_inspect GET] equipments count={len(equipments)}', flush=True)
 
         all_eq_ids = [r['id'] for r in equipments]
@@ -2589,7 +2613,8 @@ def _bulk_inspect_inner():
         pass
     try:
         return render_template('bulk_inspect.html', eq_data=eq_data,
-                               today_date=today_str, selected_date=selected_date)
+                               today_date=today_str, selected_date=selected_date,
+                               current_dept=current_dept, all_teams=TEAMS)
     except Exception as e:
         app.logger.exception('bulk_inspect render error')
         flash(f'화면 렌더링 오류: {e}', 'error')
@@ -2735,6 +2760,7 @@ def daily_results():
     selected_date = request.args.get('date', today)
 
     conn = get_db()
+    dept_sql, dept_params, current_dept = _dept_filter(conn)
     # 설비당 해당 날짜 최선 점검 1건 (승인완료 우선, 이후 최신순)
     rows = conn.execute(f'''
         SELECT e.id AS eq_id, e.name AS eq_name, e.location, e.department,
@@ -2751,12 +2777,14 @@ def daily_results():
         )
         LEFT JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
+        WHERE 1=1 {dept_sql}
         ORDER BY e.name
-    ''', (selected_date,)).fetchall()
+    ''', [selected_date] + dept_params).fetchall()
     conn.close()
 
     return render_template('daily_results.html',
-                           rows=rows, selected_date=selected_date)
+                           rows=rows, selected_date=selected_date,
+                           current_dept=current_dept, all_teams=TEAMS)
 
 
 # ── 내 점검 결과 ──────────────────────────────────────────────────────────────
@@ -2947,6 +2975,7 @@ def dashboard():
 @login_required
 def equipment_list():
     conn = get_db()
+    dept_sql, dept_params, current_dept = _dept_filter(conn)
     today_cmp = f"({conn.date_col('latest.inspected_at')} = {conn.today})"
     equipments = conn.execute(f'''
         SELECT e.*,
@@ -2962,10 +2991,12 @@ def equipment_list():
         )
         LEFT JOIN users u ON latest.inspector_id = u.id
         LEFT JOIN users a ON e.approver_id = a.id
+        WHERE 1=1 {dept_sql}
         ORDER BY e.name
-    ''').fetchall()
+    ''', dept_params).fetchall()
     conn.close()
-    return render_template('equipment_list.html', equipments=equipments)
+    return render_template('equipment_list.html', equipments=equipments,
+                           current_dept=current_dept, all_teams=TEAMS)
 
 
 # ── 월별 점검결과 HTML 페이지 ─────────────────────────────────────────────────

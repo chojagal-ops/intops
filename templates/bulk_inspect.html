@@ -156,6 +156,17 @@
 
     <form method="POST" id="bForm">
 
+      <!-- 팀 필터 바 -->
+      <div class="dept-filter-bar" style="margin-bottom:10px;">
+        <span class="df-label">🏭 팀:</span>
+        <a class="dept-pill {% if current_dept == '전체' %}active{% endif %}"
+           onclick="reloadDept('전체')" href="javascript:void(0)">전체</a>
+        {% for t in all_teams %}{% if t != '관리자' %}
+        <a class="dept-pill {% if current_dept == t %}active{% endif %}"
+           onclick="reloadDept('{{ t }}')" href="javascript:void(0)">{{ t }}</a>
+        {% endif %}{% endfor %}
+      </div>
+
       <!-- 상단 고정 헤더 -->
       <div class="bulk-topbar">
         <span class="title">⚡ 일괄 점검</span>
@@ -172,6 +183,9 @@
           <div class="prog-bg"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
           <span class="prog-txt" id="pTxt">0 / {{ eq_data | length }}</span>
         </div>
+        <span style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">
+          🏭 {{ current_dept }}
+        </span>
         <a href="/dashboard" class="btn btn-outline"
            style="width:auto;padding:7px 13px;font-size:0.8rem;white-space:nowrap;">← 홈</a>
       </div>
@@ -315,9 +329,15 @@
   </div>
 
   <script>
-    // 날짜 변경 → 해당 날짜 기준으로 페이지 재조회
+    var _curDept = {{ current_dept | tojson }};
+    // 날짜 변경 → 해당 날짜 기준으로 페이지 재조회 (dept 보존)
     function reloadDate(val) {
-      window.location.href = '/bulk-inspect?date=' + encodeURIComponent(val);
+      window.location.href = '/bulk-inspect?date=' + encodeURIComponent(val) + '&dept=' + encodeURIComponent(_curDept);
+    }
+    // 팀 변경 → 현재 날짜 보존하고 dept만 변경
+    function reloadDept(dept) {
+      var date = document.getElementById('inspect_date').value || '{{ selected_date }}';
+      window.location.href = '/bulk-inspect?date=' + encodeURIComponent(date) + '&dept=' + encodeURIComponent(dept);
     }
 
     function togBody(id) {
