@@ -87,21 +87,36 @@
         <div class="section-title" style="margin-bottom:0;">
           등록된 설비
           <span class="badge badge-approved">{{ equipments | length }}</span>
+          {% if current_dept != '전체' %}
+          <span style="font-size:0.8rem; font-weight:600; color:var(--orange); margin-left:6px;">— {{ current_dept }}</span>
+          {% endif %}
         </div>
         <a href="/admin/equipment/add" class="btn btn-primary" style="width:auto; padding:10px 22px;">
           + 설비 등록
         </a>
       </div>
 
+      <!-- 팀 필터 탭 -->
+      <div class="dept-filter-bar" style="margin-top:16px; margin-bottom:4px;">
+        <span class="df-label">🏭 팀 필터:</span>
+        <a class="dept-pill {% if current_dept=='전체' %}active{% endif %}"
+           href="/admin/equipment?dept=전체{% if q %}&q={{ q }}{% endif %}">전체</a>
+        {% for t in all_teams %}{% if t != '관리자' %}
+        <a class="dept-pill {% if current_dept==t %}active{% endif %}"
+           href="/admin/equipment?dept={{ t }}{% if q %}&q={{ q }}{% endif %}">{{ t }}</a>
+        {% endif %}{% endfor %}
+      </div>
+
       <!-- 검색 + 필터 초기화 -->
-      <div style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <form method="GET" action="/admin/equipment" style="display:flex; gap:8px; flex:1; align-items:center;">
+          <input type="hidden" name="dept" value="{{ current_dept }}">
           <input type="text" name="q" value="{{ q }}"
                  placeholder="설비명 · 위치 · 담당부서 검색"
                  style="flex:1; padding:9px 14px; border:1px solid var(--border); border-radius:8px;
                         background:var(--bg-subtle); color:var(--text); font-size:0.85rem; outline:none;">
           <button type="submit" class="btn btn-primary" style="width:auto; padding:9px 20px; white-space:nowrap;">🔍 검색</button>
-          {% if q %}
+          {% if q or current_dept != '전체' %}
           <a href="/admin/equipment" class="btn btn-outline" style="width:auto; padding:9px 16px; white-space:nowrap;">✕ 초기화</a>
           {% endif %}
         </form>

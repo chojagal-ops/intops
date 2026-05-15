@@ -1196,14 +1196,23 @@ def admin_delete_user(user_id):
 @app.route('/admin/equipment')
 @admin_required
 def admin_equipment():
-    q = request.args.get('q', '').strip()
+    q            = request.args.get('q',    '').strip()
+    current_dept = request.args.get('dept', '전체').strip()
     conn = get_db()
+    ph   = '%s' if conn._pg else '?'
 
     # 시리얼 번호 = id 기준 등록순 rank
-    if conn._pg:
-        serial_expr = '(SELECT COUNT(*) FROM equipment e2 WHERE e2.id <= e.id)'
-    else:
-        serial_expr = '(SELECT COUNT(*) FROM equipment e2 WHERE e2.id <= e.id)'
+    serial_expr = '(SELECT COUNT(*) FROM equipment e2 WHERE e2.id <= e.id)'
+
+    wheres, params = [], []
+    if q:
+        wheres.append(f"(e.name LIKE {ph} OR e.location LIKE {ph} OR e.department LIKE {ph})")
+        params += [f'%{q}%', f'%{q}%', f'%{q}%']
+    if current_dept and current_dept != '전체':
+        wheres.append(f"e.department = {ph}")
+        params.append(current_dept)
+
+    where_sql = ('WHERE ' + ' AND '.join(wheres)) if wheres else ''
 
     base_sql = f'''
         SELECT e.*,
@@ -1218,13 +1227,9 @@ def admin_equipment():
         LEFT JOIN users a ON e.approver_id = a.id
         LEFT JOIN inspections i ON e.id = i.equipment_id
         LEFT JOIN inspection_templates t ON e.id = t.equipment_id
+        {where_sql}
+        GROUP BY e.id, u.name, a.name, t.id, t.filename ORDER BY e.id DESC
     '''
-    params = []
-    if q:
-        base_sql += " WHERE (e.name LIKE ? OR e.location LIKE ? OR e.department LIKE ?)"
-        params = [f'%{q}%', f'%{q}%', f'%{q}%']
-
-    base_sql += ' GROUP BY e.id, u.name, a.name, t.id, t.filename ORDER BY e.id DESC'
 
     equipments = conn.execute(base_sql, params).fetchall()
     approvers = conn.execute(
@@ -1233,7 +1238,8 @@ def admin_equipment():
     conn.close()
     return render_template('admin_equipment.html', equipments=equipments,
                            approvers=approvers, has_qrcode=HAS_QRCODE,
-                           has_openpyxl=HAS_OPENPYXL, q=q)
+                           has_openpyxl=HAS_OPENPYXL, q=q,
+                           current_dept=current_dept, all_teams=TEAMS)
 
 
 @app.route('/admin/equipment/set-approver/<int:eq_id>', methods=['POST'])
