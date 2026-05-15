@@ -79,32 +79,44 @@
           {% endif %}
         </div>
         {% endif %}
-        <a href="/equipment-list{% if session.team and session.team != '관리자' %}?dept={{ session.team }}{% endif %}"
+        <a href="/equipment-list"
            class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;"
            onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'"
            onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⚙️</div>
           <div class="dash-card-label">전체 설비</div>
           <div class="dash-card-value">{{ total_eq }} 대</div>
-          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">
-            {% if session.team and session.team != '관리자' %}{{ session.team }} 설비 →{% else %}목록 보기 →{% endif %}
-          </div>
+          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">목록 보기 →</div>
         </a>
         {% if session.role == '승인자' or session.is_admin %}
-        <div class="dash-card" style="border-color:{% if pending_list %}rgba(249,115,22,0.35){% else %}var(--border){% endif %};">
+        <a href="#pending-section" onclick="scrollToPending()"
+           class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;
+                  border-color:{% if pending_list %}rgba(249,115,22,0.35){% else %}var(--border){% endif %};"
+           onmouseover="this.style.boxShadow='0 4px 16px rgba(249,115,22,0.18)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">⏳</div>
           <div class="dash-card-label">승인 대기</div>
           <div class="dash-card-value" style="color:{% if pending_list %}#c2410c{% else %}var(--orange){% endif %};">
             {{ pending_list | length }} 건
           </div>
-        </div>
-        <div class="dash-card" style="border-color:{% if approved_count %}rgba(22,163,74,0.35){% else %}var(--border){% endif %};">
+          <div style="font-size:0.75rem; color:{% if pending_list %}#c2410c{% else %}var(--text-muted){% endif %}; margin-top:6px;">
+            {% if pending_list %}대기 목록 보기 →{% else %}대기 없음{% endif %}
+          </div>
+        </a>
+        <a href="/my-approvals"
+           class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;
+                  border-color:{% if approved_count %}rgba(22,163,74,0.35){% else %}var(--border){% endif %};"
+           onmouseover="this.style.boxShadow='0 4px 16px rgba(22,163,74,0.15)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.boxShadow='';this.style.transform=''">
           <div class="dash-card-icon">✅</div>
           <div class="dash-card-label">승인 완료</div>
           <div class="dash-card-value" style="color:{% if approved_count %}#15803d{% else %}var(--orange){% endif %};">
             {{ approved_count }} 건
           </div>
-        </div>
+          <div style="font-size:0.75rem; color:{% if approved_count %}#15803d{% else %}var(--text-muted){% endif %}; margin-top:6px;">
+            승인 이력 보기 →
+          </div>
+        </a>
         {% endif %}
       </div>
 
@@ -157,7 +169,7 @@
 
       <!-- 승인자: 승인 대기 목록 -->
       {% if pending_list %}
-      <hr class="divider">
+      <hr class="divider" id="pending-section">
       <div class="section-title" style="color:#c2410c;">
         ⏳ 승인 대기 목록
         <span class="badge badge-pending">{{ pending_list | length }}</span>
@@ -300,6 +312,10 @@
       const open = el.style.display !== 'none';
       el.style.display = open ? 'none' : 'block';
       document.getElementById('today-card').style.borderColor = open ? '' : 'var(--orange)';
+    }
+    function scrollToPending() {
+      const el = document.getElementById('pending-section');
+      if (el) { setTimeout(function(){ el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 50); }
     }
   </script>
 </body>
