@@ -33,6 +33,16 @@
     }
     .btn-back:hover { background: #4b5563; }
 
+    /* 팀 필터 */
+    .dept-select {
+      padding: 7px 12px; border-radius: 7px;
+      border: 1px solid #4b5563; background: #374151;
+      color: #f9fafb; font-size: 0.85rem; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .dept-select:focus { outline: none; border-color: #f97316; }
+    .dept-label { font-size: 0.8rem; color: #9ca3af; flex-shrink: 0; }
+
     /* ── 페이지 래퍼 (화면 미리보기) ── */
     .pages-wrap { padding: 72px 20px 40px; }
 
@@ -130,10 +140,23 @@
   <div class="ctrl-bar">
     <span class="logo">🖨️ INTOPS QR 출력</span>
     <span class="info">
+      {% if selected_dept != '전체' %}
+        <span style="color:#f97316; font-weight:700;">{{ selected_dept }}</span> &nbsp;·&nbsp;
+      {% endif %}
       총 {{ total }}개 설비 &nbsp;·&nbsp;
       {{ pages | length }}페이지 &nbsp;·&nbsp;
       A4 · 5열 × 7행 (35개/페이지)
     </span>
+
+    <!-- 팀 선택 -->
+    <span class="dept-label">🏭 팀 선택:</span>
+    <select class="dept-select" onchange="changeDept(this.value)">
+      <option value="전체" {% if selected_dept == '전체' %}selected{% endif %}>전체</option>
+      {% for t in all_teams %}{% if t != '관리자' %}
+      <option value="{{ t }}" {% if selected_dept == t %}selected{% endif %}>{{ t }}</option>
+      {% endif %}{% endfor %}
+    </select>
+
     <a href="/admin/equipment" class="btn-back">← 관리자</a>
     <button onclick="window.print()" class="btn-print">🖨️ 인쇄 / PDF 저장</button>
   </div>
@@ -144,7 +167,7 @@
 
       <!-- 페이지 헤더 -->
       <div class="page-header">
-        <span class="page-header-title">INTOPS 설비 QR 코드</span>
+        <span class="page-header-title">INTOPS 설비 QR 코드{% if selected_dept != '전체' %} — {{ selected_dept }}{% endif %}</span>
         <span class="page-header-info">
           {{ loop.index }} / {{ pages | length }} 페이지 &nbsp;·&nbsp;
           S/N {{ page[0].serial }} ~ {{ page[-1].serial }}
@@ -173,5 +196,12 @@
     {% endfor %}
   </div>
 
+  <script>
+    function changeDept(dept) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('dept', dept);
+      window.location.href = url.toString();
+    }
+  </script>
 </body>
 </html>

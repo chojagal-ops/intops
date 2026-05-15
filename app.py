@@ -1562,10 +1562,21 @@ def equipment_qr_print():
         flash('QR 생성 패키지 필요: pip install "qrcode[pil]"', 'error')
         return redirect(url_for('admin_equipment'))
 
+    # 팀 필터
+    selected_dept = request.args.get('dept', '').strip()
+
     conn = get_db()
-    equipments = conn.execute(
-        'SELECT id, name, qr_code, location, department, mgmt_no FROM equipment ORDER BY name'
-    ).fetchall()
+    ph = '%s' if conn._pg else '?'
+    if selected_dept and selected_dept != '전체':
+        equipments = conn.execute(
+            f'SELECT id, name, qr_code, location, department, mgmt_no '
+            f'FROM equipment WHERE department = {ph} ORDER BY name',
+            (selected_dept,)
+        ).fetchall()
+    else:
+        equipments = conn.execute(
+            'SELECT id, name, qr_code, location, department, mgmt_no FROM equipment ORDER BY name'
+        ).fetchall()
     conn.close()
 
     host_url = request.host_url.rstrip('/')
@@ -1582,6 +1593,7 @@ def equipment_qr_print():
         qr_items.append({
             'name':     eq['name'],
             'location': eq['location'] or '',
+            'dept':     eq['department'] or '',
             'mgmt_no':  eq['mgmt_no']  or '',
             'serial':   f'{i + 1:04d}',
             'qr_b64':   b64,
@@ -1589,7 +1601,12 @@ def equipment_qr_print():
 
     # 35개(5×7)씩 페이지 분할
     pages = [qr_items[i:i + 35] for i in range(0, len(qr_items), 35)]
-    return render_template('qr_print.html', pages=pages, total=len(qr_items))
+    dept_label = selected_dept if (selected_dept and selected_dept != '전체') else '전체'
+    return render_template('qr_print.html',
+                           pages=pages,
+                           total=len(qr_items),
+                           all_teams=TEAMS,
+                           selected_dept=dept_label)
 
 
 # ── QR 리다이렉트 ─────────────────────────────────────────────────────────────
