@@ -44,14 +44,15 @@
           </button>
         </div>
 
-        <!-- Android: 수동 안내 (이벤트 없을 때 기본 표시) -->
+        <!-- Android/PC: 수동 안내 (이벤트 없을 때 기본 표시) -->
         <div id="androidGuide" style="display:none;">
           <div style="background:rgba(255,255,255,0.45);border-radius:10px;padding:12px 14px;font-size:0.83rem;color:var(--text);line-height:2.0;">
             <div style="margin-bottom:4px;font-weight:700;font-size:0.79rem;color:var(--text-sub);">설치 방법 (Chrome)</div>
-            <div>① 주소창 오른쪽 <strong>⋮ 메뉴</strong> 탭</div>
-            <div>② <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong> 선택</div>
-            <div>③ <strong>설치</strong> 탭</div>
+            <div>① 주소창 오른쪽 <strong>⋮ 메뉴</strong> 클릭</div>
+            <div>② <strong>INTOPS 설치</strong> 또는 <strong>홈 화면에 추가</strong> 선택</div>
+            <div>③ <strong>설치</strong> 클릭</div>
           </div>
+          <div style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;">※ 주소창에 설치 아이콘(⊕)이 보이면 클릭해도 됩니다</div>
         </div>
 
         <!-- iOS 안내 -->
@@ -137,7 +138,6 @@
     document.addEventListener('DOMContentLoaded', function () {
       if (isStandalone()) return;                               // 이미 앱으로 실행 중
       if (sessionStorage.getItem('installDismissed')) return;  // 이번 세션에 닫은 적 있음
-      if (!isMobile()) return;                                  // PC에서는 미표시
 
       var banner   = document.getElementById('installBanner');
       var iosGuide = document.getElementById('iosGuide');
@@ -145,13 +145,13 @@
       var aBtn     = document.getElementById('androidBtnWrap');
 
       if (isIOS()) {
-        // iOS: 공유 버튼 안내 바로 표시
+        // iOS: 사파리 공유 버튼 안내 표시
         iosGuide.style.display = 'block';
         aGuide.style.display   = 'none';
         aBtn.style.display     = 'none';
         banner.style.display   = 'block';
       } else {
-        // Android/기타: 수동 안내 먼저 표시 (beforeinstallprompt 오면 버튼으로 교체)
+        // Android / PC Chrome 등: 수동 안내 표시 (beforeinstallprompt 오면 버튼으로 교체)
         aGuide.style.display   = 'block';
         iosGuide.style.display = 'none';
         aBtn.style.display     = 'none';
