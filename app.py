@@ -2025,6 +2025,21 @@ def cleanup_duplicates():
 @app.route('/bulk-inspect', methods=['GET', 'POST'])
 @login_required
 def bulk_inspect():
+    import traceback as _tb
+    try:
+        return _bulk_inspect_inner()
+    except Exception as _outer_e:
+        _detail = _tb.format_exc()
+        print(f'[bulk_inspect OUTER ERROR] {_outer_e}\n{_detail}', flush=True)
+        try:
+            app.logger.error(f'[bulk_inspect OUTER ERROR] {_outer_e}\n{_detail}')
+        except Exception:
+            pass
+        flash(f'일괄점검 오류: {_outer_e}', 'error')
+        return redirect(url_for('dashboard'))
+
+
+def _bulk_inspect_inner():
     conn = get_db()
     today_str = now_kst().strftime('%Y-%m-%d')
 
@@ -2226,12 +2241,15 @@ def bulk_inspect():
         selected_date = today_str
 
     try:
+        print(f'[bulk_inspect GET] selected_date={selected_date}', flush=True)
         equipments = conn.execute('''
-            SELECT e.*, a.name AS approver_name
+            SELECT e.id, e.name, e.location, e.department, e.approver_id,
+                   e.inspection_cycle, a.name AS approver_name
             FROM equipment e
             LEFT JOIN users a ON e.approver_id = a.id
             ORDER BY e.name
         ''').fetchall()
+        print(f'[bulk_inspect GET] equipments count={len(equipments)}', flush=True)
 
         eq_data = []
         for eq_row in equipments:
@@ -2255,8 +2273,12 @@ def bulk_inspect():
                 'items_list': items_list,
                 'already_done': bool(date_insp)
             })
+        print(f'[bulk_inspect GET] eq_data built ok, rendering template', flush=True)
     except Exception as e:
-        app.logger.exception('bulk_inspect GET error')
+        import traceback
+        err_detail = traceback.format_exc()
+        app.logger.error(f'bulk_inspect GET error: {e}\n{err_detail}')
+        print(f'[bulk_inspect GET ERROR] {e}\n{err_detail}', flush=True)
         try:
             conn.rollback()
         except Exception:
