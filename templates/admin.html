@@ -189,6 +189,52 @@
 
     </div>
 
+    <!-- 점검 데이터 관리 -->
+    <div class="card" style="margin-top:24px;">
+      <div class="section-title">🗂 점검 데이터 관리</div>
+
+      <!-- 월별 점검 기록 삭제 -->
+      <div style="background:rgba(220,38,38,0.06); border:1px solid rgba(220,38,38,0.2); border-radius:10px; padding:16px 18px; margin-bottom:16px;">
+        <div style="font-weight:700; font-size:0.9rem; color:#dc2626; margin-bottom:6px;">🗑 월별 점검 기록 전체 삭제</div>
+        <div style="font-size:0.82rem; color:var(--text-sub); margin-bottom:12px;">
+          해당 월의 모든 점검 기록(승인 포함)을 완전히 삭제합니다. <strong>되돌릴 수 없습니다.</strong>
+        </div>
+        <form method="POST" action="/admin/delete-month"
+              onsubmit="return confirm('⚠️ ' + this.ym.value + ' 월의 점검 기록을 전부 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?')"
+              style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <input type="month" name="ym" required
+                 value="{{ now_ym }}"
+                 style="padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+                        background:var(--bg-subtle); color:var(--text); font-size:0.88rem;">
+          <button type="submit"
+                  style="padding:8px 18px; background:rgba(220,38,38,0.12); border:1px solid rgba(220,38,38,0.35);
+                         border-radius:8px; color:#dc2626; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            🗑 해당 월 기록 삭제
+          </button>
+        </form>
+      </div>
+
+      <!-- 날짜별 휴동 일괄 처리 -->
+      <div style="background:rgba(100,116,139,0.08); border:1px solid rgba(100,116,139,0.2); border-radius:10px; padding:16px 18px;">
+        <div style="font-weight:700; font-size:0.9rem; color:var(--text); margin-bottom:6px;">⏸ 날짜별 전 설비 휴동 처리</div>
+        <div style="font-size:0.82rem; color:var(--text-sub); margin-bottom:12px;">
+          선택한 날짜의 기존 점검 기록을 삭제하고, 모든 설비에 <strong>휴동(승인완료)</strong> 기록을 생성합니다.
+        </div>
+        <form method="POST" action="/admin/bulk-idle"
+              onsubmit="return confirm(this.idle_date.value + ' 날짜의 모든 설비를 휴동 처리합니다.\n기존 점검 기록은 삭제됩니다. 계속하시겠습니까?')"
+              style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <input type="date" name="idle_date" required
+                 style="padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+                        background:var(--bg-subtle); color:var(--text); font-size:0.88rem;">
+          <button type="submit"
+                  style="padding:8px 18px; background:rgba(100,116,139,0.12); border:1px solid rgba(100,116,139,0.35);
+                         border-radius:8px; color:#64748b; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            ⏸ 휴동 일괄 처리
+          </button>
+        </form>
+      </div>
+    </div>
+
     <!-- 데이터 백업 -->
     <div class="card" style="margin-top:24px;">
       <div class="section-title">🗄️ 데이터 백업</div>

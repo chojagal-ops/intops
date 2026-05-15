@@ -1052,7 +1052,9 @@ def admin():
         ORDER BY r.created_at DESC
     ''').fetchall()
     conn.close()
-    return render_template('admin.html', pending=pending, approved=approved, reset_requests=reset_requests)
+    now_ym = now_kst().strftime('%Y-%m')
+    return render_template('admin.html', pending=pending, approved=approved,
+                           reset_requests=reset_requests, now_ym=now_ym)
 
 
 @app.route('/admin/approve/<int:user_id>', methods=['POST'])
@@ -2068,6 +2070,87 @@ def reset_inspection():
 
     flash(f'[{eq["name"]}] {date_str} 점검 기록이 초기화되었습니다.', 'success')
     return redirect(request.referrer or url_for('daily_results'))
+
+
+# ── 월별 점검 기록 전체 삭제 (관리자 전용) ────────────────────────────────────
+@app.route('/admin/delete-month', methods=['POST'])
+@admin_required
+def admin_delete_month():
+    ym = request.form.get('ym', '').strip()   # 형식: 2026-05
+    if not ym or len(ym) != 7:
+        flash('올바른 연월을 입력하세요 (예: 2026-05).', 'error')
+        return redirect(url_for('admin'))
+    conn = get_db()
+    if conn._pg:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE LEFT(inspected_at,7) = %s", (ym,))
+    else:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE substr(inspected_at,1,7) = ?", (ym,))
+    cnt = result.rowcount if hasattr(result, 'rowcount') else '?'
+    conn.commit()
+    conn.close()
+    flash(f'{ym} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin'))
+
+
+# ── 날짜별 전 설비 휴동 처리 (관리자 전용) ───────────────────────────────────
+@app.route('/admin/bulk-idle', methods=['POST'])
+@admin_required
+def admin_bulk_idle():
+    """지정한 날짜의 모든 설비에 대해 기존 기록을 삭제하고 휴동 기록을 삽입한다."""
+    date_str = request.form.get('idle_date', '').strip()   # 형식: 2026-05-01
+    if not date_str or len(date_str) != 10:
+        flash('올바른 날짜를 입력하세요 (예: 2026-05-01).', 'error')
+        return redirect(url_for('admin'))
+
+    conn = get_db()
+    # 관리자 계정 id (기록용 점검자로 사용)
+    admin_id = session['user_id']
+    inspected_ts = date_str + ' 00:00:00'
+
+    equipments = conn.execute('SELECT id FROM equipment').fetchall()
+
+    inserted = 0
+    for eq in equipments:
+        eq_id = eq['id']
+        # 해당 날짜 기존 기록 모두 삭제
+        if conn._pg:
+            conn.execute(
+                "DELETE FROM inspections WHERE equipment_id=%s AND LEFT(inspected_at,10)=%s",
+                (eq_id, date_str))
+        else:
+            conn.execute(
+                "DELETE FROM inspections WHERE equipment_id=? AND substr(inspected_at,1,10)=?",
+                (eq_id, date_str))
+
+        # 승인자 조회
+        eq_row = conn.execute('SELECT approver_id FROM equipment WHERE id=?'
+                              if not conn._pg else
+                              'SELECT approver_id FROM equipment WHERE id=%s',
+                              (eq_id,)).fetchone()
+        approver_id = eq_row['approver_id'] if eq_row else None
+
+        if conn._pg:
+            conn.execute(
+                """INSERT INTO inspections
+                   (equipment_id, inspector_id, result, status, notes,
+                    inspected_at, approved_by, approved_at)
+                   VALUES (%s,%s,'휴동','승인완료','공휴일/휴동',%s,%s,NOW())""",
+                (eq_id, admin_id, inspected_ts, approver_id or admin_id))
+        else:
+            conn.execute(
+                """INSERT INTO inspections
+                   (equipment_id, inspector_id, result, status, notes,
+                    inspected_at, approved_by, approved_at)
+                   VALUES (?,?,'휴동','승인완료','공휴일/휴동',?,?,datetime('now','localtime'))""",
+                (eq_id, admin_id, inspected_ts, approver_id or admin_id))
+        inserted += 1
+
+    conn.commit()
+    conn.close()
+    flash(f'{date_str} — {inserted}개 설비 휴동 처리 완료되었습니다.', 'success')
+    return redirect(url_for('admin'))
 
 
 # ── 중복 점검 기록 일괄 정리 (관리자 전용) ────────────────────────────────────
