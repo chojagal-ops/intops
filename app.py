@@ -2245,6 +2245,8 @@ def _bulk_inspect_inner():
         return {k: row[k] for k in row.keys()}
 
     if request.method == 'POST':
+        import traceback as _tb
+
         inspect_date = request.form.get('inspect_date', '').strip()
         if not inspect_date:
             inspect_date = today_str
@@ -2256,45 +2258,84 @@ def _bulk_inspect_inner():
             inspect_date = today_str
 
         inspected_at = inspect_date + ' ' + now_kst().strftime('%H:%M:%S')
-        eq_ids = request.form.getlist('eq_ids')
-        success_count = 0
-        skip_count = 0
-
-        fail_names = []
-
-        for eq_id_str in eq_ids:
+        eq_id_strs   = request.form.getlist('eq_ids')
+        eq_ids_int   = []
+        for s in eq_id_strs:
             try:
-                eq_id = int(eq_id_str)
+                eq_ids_int.append(int(s))
             except (ValueError, TypeError):
+                pass
+
+        if not eq_ids_int:
+            conn.close()
+            flash('처리할 설비가 없습니다.', 'warning')
+            return redirect(url_for('bulk_inspect'))
+
+        # ── ① 사전 일괄 조회 (DB 왕복 최소화) ─────────────────────────────────
+        ph = ','.join(['%s' if conn._pg else '?' for _ in eq_ids_int])
+
+        # 이미 점검된 설비 ID 집합
+        done_ids = set(
+            r['equipment_id'] for r in conn.execute(
+                f"SELECT DISTINCT equipment_id FROM inspections "
+                f"WHERE equipment_id IN ({ph}) "
+                f"AND {conn.date_col('inspected_at')}=? "
+                f"AND status IN ('점검완료','승인완료')",
+                eq_ids_int + [inspect_date]
+            ).fetchall()
+        )
+
+        # 설비 정보 맵
+        eq_map = {
+            r['id']: _to_dict(r)
+            for r in conn.execute(
+                f"SELECT * FROM equipment WHERE id IN ({ph})",
+                eq_ids_int
+            ).fetchall()
+        }
+
+        # 점검 항목 맵
+        items_map = {}
+        for r in conn.execute(
+            f"SELECT * FROM inspection_items WHERE equipment_id IN ({ph}) ORDER BY item_order",
+            eq_ids_int
+        ).fetchall():
+            items_map.setdefault(r['equipment_id'], []).append(_to_dict(r))
+
+        # 승인자 정보 맵
+        approver_ids = list({eq['approver_id'] for eq in eq_map.values()
+                             if eq.get('approver_id')})
+        approver_map = {}
+        if approver_ids:
+            aph = ','.join(['%s' if conn._pg else '?' for _ in approver_ids])
+            for r in conn.execute(
+                f"SELECT id, name, email FROM users WHERE id IN ({aph})",
+                approver_ids
+            ).fetchall():
+                approver_map[r['id']] = _to_dict(r)
+
+        # ── ② 폼 데이터 처리 + INSERT (커밋은 마지막에 1회) ─────────────────
+        success_count = 0
+        skip_count    = 0
+        fail_names    = []
+        email_tasks   = []   # 저장 완료 후 일괄 발송
+
+        for eq_id in eq_ids_int:
+            if request.form.get(f'skip_eq_{eq_id}'):
+                skip_count += 1
+                continue
+            if eq_id in done_ids:
+                skip_count += 1
                 continue
 
+            eq = eq_map.get(eq_id)
+            if not eq:
+                continue
+
+            db_items     = items_map.get(eq_id, [])
+            overall_notes = request.form.get(f'notes_eq_{eq_id}', '').strip()
+
             try:
-                if request.form.get(f'skip_eq_{eq_id}'):
-                    skip_count += 1
-                    continue
-
-                date_insp = conn.execute(f'''
-                    SELECT id FROM inspections
-                    WHERE equipment_id=? AND {conn.date_col("inspected_at")}=?
-                    AND status IN ('점검완료','승인완료')
-                ''', (eq_id, inspect_date)).fetchone()
-                if date_insp:
-                    skip_count += 1
-                    continue
-
-                eq = _to_dict(conn.execute(
-                    'SELECT * FROM equipment WHERE id=?', (eq_id,)
-                ).fetchone())
-                if not eq:
-                    continue
-
-                db_items = [_to_dict(r) for r in conn.execute(
-                    'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
-                    (eq_id,)
-                ).fetchall()]
-
-                overall_notes = request.form.get(f'notes_eq_{eq_id}', '').strip()
-
                 if db_items:
                     item_results = []
                     for item in db_items:
@@ -2336,90 +2377,89 @@ def _bulk_inspect_inner():
                         item_results.append((iid, r_val, n_val))
 
                     all_vals = [r for _, r, _ in item_results]
-                    overall  = ('이상'  if '이상'  in all_vals else
+                    overall  = ('이상'   if '이상'   in all_vals else
                                 '수리중' if '수리중' in all_vals else
-                                '휴동'  if all(r in ('휴동','해당없음') for r in all_vals) else '정상')
+                                '휴동'   if all(r in ('휴동', '해당없음') for r in all_vals) else '정상')
 
                     ins_id = conn.insert(
-                        "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
+                        "INSERT INTO inspections "
+                        "(equipment_id, inspector_id, result, notes, status, inspected_at) "
+                        "VALUES (?,?,?,?,'점검완료',?)",
                         (eq_id, session['user_id'], overall, overall_notes, inspected_at)
                     )
                     for item_id, r_val, n_val in item_results:
                         conn.execute(
-                            'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES (?,?,?,?,?)',
+                            'INSERT INTO inspection_details '
+                            '(inspection_id, row_index, item_id, result, detail_notes) '
+                            'VALUES (?,?,?,?,?)',
                             (ins_id, 0, item_id, r_val, n_val)
                         )
-                    conn.commit()
-                    success_count += 1
+                    result_for_email = overall
 
-                    approver_id = eq.get('approver_id')
-                    if approver_id:
-                        approver = _to_dict(conn.execute(
-                            'SELECT name, email FROM users WHERE id=?', (approver_id,)
-                        ).fetchone())
-                        if approver and approver.get('email'):
-                            send_approval_request(
-                                to_email       = approver['email'],
-                                approver_name  = approver['name'],
-                                inspector_name = session['user_name'],
-                                eq_name        = eq.get('name', ''),
-                                location       = eq.get('location') or '-',
-                                result         = overall,
-                                notes          = overall_notes,
-                                eq_id          = eq_id,
-                                host_url       = request.host_url,
-                            )
                 else:
-                    result = request.form.get(f'simple_result_eq_{eq_id}', '정상')
+                    result_for_email = request.form.get(f'simple_result_eq_{eq_id}', '정상')
                     conn.insert(
-                        "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
-                        (eq_id, session['user_id'], result, overall_notes, inspected_at)
+                        "INSERT INTO inspections "
+                        "(equipment_id, inspector_id, result, notes, status, inspected_at) "
+                        "VALUES (?,?,?,?,'점검완료',?)",
+                        (eq_id, session['user_id'], result_for_email, overall_notes, inspected_at)
                     )
-                    conn.commit()
-                    success_count += 1
 
-                    approver_id = eq.get('approver_id')
-                    if approver_id:
-                        approver = _to_dict(conn.execute(
-                            'SELECT name, email FROM users WHERE id=?', (approver_id,)
-                        ).fetchone())
-                        if approver and approver.get('email'):
-                            send_approval_request(
-                                to_email       = approver['email'],
-                                approver_name  = approver['name'],
-                                inspector_name = session['user_name'],
-                                eq_name        = eq.get('name', ''),
-                                location       = eq.get('location') or '-',
-                                result         = result,
-                                notes          = overall_notes,
-                                eq_id          = eq_id,
-                                host_url       = request.host_url,
-                            )
+                success_count += 1
+
+                # 이메일 작업 큐에 추가 (DB 저장 후 일괄 발송)
+                approver_id = eq.get('approver_id')
+                if approver_id:
+                    approver = approver_map.get(approver_id)
+                    if approver and approver.get('email'):
+                        email_tasks.append(dict(
+                            to_email       = approver['email'],
+                            approver_name  = approver['name'],
+                            inspector_name = session['user_name'],
+                            eq_name        = eq.get('name', ''),
+                            location       = eq.get('location') or '-',
+                            result         = result_for_email,
+                            notes          = overall_notes,
+                            eq_id          = eq_id,
+                            host_url       = request.host_url,
+                        ))
 
             except Exception as eq_err:
-                import traceback
-                err_detail = traceback.format_exc()
-                eq_name_log = str(eq_id)
-                try:
-                    eq_name_log = eq.get('name', str(eq_id)) if eq else str(eq_id)
-                except Exception:
-                    pass
-                app.logger.error(f'[bulk_inspect] 설비 {eq_name_log}(id={eq_id}) 저장 실패: {eq_err}\n{err_detail}')
-                print(f'[bulk_inspect ERROR] eq_id={eq_id} name={eq_name_log}: {eq_err}', flush=True)
-                print(err_detail, flush=True)
+                err_detail = _tb.format_exc()
+                eq_name_log = eq.get('name', str(eq_id)) if eq else str(eq_id)
+                app.logger.error(f'[bulk_inspect] {eq_name_log}(id={eq_id}) 저장 실패: {eq_err}\n{err_detail}')
+                print(f'[bulk_inspect ERROR] eq_id={eq_id}: {eq_err}', flush=True)
                 fail_names.append(eq_name_log)
-                # PostgreSQL 트랜잭션 aborted 상태 초기화 후 다음 설비 계속 처리
                 try:
                     conn.rollback()
                 except Exception:
                     pass
 
+        # ── ③ 1회 커밋 ──────────────────────────────────────────────────────
         try:
-            conn.close()
-        except Exception:
-            pass
+            conn.commit()
+        except Exception as commit_err:
+            app.logger.error(f'[bulk_inspect] commit 실패: {commit_err}')
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        # ── ④ 이메일 일괄 발송 (백그라운드) ──────────────────────────────────
+        for task in email_tasks:
+            try:
+                send_approval_request(**task)
+            except Exception:
+                pass
+
         if fail_names:
-            flash(f'일괄 점검 완료 ✅  {success_count}건 저장 / {skip_count}건 건너뜀 / ⚠️ {len(fail_names)}건 실패: {", ".join(fail_names[:5])}', 'warning')
+            flash(f'일괄 점검 완료 ✅  {success_count}건 저장 / {skip_count}건 건너뜀 '
+                  f'/ ⚠️ {len(fail_names)}건 실패: {", ".join(fail_names[:5])}', 'warning')
         else:
             flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
         return redirect(url_for('bulk_inspect'))
