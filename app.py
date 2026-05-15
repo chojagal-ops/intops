@@ -2143,6 +2143,28 @@ def admin_delete_month():
     return redirect(url_for('admin_data'))
 
 
+# ── 일별 점검 기록 삭제 (관리자 전용) ────────────────────────────────────────
+@app.route('/admin/delete-day', methods=['POST'])
+@admin_required
+def admin_delete_day():
+    date_str = request.form.get('del_date', '').strip()   # 형식: 2026-05-16
+    if not date_str or len(date_str) != 10:
+        flash('올바른 날짜를 입력하세요 (예: 2026-05-16).', 'error')
+        return redirect(url_for('admin_data'))
+    conn = get_db()
+    if conn._pg:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE LEFT(inspected_at,10) = %s", (date_str,))
+    else:
+        result = conn.execute(
+            "DELETE FROM inspections WHERE substr(inspected_at,1,10) = ?", (date_str,))
+    cnt = result.rowcount if hasattr(result, 'rowcount') else '?'
+    conn.commit()
+    conn.close()
+    flash(f'{date_str} 점검 기록 {cnt}건이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin_data'))
+
+
 # ── 날짜별 전 설비 휴동 처리 (관리자 전용) ───────────────────────────────────
 @app.route('/admin/bulk-idle', methods=['POST'])
 @admin_required
