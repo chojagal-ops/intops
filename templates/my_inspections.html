@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
+  <style>
+    .my-insp-wrap { width:100%; max-width:none; margin:0; padding:28px 36px 48px; box-sizing:border-box; }
+  </style>
 </head>
 <body>
 
@@ -32,12 +35,11 @@
     </div>
   </div>
 
-  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
-    <div class="card card-wide">
+  <div class="my-insp-wrap">
 
-      <div class="card-header" style="text-align:left; margin-bottom:24px;">
-        <div class="card-title">내 점검 결과</div>
-        <div class="card-desc">{{ session.user_name }} 님의 전체 점검 이력입니다.</div>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:1.2rem; font-weight:800; color:var(--text); margin-bottom:4px;">📋 내 점검 결과</div>
+        <div style="font-size:0.85rem; color:var(--text-sub);">{{ session.user_name }} 님의 전체 점검 이력입니다.</div>
       </div>
 
       <!-- 통계 카드 -->
@@ -202,7 +204,6 @@
       </div>
       {% endif %}
 
-    </div>
   </div>
 
   <script src="/static/nav.js"></script>
