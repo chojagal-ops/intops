@@ -133,6 +133,10 @@
       <a href="/my-inspections" class="nav-link">내 점검 결과</a>
       <a href="/daily-results" class="nav-link">일별 점검 결과</a>
       <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      {% if session.is_admin %}
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link">설비 관리</a>
+      {% endif %}
     </div>
     <div class="topbar-user">
       <span class="role-badge-sm">{{ session.role }}</span>

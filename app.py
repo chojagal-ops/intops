@@ -2052,10 +2052,15 @@ def bulk_inspect():
         success_count = 0
         skip_count = 0
 
-        try:
-            for eq_id_str in eq_ids:
-                eq_id = int(eq_id_str)
+        fail_names = []
 
+        for eq_id_str in eq_ids:
+            try:
+                eq_id = int(eq_id_str)
+            except (ValueError, TypeError):
+                continue
+
+            try:
                 if request.form.get(f'skip_eq_{eq_id}'):
                     skip_count += 1
                     continue
@@ -2159,9 +2164,7 @@ def bulk_inspect():
                 else:
                     result = request.form.get(f'simple_result_eq_{eq_id}', '정상')
                     conn.insert(
-                        '''INSERT INTO inspections
-                           (equipment_id, inspector_id, result, notes, status, inspected_at)
-                           VALUES (?,?,?,?,'점검완료',?)''',
+                        "INSERT INTO inspections (equipment_id, inspector_id, result, notes, status, inspected_at) VALUES (?,?,?,?,'점검완료',?)",
                         (eq_id, session['user_id'], result, overall_notes, inspected_at)
                     )
                     conn.commit()
@@ -2185,28 +2188,32 @@ def bulk_inspect():
                                 host_url       = request.host_url,
                             )
 
-        except Exception as e:
-            import traceback
-            err_detail = traceback.format_exc()
-            app.logger.error(f'[bulk_inspect POST] 오류 발생: {e}\n{err_detail}')
-            print(f'[bulk_inspect POST ERROR] {e}', flush=True)
-            print(err_detail, flush=True)
-            try:
-                conn.rollback()
-            except Exception as re:
-                print(f'[rollback error] {re}', flush=True)
-            try:
-                conn.close()
-            except Exception:
-                pass
-            flash(f'저장 중 오류가 발생했습니다: {e}', 'error')
-            return redirect(url_for('bulk_inspect'))
+            except Exception as eq_err:
+                import traceback
+                err_detail = traceback.format_exc()
+                eq_name_log = str(eq_id)
+                try:
+                    eq_name_log = eq.get('name', str(eq_id)) if eq else str(eq_id)
+                except Exception:
+                    pass
+                app.logger.error(f'[bulk_inspect] 설비 {eq_name_log}(id={eq_id}) 저장 실패: {eq_err}\n{err_detail}')
+                print(f'[bulk_inspect ERROR] eq_id={eq_id} name={eq_name_log}: {eq_err}', flush=True)
+                print(err_detail, flush=True)
+                fail_names.append(eq_name_log)
+                # PostgreSQL 트랜잭션 aborted 상태 초기화 후 다음 설비 계속 처리
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
         try:
             conn.close()
         except Exception:
             pass
-        flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
+        if fail_names:
+            flash(f'일괄 점검 완료 ✅  {success_count}건 저장 / {skip_count}건 건너뜀 / ⚠️ {len(fail_names)}건 실패: {", ".join(fail_names[:5])}', 'warning')
+        else:
+            flash(f'일괄 점검 완료 ✅  {success_count}건 처리 / {skip_count}건 건너뜀', 'success')
         return redirect(url_for('bulk_inspect'))
 
     # GET: 날짜 파라미터 (없으면 오늘)
