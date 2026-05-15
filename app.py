@@ -1908,6 +1908,86 @@ def inspect(eq_id):
                            details_json=details_json)
 
 
+# ── 점검 결과 수정 ───────────────────────────────────────────────────────────
+@app.route('/inspection/<int:ins_id>/edit', methods=['GET', 'POST'])
+@login_required
+def inspection_edit(ins_id):
+    conn = get_db()
+    insp = conn.execute('''
+        SELECT i.*, e.name AS eq_name, e.id AS eq_id, e.approver_id,
+               u.name AS inspector_name
+        FROM inspections i
+        JOIN equipment e ON i.equipment_id = e.id
+        JOIN users u ON i.inspector_id = u.id
+        WHERE i.id = ?
+    ''', (ins_id,)).fetchone()
+
+    if not insp:
+        conn.close()
+        flash('점검 기록을 찾을 수 없습니다.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    is_admin     = session.get('is_admin')
+    is_inspector = insp['inspector_id'] == session['user_id']
+    is_approver  = (session.get('role') == '승인자' and
+                    insp['approver_id'] == session['user_id'])
+
+    # 권한: 관리자는 항상 / 점검자는 미승인일 때 / 승인자는 미승인일 때
+    can_edit = is_admin or (
+        (is_inspector or is_approver) and insp['status'] == '점검완료'
+    )
+    if not can_edit:
+        conn.close()
+        flash('수정 권한이 없거나 이미 승인된 점검입니다.', 'error')
+        return redirect(request.referrer or url_for('dashboard'))
+
+    db_items = conn.execute(
+        'SELECT * FROM inspection_items WHERE equipment_id=? ORDER BY item_order',
+        (insp['eq_id'],)
+    ).fetchall()
+
+    details = {}
+    if db_items:
+        for d in conn.execute(
+            'SELECT * FROM inspection_details WHERE inspection_id=?', (ins_id,)
+        ).fetchall():
+            details[d['item_id']] = d
+
+    if request.method == 'POST':
+        new_result = request.form.get('result', insp['result'])
+        new_notes  = request.form.get('notes', '').strip()
+
+        if db_items:
+            item_results = []
+            for item in db_items:
+                r_val = request.form.get(f'result_item_{item["id"]}', '정상')
+                n_val = request.form.get(f'notes_item_{item["id"]}', '')
+                item_results.append((item['id'], r_val, n_val))
+            all_vals = [r for _, r, _ in item_results]
+            new_result = ('이상'   if '이상'   in all_vals else
+                          '수리중' if '수리중' in all_vals else
+                          '수리필요' if '수리필요' in all_vals else
+                          '휴동'   if all(r in ('휴동', '해당없음') for r in all_vals) else '정상')
+            for item_id, r_val, n_val in item_results:
+                conn.execute('''
+                    UPDATE inspection_details SET result=?, detail_notes=?
+                    WHERE inspection_id=? AND item_id=?
+                ''', (r_val, n_val, ins_id, item_id))
+
+        conn.execute(
+            'UPDATE inspections SET result=?, notes=? WHERE id=?',
+            (new_result, new_notes, ins_id)
+        )
+        conn.commit()
+        conn.close()
+        flash('점검 결과가 수정되었습니다.', 'success')
+        return redirect(request.referrer or url_for('my_inspections'))
+
+    conn.close()
+    return render_template('inspection_edit.html',
+                           insp=insp, db_items=db_items, details=details)
+
+
 # ── 일별 점검 결과 (전체 설비) ───────────────────────────────────────────────
 @app.route('/approve-inspection/<int:ins_id>', methods=['POST'])
 @login_required
@@ -2532,6 +2612,56 @@ def help_page():
     return render_template("help.html")
 
 
+# ── 내 승인 결과 (승인자 전용) ───────────────────────────────────────────────
+@app.route('/my-approvals')
+@login_required
+def my_approvals():
+    date_from     = request.args.get('date_from', '')
+    date_to       = request.args.get('date_to', '')
+    result_filter = request.args.get('result', '')
+
+    conn = get_db()
+
+    date_filter = ''
+    if date_from:
+        date_filter += f' AND {conn.date_col("i.inspected_at")} >= ?'
+    if date_to:
+        date_filter += f' AND {conn.date_col("i.inspected_at")} <= ?'
+    result_f = ' AND i.result = ?' if result_filter else ''
+
+    params = [session['user_id']]
+    if date_from: params.append(date_from)
+    if date_to:   params.append(date_to)
+    if result_filter: params.append(result_filter)
+
+    records = conn.execute(f'''
+        SELECT i.*,
+               e.name       AS eq_name,
+               e.location   AS eq_location,
+               e.department AS eq_dept,
+               u.name       AS inspector_name
+        FROM inspections i
+        JOIN equipment e ON i.equipment_id = e.id
+        JOIN users u ON i.inspector_id = u.id
+        WHERE i.approved_by = ? AND i.status = '승인완료'
+          {date_filter}{result_f}
+        ORDER BY i.approved_at DESC
+    ''', params).fetchall()
+    conn.close()
+
+    stats = {
+        'total':    len(records),
+        'normal':   sum(1 for r in records if r['result'] == '정상'),
+        'abnormal': sum(1 for r in records if r['result'] == '이상'),
+        'repair':   sum(1 for r in records if r['result'] in ('수리필요', '수리중')),
+        'idle':     sum(1 for r in records if r['result'] == '휴동'),
+    }
+
+    return render_template('my_approvals.html', records=records, stats=stats,
+                           date_from=date_from, date_to=date_to,
+                           result_filter=result_filter)
+
+
 # ── 대시보드 ──────────────────────────────────────────────────────────────────
 @app.route('/dashboard')
 @login_required
@@ -2565,6 +2695,7 @@ def dashboard():
     ).fetchone()['cnt']
 
     pending_list = []
+    approved_count = 0
     if session.get('role') == '승인자' or session.get('is_admin'):
         pending_list = conn.execute(f'''
             SELECT i.id, i.result, i.inspected_at,
@@ -2583,10 +2714,19 @@ def dashboard():
             ORDER BY i.inspected_at DESC
         ''', (session['user_id'],)).fetchall()
 
+        approved_count = conn.execute(f'''
+            SELECT COUNT(DISTINCT i.equipment_id) AS cnt
+            FROM inspections i
+            JOIN equipment e ON i.equipment_id = e.id
+            WHERE e.approver_id=? AND i.status='승인완료'
+              AND {conn.date_col("i.inspected_at")}={conn.today}
+        ''', (session['user_id'],)).fetchone()['cnt']
+
     conn.close()
     return render_template('dashboard.html', today_count=today_count,
                            today_list=today_list,
-                           total_eq=total_eq, pending_list=pending_list)
+                           total_eq=total_eq, pending_list=pending_list,
+                           approved_count=approved_count)
 
 
 # ── 전체 설비 리스트 ──────────────────────────────────────────────────────────

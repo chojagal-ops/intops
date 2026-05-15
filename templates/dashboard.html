@@ -14,7 +14,11 @@
     <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
     <div class="topbar-nav">
       <a href="/dashboard" class="nav-link active">홈</a>
+      {% if session.role == '승인자' %}
+      <a href="/my-approvals" class="nav-link">내 승인 결과</a>
+      {% else %}
       <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      {% endif %}
       <a href="/daily-results" class="nav-link">일별 점검 결과</a>
       <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
       {% if session.is_admin %}
@@ -71,6 +75,13 @@
           <div class="dash-card-label">승인 대기</div>
           <div class="dash-card-value" style="color:{% if pending_list %}#c2410c{% else %}var(--orange){% endif %};">
             {{ pending_list | length }} 건
+          </div>
+        </div>
+        <div class="dash-card" style="border-color:{% if approved_count %}rgba(22,163,74,0.35){% else %}var(--border){% endif %};">
+          <div class="dash-card-icon">✅</div>
+          <div class="dash-card-label">승인 완료</div>
+          <div class="dash-card-value" style="color:{% if approved_count %}#15803d{% else %}var(--orange){% endif %};">
+            {{ approved_count }} 건
           </div>
         </div>
         {% endif %}
@@ -147,19 +158,23 @@
             <td><strong style="color:var(--text);">{{ p.eq_name }}</strong></td>
             <td>{{ p.inspector_name }}</td>
             <td>
+              <a href="/inspection/{{ p.id }}/edit" style="text-decoration:none;">
               {% if p.result == '정상' %}
                 <span class="result-tag tag-normal">✅ 정상</span>
               {% elif p.result == '이상' %}
                 <span class="result-tag tag-abnormal">⚠️ 이상</span>
+              {% elif p.result == '수리중' %}
+                <span class="result-tag tag-repair">🔧 수리중</span>
               {% elif p.result == '수리필요' %}
                 <span class="result-tag tag-repair">🔴 수리필요</span>
               {% else %}
                 <span class="result-tag tag-idle">⏸ 휴동</span>
               {% endif %}
+              </a>
             </td>
             <td style="font-size:0.82rem; color:var(--text-sub);">{{ p.inspected_at }}</td>
             <td>
-              <div style="display:flex; gap:6px;">
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 <form method="POST" action="/approve-inspection/{{ p.id }}" style="margin:0;"
                       onsubmit="return confirm('{{ p.eq_name }} 점검을 승인하시겠습니까?')">
                   <button type="submit" class="btn btn-primary btn-sm">✔ 승인</button>

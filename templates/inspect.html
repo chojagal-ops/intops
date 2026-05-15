@@ -114,19 +114,26 @@
               <span>🕐 {{ p.inspected_at }}</span>
             </div>
             <div class="approve-card-result">
+              <a href="/inspection/{{ p.id }}/edit" style="text-decoration:none;">
               {% if p.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
               {% elif p.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
+              {% elif p.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
               {% elif p.result == '수리필요' %}<span class="result-tag tag-repair">🔴 수리필요</span>
               {% else %}<span class="result-tag tag-idle">⏸ 휴동</span>{% endif %}
+              </a>
               {% if p.notes %}<span style="font-size:0.82rem;color:var(--text-sub);margin-left:8px;">{{ p.notes }}</span>{% endif %}
             </div>
           </div>
-          <form method="POST" style="margin:0;">
-            <input type="hidden" name="action" value="approve">
-            <input type="hidden" name="inspection_id" value="{{ p.id }}">
-            <button type="submit" class="btn btn-primary"
-                    style="width:auto;padding:9px 20px;font-size:0.88rem;">승인 확인</button>
-          </form>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <a href="/inspection/{{ p.id }}/edit" class="btn btn-outline"
+               style="width:auto;padding:9px 16px;font-size:0.88rem;">✏ 수정</a>
+            <form method="POST" style="margin:0;">
+              <input type="hidden" name="action" value="approve">
+              <input type="hidden" name="inspection_id" value="{{ p.id }}">
+              <button type="submit" class="btn btn-primary"
+                      style="width:auto;padding:9px 20px;font-size:0.88rem;">✔ 승인</button>
+            </form>
+          </div>
         </div>
         {% endfor %}
       </div>

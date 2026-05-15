@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>점검 결과 수정 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      {% if session.role == '승인자' %}
+      <a href="/my-approvals" class="nav-link">내 승인 결과</a>
+      {% else %}
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      {% endif %}
+      <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
+    <div class="card" style="max-width:800px; width:100%;">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- 헤더 -->
+      <div class="card-header" style="text-align:left; margin-bottom:20px;">
+        <div class="card-icon" style="background:rgba(249,115,22,0.12);">
+          <svg viewBox="0 0 24 24" style="fill:#f97316;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </div>
+        <div class="card-title">점검 결과 수정</div>
+        <div class="card-desc">
+          <strong>{{ insp.eq_name }}</strong> &nbsp;·&nbsp;
+          점검일시: {{ insp.inspected_at[:16] }} &nbsp;·&nbsp;
+          점검자: {{ insp.inspector_name }}
+        </div>
+      </div>
+
+      <form method="POST" action="/inspection/{{ insp.id }}/edit">
+
+        {% if db_items %}
+        <!-- 항목별 수정 -->
+        <div class="tmpl-table-wrap">
+          <table class="tmpl-table">
+            <thead>
+              <tr class="tmpl-header-row">
+                <th class="tmpl-header-cell" style="width:36px;">번호</th>
+                <th class="tmpl-header-cell">점검항목</th>
+                <th class="tmpl-header-cell">판단기준</th>
+                <th class="tmpl-header-cell" style="width:70px;">단위</th>
+                <th class="tmpl-header-cell" style="color:var(--orange);">점검결과</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set ns = namespace(num=0, cat='') %}
+              {% for item in db_items %}
+                {% if item.category and item.category != ns.cat %}
+                  {% set ns.cat = item.category %}
+                  <tr class="tmpl-header-row">
+                    <td class="tmpl-header-cell" colspan="5" style="color:var(--orange-dark); font-weight:700;">{{ item.category }}</td>
+                  </tr>
+                {% endif %}
+                {% set ns.num = ns.num + 1 %}
+                {% set d = details.get(item.id) %}
+                {% set cur_result = d.result if d else '정상' %}
+                <tr class="tmpl-item-row {% if cur_result == '이상' %}row-abnormal{% elif cur_result in ('수리중','수리필요') %}row-repair{% elif cur_result == '휴동' %}row-na{% endif %}" id="row-item-{{ item.id }}">
+                  <td class="tmpl-cell" style="text-align:center; color:var(--text-muted);">{{ ns.num }}</td>
+                  <td class="tmpl-cell"><strong>{{ item.item_name }}</strong></td>
+                  <td class="tmpl-cell" style="color:var(--text-sub); font-size:0.82rem;">{{ item.criteria or '-' }}</td>
+                  <td class="tmpl-cell" style="text-align:center; color:var(--text-sub);">{{ item.unit or '-' }}</td>
+                  <td class="tmpl-result-cell">
+                    <div class="item-result-group">
+                      {% for val, label in [('정상','정상'),('이상','이상'),('수리중','수리중'),('휴동','휴동'),('해당없음','해당없음')] %}
+                      <label class="item-radio item-{{ '정상' if val=='정상' else '이상' if val=='이상' else '수리중' if val in ('수리중','수리필요') else '휴동' if val=='휴동' else 'na' }}">
+                        <input type="radio" name="result_item_{{ item.id }}" value="{{ val }}"
+                               {% if cur_result == val %}checked{% endif %}
+                               onchange="updateRow({{ item.id }}, this.value)">
+                        <span>{{ label }}</span>
+                      </label>
+                      {% endfor %}
+                    </div>
+                    <input type="text" name="notes_item_{{ item.id }}"
+                           value="{{ d.detail_notes if d and d.detail_notes else '' }}"
+                           placeholder="비고" class="item-notes-input">
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label>종합 특이사항</label>
+          <textarea name="notes" rows="2"
+            style="width:100%; padding:10px 14px; background:var(--bg);
+                   border:1px solid var(--border-mid); border-radius:8px;
+                   color:var(--text); font-size:0.9rem; resize:vertical;"
+            placeholder="전체 점검에 대한 특이사항">{{ insp.notes or '' }}</textarea>
+        </div>
+
+        {% else %}
+        <!-- 기본 수정 폼 -->
+        <div class="form-group">
+          <label>점검 결과 *</label>
+          <div class="result-radio-group">
+            {% for val, icon, label in [('정상','✅','정 상'),('이상','⚠️','이 상'),('수리필요','🔴','수리필요'),('휴동','⏸','휴 동')] %}
+            <label class="result-radio result-{{ '정상' if val=='정상' else '이상' if val=='이상' else 'repair' if val=='수리필요' else 'idle' }}">
+              <input type="radio" name="result" value="{{ val }}" {% if insp.result == val %}checked{% endif %}>
+              <span class="result-radio-box">
+                <span class="result-radio-icon">{{ icon }}</span>
+                <span>{{ label }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>특이사항 / 메모</label>
+          <textarea name="notes" rows="3"
+            style="width:100%; padding:12px 16px; background:var(--bg);
+                   border:1px solid var(--border-mid); border-radius:8px;
+                   color:var(--text); font-size:0.95rem; resize:vertical;"
+            placeholder="이상 내용, 조치사항 등">{{ insp.notes or '' }}</textarea>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button type="submit" class="btn btn-primary" style="width:auto; padding:10px 24px;">
+            ✔ 수정 저장
+          </button>
+          <a href="javascript:history.back()" class="btn btn-outline" style="width:auto; padding:10px 20px;">
+            취소
+          </a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <script src="/static/nav.js"></script>
+  <script>
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
+
+    function updateRow(itemId, val) {
+      const row = document.getElementById('row-item-' + itemId);
+      if (!row) return;
+      row.classList.remove('row-abnormal', 'row-repair', 'row-na');
+      if (val === '이상')   row.classList.add('row-abnormal');
+      if (val === '수리중' || val === '수리필요') row.classList.add('row-repair');
+      if (val === '휴동' || val === '해당없음')   row.classList.add('row-na');
+    }
+  </script>
+</body>
+</html>
