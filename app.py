@@ -3191,13 +3191,29 @@ def daily_results():
 @app.route('/my-inspections')
 @login_required
 def my_inspections():
+    from datetime import date as _date, timedelta as _td
+
+    view          = request.args.get('view', 'all')   # all | daily | weekly | monthly
     date_from     = request.args.get('date_from', '')
     date_to       = request.args.get('date_to', '')
     result_filter = request.args.get('result', '')
 
+    today = _date.today()
+
+    # 탭 선택 시 날짜 자동 설정 (수동 입력이 없을 때만)
+    if not date_from and not date_to:
+        if view == 'daily':
+            date_from = date_to = today.strftime('%Y-%m-%d')
+        elif view == 'weekly':
+            week_start = today - _td(days=today.weekday())   # 이번 주 월요일
+            date_from  = week_start.strftime('%Y-%m-%d')
+            date_to    = today.strftime('%Y-%m-%d')
+        elif view == 'monthly':
+            date_from = today.strftime('%Y-%m-01')
+            date_to   = today.strftime('%Y-%m-%d')
+
     conn = get_db()
 
-    # 설비·날짜별 최선 1건 (승인완료 우선, 이후 최신순)
     date_filter = ''
     if date_from:
         date_filter += f' AND {conn.date_col("i.inspected_at")} >= ?'
@@ -3232,7 +3248,6 @@ def my_inspections():
     records = conn.execute(query, params).fetchall()
     conn.close()
 
-    # 중복 제거된 records 기준으로 통계 계산
     stats = {
         'total':    len(records),
         'normal':   sum(1 for r in records if r['result'] == '정상'),
@@ -3242,9 +3257,33 @@ def my_inspections():
         'approved': sum(1 for r in records if r['status'] == '승인완료'),
     }
 
+    # 기간별 그룹화 (일별·주별·월별 탭용)
+    grouped = {}
+    if view == 'daily':
+        for r in records:
+            key = str(r['inspected_at'])[:10]
+            grouped.setdefault(key, []).append(r)
+    elif view == 'weekly':
+        for r in records:
+            d_str = str(r['inspected_at'])[:10]
+            try:
+                dt = _date.fromisoformat(d_str)
+                ws = dt - _td(days=dt.weekday())
+                we = ws + _td(days=6)
+                key = f"{ws.strftime('%Y-%m-%d')} ~ {we.strftime('%m-%d')}"
+            except Exception:
+                key = d_str[:7]
+            grouped.setdefault(key, []).append(r)
+    elif view == 'monthly':
+        for r in records:
+            ym  = str(r['inspected_at'])[:7]
+            key = ym[:4] + '년 ' + ym[5:7] + '월'
+            grouped.setdefault(key, []).append(r)
+
     return render_template('my_inspections.html', records=records, stats=stats,
                            date_from=date_from, date_to=date_to,
-                           result_filter=result_filter)
+                           result_filter=result_filter, view=view,
+                           grouped=grouped)
 
 # ── 도움말 ────────────────────────────────────────────────────────────────────
 @app.route("/help")
