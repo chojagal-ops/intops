@@ -373,27 +373,34 @@
             <span style="font-size:0.72rem; font-weight:700; color:#ef4444; padding:3px 0;
                          background:rgba(239,68,68,0.08); border-radius:5px;">📈 상한값 (USL)</span>
           </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; box-sizing:border-box;">
             <input type="number" step="any" name="item_min"
                    value="${data ? escHtml(data.min_val||'') : ''}" placeholder="예) 18"
-                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center; width:100%; box-sizing:border-box;
                           border:1.5px solid rgba(59,130,246,0.4); border-radius:7px;">
             <input type="number" step="any" name="item_center"
                    value="${data ? escHtml(data.center_val||'') : ''}" placeholder="예) 23"
-                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center; width:100%; box-sizing:border-box;
                           border:1.5px solid rgba(34,197,94,0.4); border-radius:7px;">
             <input type="number" step="any" name="item_max"
                    value="${data ? escHtml(data.max_val||'') : ''}" placeholder="예) 28"
-                   style="font-size:0.85rem; padding:7px 10px; text-align:center;
+                   style="font-size:0.85rem; padding:7px 10px; text-align:center; width:100%; box-sizing:border-box;
                           border:1.5px solid rgba(239,68,68,0.4); border-radius:7px;">
           </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
             <input type="text" name="item_unit"
                    value="${data && itype==='수치' ? escHtml(data.unit||'') : ''}"
-                   placeholder="단위 (예: ℃, bar, rpm)" style="font-size:0.82rem; padding:6px 10px;">
+                   placeholder="단위 (예: ℃, bar)" style="font-size:0.82rem; padding:6px 10px; width:100%; box-sizing:border-box;">
+            <select name="item_unit_cycle"
+                    style="font-size:0.82rem; padding:6px 8px; border:1px solid var(--border-mid);
+                           border-radius:6px; background:var(--card-bg); color:var(--text-main); width:100%; box-sizing:border-box;">
+              <option value="일1회">일 1회</option>
+              <option value="주1회">주 1회</option>
+              <option value="월1회">월 1회</option>
+            </select>
             <input type="text" name="item_category"
                    value="${data && itype==='수치' ? escHtml(data.category||'') : ''}"
-                   placeholder="분류(선택)" style="font-size:0.82rem; padding:6px 10px;">
+                   placeholder="분류(선택)" style="font-size:0.82rem; padding:6px 10px; width:100%; box-sizing:border-box;">
           </div>
           <div style="font-size:0.74rem; color:var(--text-muted); padding:2px 4px;
                       background:rgba(249,115,22,0.05); border-radius:6px; line-height:1.6;">
