@@ -964,10 +964,10 @@ def _reset_login_fail(ip):
 def login():
     next_url = request.args.get('next', '')
     if request.method == 'POST':
-        client_ip = request.remote_addr or 'unknown'
-        emp_id    = request.form['employee_id'].strip()
-        raw_pw    = request.form['password']
-        next_url  = request.form.get('next', '')
+        client_ip  = request.remote_addr or 'unknown'
+        identifier = request.form['employee_id'].strip()
+        raw_pw     = request.form['password']
+        next_url   = request.form.get('next', '')
 
         # IP 잠금 확인
         lock_remain = _check_login_lock(client_ip)
@@ -975,9 +975,19 @@ def login():
             flash(f'로그인 시도가 너무 많습니다. {lock_remain}분 후 다시 시도하세요.', 'error')
             return render_template('login.html', next_url=next_url)
 
+        # 전화번호 입력 시 숫자만 추출 (010-1234-5678 → 01012345678)
+        import re as _re
+        digits_only = _re.sub(r'\D', '', identifier)
+
         conn = get_db()
+        ph   = '%s' if conn._pg else '?'
+        # 사번 OR 전화번호(하이픈 제거 후 비교) 순서로 조회
         user = conn.execute(
-            'SELECT * FROM users WHERE employee_id=?', (emp_id,)
+            f"SELECT * FROM users WHERE employee_id={ph} "
+            f"OR REPLACE(REPLACE(phone,'-',' '),' ','')={ph} "
+            f"OR REPLACE(phone,'-','')={ph} "
+            f"LIMIT 1",
+            (identifier, digits_only, digits_only)
         ).fetchone()
 
         if user and check_pw(user['password'], raw_pw):
@@ -1006,7 +1016,7 @@ def login():
         else:
             conn.close()
             _record_login_fail(client_ip)
-            flash('사번 또는 비밀번호가 올바르지 않습니다.', 'error')
+            flash('사번(또는 전화번호) 또는 비밀번호가 올바르지 않습니다.', 'error')
     return render_template('login.html', next_url=next_url)
 
 
