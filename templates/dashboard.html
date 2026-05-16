@@ -276,55 +276,88 @@
 
       <!-- 시스템 안내 -->
       <hr class="divider">
-      <div class="section-title" style="margin-bottom:14px;">📋 시스템 안내</div>
-      <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <div class="section-title" style="margin-bottom:0;">📋 시스템 안내</div>
+        <a href="/help" style="font-size:0.82rem; color:var(--orange); text-decoration:none; font-weight:600; padding:5px 12px; border:1px solid rgba(249,115,22,0.3); border-radius:8px;">❓ 상세 도움말 →</a>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:10px;">
 
-        <div style="display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px;">
-          <div style="font-size:1.4rem; line-height:1; flex-shrink:0;">⏰</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🔍</div>
           <div>
-            <div style="font-weight:700; font-size:0.88rem; color:var(--text); margin-bottom:3px;">평일 오전 11시 미점검 알림</div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              평일(월~금) 오전 11시까지 점검이 완료되지 않은 설비가 있으면, 해당 설비의 담당자(정/부)에게 이메일로 알림이 자동 발송됩니다.
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">설비 점검</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              QR 코드 스캔 또는 월별 점검 결과 메뉴에서 설비를 선택해 점검표를 작성합니다. 항목별 정상·이상·수리필요를 선택하고 제출하면 승인자에게 이메일이 자동 발송됩니다.
             </div>
           </div>
         </div>
 
-        <div style="display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px;">
-          <div style="font-size:1.4rem; line-height:1; flex-shrink:0;">✅</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">✅</div>
           <div>
-            <div style="font-weight:700; font-size:0.88rem; color:var(--text); margin-bottom:3px;">점검 후 승인 절차</div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              점검자가 점검을 완료하면 승인자에게 이메일 알림이 발송됩니다. 승인자는 대시보드 또는 점검표에서 결과를 확인하고 승인 처리합니다.
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">점검 승인</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              점검 제출 시 승인자에게 이메일 알림이 발송됩니다. 승인자는 대시보드의 승인 대기 목록에서 결과를 확인하고 승인 처리합니다.
             </div>
           </div>
         </div>
 
-        <div style="display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px;">
-          <div style="font-size:1.4rem; line-height:1; flex-shrink:0;">📊</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🚨</div>
           <div>
-            <div style="font-weight:700; font-size:0.88rem; color:var(--text); margin-bottom:3px;">월별 점검표 조회 및 엑셀 다운로드</div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              전체 설비 목록에서 각 설비를 클릭하면 월별 점검표를 조회할 수 있으며, 엑셀 파일로 다운로드하거나 인쇄할 수 있습니다.
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              점검 중 이상 발견 시 이상 버튼을 누르면 이상내용·조치사항·사진(최대 5장)을 등록합니다. 조치담당자를 지정하면 이메일로 즉시 통보됩니다.
             </div>
           </div>
         </div>
 
-        <div style="display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px;">
-          <div style="font-size:1.4rem; line-height:1; flex-shrink:0;">📅</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📋</div>
           <div>
-            <div style="font-weight:700; font-size:0.88rem; color:var(--text); margin-bottom:3px;">토·일요일 자동 휴동 처리</div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              월별 점검표에서 토요일·일요일은 자동으로 휴동(P)으로 표시됩니다. 주말에 점검을 진행한 경우 실제 점검 결과가 우선 적용됩니다.
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리 대장</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              상단 메뉴 <strong>이상발생관리</strong>에서 전체 이상 이력을 팀·우선순위·상태별로 필터링하고 엑셀 다운로드·인쇄를 지원합니다. 하단에 월별·팀별 차트도 제공됩니다.
             </div>
           </div>
         </div>
 
-        <div style="display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px;">
-          <a href="{% if session.role == '승인자' or session.is_admin %}/bulk-approve{% else %}/bulk-inspect{% endif %}" style="font-size:1.4rem; line-height:1; flex-shrink:0; text-decoration:none; cursor:pointer;" title="">🔐</a>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">⏰</div>
           <div>
-            <div style="font-weight:700; font-size:0.88rem; color:var(--text); margin-bottom:3px;">비밀번호 분실 시</div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              로그인 화면의 <strong>비밀번호 찾기</strong>에서 사번과 이름을 입력하면 등록된 이메일로 인증번호가 발송됩니다. 이메일 발송이 불가한 경우 관리자에게 재설정을 요청할 수 있습니다.
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">평일 오전 11시 미점검 알림</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              평일(월~금) 오전 11시까지 점검이 완료되지 않은 설비가 있으면 담당자(정/부)에게 이메일 알림이 자동 발송됩니다.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📊</div>
+          <div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">점검 결과 조회 및 엑셀 다운로드</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              월별 점검 결과에서 설비별 달력 형태 점검표를 조회합니다. 점검율 모니터링 메뉴에서 팀별·설비별 통계를 확인하고 엑셀로 내려받을 수 있습니다.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📅</div>
+          <div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">토·일요일 자동 휴동</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              월별 점검표에서 토요일·일요일은 자동으로 휴동(P)으로 표시됩니다. 주말에 실제 점검을 진행한 경우 해당 결과가 우선 적용됩니다.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🔐</div>
+          <div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">비밀번호 분실 시</div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              로그인 화면 → <strong>비밀번호를 잊으셨나요?</strong> → 사번·이름 입력 → 등록된 이메일로 인증번호 발송. 이메일 수신이 어려우면 관리자에게 재설정을 요청하세요.
             </div>
           </div>
         </div>

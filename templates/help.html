@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -6,13 +6,70 @@
   <title>도움말 - INTOPS 설비점검 시스템</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/logo.png" type="image/png">
+  <style>
+    .help-section        { margin-bottom:32px; }
+    .help-section-title  { font-size:1.08rem; font-weight:800; color:var(--orange); margin-bottom:14px;
+                           padding-bottom:8px; border-bottom:2px solid rgba(249,115,22,0.2);
+                           display:flex; align-items:center; gap:8px; }
+    .help-section-body   { font-size:0.87rem; color:var(--text); line-height:1.7; }
+    .help-steps          { display:flex; flex-direction:column; gap:10px; }
+    .help-step           { display:flex; gap:14px; align-items:flex-start; background:var(--bg-subtle);
+                           border-radius:10px; padding:14px 16px; border:1px solid var(--border-light); }
+    .help-step-num       { width:28px; height:28px; border-radius:50%; background:var(--orange);
+                           color:#fff; font-weight:800; font-size:0.85rem; display:flex;
+                           align-items:center; justify-content:center; flex-shrink:0; }
+    .help-step p         { margin:4px 0 0; color:var(--text-sub); font-size:0.83rem; line-height:1.6; }
+    .help-step strong    { color:var(--text); }
+    .help-table          { width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:8px; }
+    .help-table th       { background:rgba(249,115,22,0.08); color:var(--orange); font-weight:700;
+                           padding:9px 14px; text-align:left; border-bottom:2px solid rgba(249,115,22,0.2); }
+    .help-table td       { padding:9px 14px; border-bottom:1px solid var(--border-light); vertical-align:top; }
+    .help-table tr:last-child td { border-bottom:none; }
+    .help-tip            { background:rgba(249,115,22,0.07); border:1px solid rgba(249,115,22,0.2);
+                           border-radius:8px; padding:10px 14px; margin-top:12px;
+                           font-size:0.82rem; color:var(--text-sub); line-height:1.6; }
+    .help-flow           { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; }
+    .help-flow-step      { display:flex; align-items:center; gap:8px; background:var(--bg-subtle);
+                           border:1px solid var(--border-light); border-radius:10px; padding:10px 14px; }
+    .help-flow-num       { width:26px; height:26px; border-radius:50%; background:var(--orange);
+                           color:#fff; font-weight:800; font-size:0.82rem; display:flex;
+                           align-items:center; justify-content:center; flex-shrink:0; }
+    .help-flow-text      { font-size:0.82rem; line-height:1.5; }
+    .help-flow-arrow     { color:var(--orange); font-weight:700; font-size:1.1rem; flex-shrink:0; }
+    .help-subsection     { margin-bottom:14px; }
+    .help-subsection-title { font-weight:700; font-size:0.9rem; color:var(--text); margin-bottom:6px; }
+    .help-list           { margin:0; padding-left:18px; color:var(--text-sub);
+                           font-size:0.83rem; line-height:1.8; }
+    .faq-item            { border:1px solid var(--border-light); border-radius:10px;
+                           margin-bottom:8px; overflow:hidden; }
+    .faq-q               { background:var(--bg-subtle); padding:11px 16px; font-weight:700;
+                           font-size:0.87rem; color:var(--text); cursor:pointer;
+                           display:flex; align-items:center; gap:8px; }
+    .faq-q::before       { content:'Q'; width:22px; height:22px; border-radius:50%;
+                           background:var(--orange); color:#fff; font-size:0.78rem;
+                           font-weight:800; display:flex; align-items:center; justify-content:center;
+                           flex-shrink:0; }
+    .faq-a               { padding:12px 16px; font-size:0.83rem; color:var(--text-sub);
+                           line-height:1.7; border-top:1px solid var(--border-light); }
+    .help-toc-btn        { display:inline-block; padding:6px 14px; border-radius:8px;
+                           border:1px solid var(--border); font-size:0.82rem; font-weight:600;
+                           color:var(--text-sub); text-decoration:none; background:var(--card-bg);
+                           transition:all 0.15s; }
+    .help-toc-btn:hover  { border-color:var(--orange); color:var(--orange); background:rgba(249,115,22,0.06); }
+    .new-badge           { display:inline-block; font-size:0.68rem; font-weight:800; background:#dc2626;
+                           color:#fff; border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
+  </style>
 </head>
 <body>
   <div class="topbar">
     <div class="topbar-title"><img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">INTOPS 설비점검 시스템</div>
     <div class="topbar-nav">
       <a href="/dashboard" class="nav-link">홈</a>
+      {% if session.role == '승인자' %}
+      <a href="/my-approvals" class="nav-link">내 승인 결과</a>
+      {% else %}
       <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      {% endif %}
       <a href="/daily-results" class="nav-link">일별 점검 결과</a>
       <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
       <a href="/monitoring" class="nav-link">점검율 모니터링</a>
@@ -25,140 +82,410 @@
     <div class="topbar-user">
       <span class="role-badge-sm">{{ session.role }}</span>
       {{ session.user_name }} 님
-      <a href="/help" class="help-btn active-help">&#10067; 도움말</a>
+      <a href="/help" class="help-btn active-help">❓ 도움말</a>
       <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
       <a href="/logout">로그아웃</a>
     </div>
   </div>
+
   <div class="page-wrap" style="align-items:flex-start; padding-top:32px;">
     <div class="card card-wide">
       <div class="card-header" style="text-align:left; margin-bottom:24px;">
-        <div class="card-title" style="font-size:1.5rem;">&#10067; 도움말 / 사용 매뉴얼</div>
+        <div class="card-title" style="font-size:1.5rem;">❓ 도움말 / 사용 매뉴얼</div>
         <div class="card-desc">INTOPS 설비점검 시스템 전체 사용 방법을 안내합니다.</div>
       </div>
+
+      <!-- 목차 -->
       <div style="background:var(--bg-subtle);border-radius:12px;padding:18px 22px;margin-bottom:28px;border:1px solid var(--border);">
-        <div style="font-weight:700;font-size:0.9rem;color:var(--text);margin-bottom:12px;">&#128204; 목차</div>
+        <div style="font-weight:700;font-size:0.9rem;color:var(--text);margin-bottom:12px;">📌 목차</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <a href="#overview" class="help-toc-btn">1. 시스템 개요</a>
-          <a href="#roles" class="help-toc-btn">2. 역할 안내</a>
-          <a href="#join" class="help-toc-btn">3. 회원가입 및 로그인</a>
-          <a href="#inspect" class="help-toc-btn">4. 설비 점검 방법</a>
-          <a href="#approve" class="help-toc-btn">5. 점검 승인</a>
-          <a href="#results" class="help-toc-btn">6. 점검 결과 조회</a>
-          <a href="#admin" class="help-toc-btn">7. 관리자 기능</a>
-          <a href="#email" class="help-toc-btn">8. 이메일 알림</a>
-          <a href="#faq" class="help-toc-btn">9. 자주 묻는 질문</a>
+          <a href="#overview"  class="help-toc-btn">1. 시스템 개요</a>
+          <a href="#roles"     class="help-toc-btn">2. 역할 안내</a>
+          <a href="#join"      class="help-toc-btn">3. 회원가입 및 로그인</a>
+          <a href="#inspect"   class="help-toc-btn">4. 설비 점검 방법</a>
+          <a href="#approve"   class="help-toc-btn">5. 점검 승인</a>
+          <a href="#results"   class="help-toc-btn">6. 점검 결과 조회</a>
+          <a href="#anomaly"   class="help-toc-btn">7. 이상발생관리 <span class="new-badge">NEW</span></a>
+          <a href="#admin"     class="help-toc-btn">8. 관리자 기능</a>
+          <a href="#email"     class="help-toc-btn">9. 이메일 알림</a>
+          <a href="#faq"       class="help-toc-btn">10. 자주 묻는 질문</a>
         </div>
       </div>
+
+      <!-- 1. 시스템 개요 -->
       <div class="help-section" id="overview">
-        <div class="help-section-title">1. 시스템 개요</div>
+        <div class="help-section-title">🏭 1. 시스템 개요</div>
         <div class="help-section-body">
-          <p>INTOPS 설비점검 시스템은 공장 내 설빔의 일상 점검을 디지털로 관리하는 플랫폼입니다.</p>
+          <p>INTOPS 설비점검 시스템은 공장 내 설비의 일상 점검을 디지털로 관리하고, 이상 발생 이력을 체계적으로 추적하는 플랫폼입니다.</p>
           <div class="help-flow">
-            <div class="help-flow-step"><div class="help-flow-num">①</div><div class="help-flow-text"><strong>설비 등록</strong><br>관리자가 설비를 등록하고 승인자를 지정합니다.</div></div>
-            <div class="help-flow-arrow">&rarr;</div>
-            <div class="help-flow-step"><div class="help-flow-num">②</div><div class="help-flow-text"><strong>QR 스캔</strong><br>설비에 부착된 QR을 스캔하여 점검 화면에 접속합니다.</div></div>
-            <div class="help-flow-arrow">&rarr;</div>
-            <div class="help-flow-step"><div class="help-flow-num">③</div><div class="help-flow-text"><strong>점검 입력</strong><br>항목별 결과를 입력하고 제출합니다.</div></div>
-            <div class="help-flow-arrow">&rarr;</div>
-            <div class="help-flow-step"><div class="help-flow-num">④</div><div class="help-flow-text"><strong>승인 처리</strong><br>승인자가 결과를 확인하고 승인합니다.</div></div>
+            <div class="help-flow-step">
+              <div class="help-flow-num">①</div>
+              <div class="help-flow-text"><strong>설비 등록</strong><br>관리자가 설비 등록 후 승인자 지정</div>
+            </div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step">
+              <div class="help-flow-num">②</div>
+              <div class="help-flow-text"><strong>QR 스캔</strong><br>설비 QR 스캔 또는 메뉴에서 선택</div>
+            </div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step">
+              <div class="help-flow-num">③</div>
+              <div class="help-flow-text"><strong>점검 입력</strong><br>항목별 결과 입력 후 제출</div>
+            </div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step">
+              <div class="help-flow-num">④</div>
+              <div class="help-flow-text"><strong>이상 신고</strong><br>이상 발견 시 즉시 등록·담당자 통보</div>
+            </div>
+            <div class="help-flow-arrow">→</div>
+            <div class="help-flow-step">
+              <div class="help-flow-num">⑤</div>
+              <div class="help-flow-text"><strong>승인 처리</strong><br>승인자가 결과 확인 후 승인</div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- 2. 역할 안내 -->
       <div class="help-section" id="roles">
-        <div class="help-section-title">2. 역할 안내</div>
+        <div class="help-section-title">👤 2. 역할 안내</div>
         <div class="help-section-body">
           <table class="help-table">
             <thead><tr><th>역할</th><th>설명</th><th>주요 기능</th></tr></thead>
             <tbody>
-              <tr><td><span class="role-badge-sm" style="background:rgba(249,115,22,0.12);color:var(--orange);">점검자</span></td><td>설비 일상 점검 담당자</td><td>QR 스캔 &rarr; 점검 입력 &rarr; 제출 / 내 점검 결과 조회</td></tr>
-              <tr><td><span class="role-badge-sm" style="background:rgba(34,197,94,0.12);color:#16a34a;">승인자</span></td><td>점검 결과 검토·승인 담당자</td><td>대시보드에서 승인 대기 건 확인 및 승인 처리</td></tr>
-              <tr><td><span class="role-badge-sm" style="background:rgba(99,102,241,0.12);color:#4f46e5;">관리자</span></td><td>시스템 최고 권한자</td><td>회원 승인·역할 지정 / 설비 등록·수정·삭제 / QR 생성</td></tr>
+              <tr>
+                <td><span class="role-badge-sm" style="background:rgba(249,115,22,0.12);color:var(--orange);">점검자</span></td>
+                <td>설비 일상 점검 담당자</td>
+                <td>QR 스캔 → 점검 입력 → 이상 신고 / 내 점검 결과 조회</td>
+              </tr>
+              <tr>
+                <td><span class="role-badge-sm" style="background:rgba(34,197,94,0.12);color:#16a34a;">승인자</span></td>
+                <td>점검 결과 검토·승인 담당자</td>
+                <td>승인 대기 목록 확인 → 승인 처리 / 이상 이력 조회</td>
+              </tr>
+              <tr>
+                <td><span class="role-badge-sm" style="background:rgba(99,102,241,0.12);color:#4f46e5;">관리자</span></td>
+                <td>시스템 최고 권한자</td>
+                <td>회원 승인·역할 지정 / 설비 등록·수정·삭제 / QR 생성 / 이상 이력 수정·삭제</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- 3. 회원가입 및 로그인 -->
       <div class="help-section" id="join">
-        <div class="help-section-title">3. 회원가입 및 로그인</div>
+        <div class="help-section-title">🔑 3. 회원가입 및 로그인</div>
         <div class="help-section-body">
           <div class="help-steps">
-            <div class="help-step"><div class="help-step-num">1</div><div><strong>회원가입 신청</strong><p>로그인 화면 &rarr; 회원가입 신청 &rarr; 성명, 사번, 이메일, 비밀번호, 소속 팀 입력 후 신청.</p></div></div>
-            <div class="help-step"><div class="help-step-num">2</div><div><strong>관리자 승인 대기</strong><p>관리자가 승인하고 역할(점검자/승인자)을 지정합니다. 승인 후 로그인 가능.</p></div></div>
-            <div class="help-step"><div class="help-step-num">3</div><div><strong>로그인</strong><p>사번과 비밀번호를 입력하여 로그인합니다.</p></div></div>
-            <div class="help-step"><div class="help-step-num">4</div><div><strong>비밀번호 분실 시</strong><p>로그인 화면 &rarr; 비밀번호를 잊으셨나요? &rarr; 사번·이름 입력 &rarr; 이메일로 인증번호 발송.</p></div></div>
+            <div class="help-step">
+              <div class="help-step-num">1</div>
+              <div>
+                <strong>회원가입 신청</strong>
+                <p>로그인 화면 → 회원가입 신청 → 성명, 사번, 이메일, 비밀번호, 소속 팀 입력 후 신청합니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">2</div>
+              <div>
+                <strong>관리자 승인 대기</strong>
+                <p>관리자가 신청을 확인하고 역할(점검자/승인자)을 지정합니다. 승인 완료 후 로그인이 가능합니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">3</div>
+              <div>
+                <strong>로그인</strong>
+                <p>사번과 비밀번호를 입력하여 로그인합니다. 이메일은 이상 알림·비밀번호 찾기에 사용되므로 정확히 입력하세요.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">4</div>
+              <div>
+                <strong>비밀번호 분실 시</strong>
+                <p>로그인 화면 → <strong>비밀번호를 잊으셨나요?</strong> → 사번·이름 입력 → 등록된 이메일로 인증번호 발송. 이메일이 없으면 관리자에게 재설정 요청하세요.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- 4. 설비 점검 방법 -->
       <div class="help-section" id="inspect">
-        <div class="help-section-title">4. 설비 점검 방법</div>
+        <div class="help-section-title">🔍 4. 설비 점검 방법</div>
         <div class="help-section-body">
           <div class="help-steps">
-            <div class="help-step"><div class="help-step-num">1</div><div><strong>QR 코드 스캔</strong><p>설비에 부착된 QR 코드를 스마트폰으로 스캔합니다. 또는 월별 점검 결과 메뉴에서 설비를 클릭해도 됩니다.</p></div></div>
-            <div class="help-step"><div class="help-step-num">2</div><div><strong>점검 결과 입력</strong><p>항목별로 정상 / 이상 / 수리필요 / 휴동을 선택하고 특이사항은 비고란에 입력합니다.</p></div></div>
-            <div class="help-step"><div class="help-step-num">3</div><div><strong>점검 완료 제출</strong><p>점검 완료 버튼 클릭 &rarr; 기록 저장 + 승인자에게 이메일 자동 발송.</p></div></div>
-            <div class="help-step"><div class="help-step-num">4</div><div><strong>1일 1회 기준</strong><p>같은 날 중복 제출해도 1일 1회로만 집계됩니다.</p></div></div>
+            <div class="help-step">
+              <div class="help-step-num">1</div>
+              <div>
+                <strong>점검 화면 접속</strong>
+                <p>설비에 부착된 <strong>QR 코드</strong>를 스마트폰으로 스캔하거나, 상단 메뉴 <strong>월별 점검 결과</strong>에서 설비명을 클릭합니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">2</div>
+              <div>
+                <strong>점검 항목 입력</strong>
+                <p>항목별로 <strong>정상 / 이상 / 수리필요 / 휴동</strong>을 선택합니다. 특이사항은 비고란에 입력합니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">3</div>
+              <div>
+                <strong>이상 항목 자동 감지</strong>
+                <p><strong>이상</strong> 또는 <strong>수리필요</strong>를 선택하면 이상 신고 패널이 자동으로 열립니다. 이상 내용을 바로 등록할 수 있습니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">4</div>
+              <div>
+                <strong>점검 완료 제출</strong>
+                <p>점검 완료 버튼 클릭 → 기록 저장 + 승인자에게 이메일 자동 발송. 1일 1회 기준으로 집계됩니다.</p>
+              </div>
+            </div>
           </div>
+          <div class="help-tip">💡 주1회·월1회 주기의 설비는 점검한 날 제출하면 해당 기간 나머지 평일이 자동으로 동일 결과로 채워집니다.</div>
         </div>
       </div>
+
+      <!-- 5. 점검 승인 -->
       <div class="help-section" id="approve">
-        <div class="help-section-title">5. 점검 승인 (승인자)</div>
+        <div class="help-section-title">✅ 5. 점검 승인 (승인자)</div>
         <div class="help-section-body">
           <div class="help-steps">
-            <div class="help-step"><div class="help-step-num">1</div><div><strong>승인 대기 확인</strong><p>점검 제출 시 이메일 알림 수신. 대시보드에서 승인 대기 목록 확인.</p></div></div>
-            <div class="help-step"><div class="help-step-num">2</div><div><strong>승인 처리</strong><p>대기 목록에서 ✔ 승인 버튼 클릭. 상세보기로 먼저 확인 가능.</p></div></div>
-            <div class="help-step"><div class="help-step-num">3</div><div><strong>승인 완료</strong><p>승인된 점검은 승인완료 상태로 변경됩니다.</p></div></div>
+            <div class="help-step">
+              <div class="help-step-num">1</div>
+              <div>
+                <strong>승인 대기 확인</strong>
+                <p>점검 제출 시 이메일 알림을 수신합니다. 홈(대시보드)의 <strong>승인 대기 목록</strong>에서도 확인 가능합니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">2</div>
+              <div>
+                <strong>승인 처리</strong>
+                <p>대기 목록에서 <strong>✔ 승인</strong> 버튼 클릭. 상세보기 버튼으로 점검표를 먼저 확인할 수도 있습니다.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">3</div>
+              <div>
+                <strong>승인 완료</strong>
+                <p>승인된 점검은 <strong>승인완료</strong> 상태로 변경되며, 점검자에게도 이메일 알림이 발송됩니다.</p>
+              </div>
+            </div>
           </div>
-          <div class="help-tip">&#128161; 설비별 승인자는 관리자가 설비 관리에서 지정합니다.</div>
+          <div class="help-tip">💡 설비별 승인자는 관리자가 설비 관리에서 지정합니다. 승인자로 지정된 설비의 점검만 담당합니다.</div>
         </div>
       </div>
+
+      <!-- 6. 점검 결과 조회 -->
       <div class="help-section" id="results">
-        <div class="help-section-title">6. 점검 결과 조회</div>
+        <div class="help-section-title">📊 6. 점검 결과 조회</div>
         <div class="help-section-body">
           <table class="help-table">
             <thead><tr><th>메뉴</th><th>내용</th></tr></thead>
             <tbody>
-              <tr><td><strong>내 점검 결과</strong></td><td>내가 점검한 설비 목록과 결과를 날짜별로 조회합니다.</td></tr>
-              <tr><td><strong>일별 점검 결과</strong></td><td>특정 날짜를 선택하여 전체 설비 점검 현황을 조회합니다.</td></tr>
-              <tr><td><strong>월별 점검 결과</strong></td><td>설비별 월간 점검 현황을 캘린더 형식으로 조회하고 엑셀로 다운로드합니다.</td></tr>
+              <tr>
+                <td><strong>내 점검 결과</strong></td>
+                <td>내가 점검한 설비 목록과 결과를 날짜별로 조회합니다. 점검자는 자신의 기록만 조회 가능합니다.</td>
+              </tr>
+              <tr>
+                <td><strong>일별 점검 결과</strong></td>
+                <td>특정 날짜를 선택하여 전체 설비 점검 현황을 한눈에 조회합니다.</td>
+              </tr>
+              <tr>
+                <td><strong>월별 점검 결과</strong></td>
+                <td>설비별 월간 점검 현황을 달력 형식으로 조회합니다. 엑셀 다운로드 및 인쇄 기능을 제공합니다. 토·일요일은 자동으로 휴동(P) 표시됩니다.</td>
+              </tr>
+              <tr>
+                <td><strong>점검율 모니터링</strong></td>
+                <td>팀별·설비별 월간 점검율 통계를 차트와 표로 확인합니다. 엑셀로 내려받을 수 있습니다.</td>
+              </tr>
             </tbody>
           </table>
-          <div class="help-tip">&#128197; 토·일요일은 월별 점검표에서 자동으로 휴동(P)으로 표시됩니다.</div>
         </div>
       </div>
-      <div class="help-section" id="admin">
-        <div class="help-section-title">7. 관리자 기능</div>
+
+      <!-- 7. 이상발생관리 (NEW) -->
+      <div class="help-section" id="anomaly">
+        <div class="help-section-title">🚨 7. 이상발생관리 <span class="new-badge">NEW</span></div>
         <div class="help-section-body">
-          <div class="help-subsection"><div class="help-subsection-title">&#128100; 회원 관리</div><ul class="help-list"><li>신규 회원가입 신청을 승인/거부하고 역할(점검자/승인자)을 지정합니다.</li><li>기존 회원의 역할 변경 및 계정 비활성화가 가능합니다.</li></ul></div>
-          <div class="help-subsection"><div class="help-subsection-title">&#9881;&#65039; 설비 관리</div><ul class="help-list"><li><strong>설비 등록:</strong> 설비명, 위치, 담당부서, 관리번호, 담당자(정/부) 입력.</li><li><strong>승인자 지정:</strong> 드롭다운 선택 시 자동 저장.</li><li><strong>점검표 업로드:</strong> 엑셀 템플릿 업로드 &rarr; 점검 항목으로 사용.</li><li><strong>QR 다운로드:</strong> 설비별 QR 이미지 다운로드 후 설비에 부착.</li><li><strong>설비 수정/삭제:</strong> 등록 정보 수정 또는 삭제.</li></ul></div>
-          <div class="help-subsection"><div class="help-subsection-title">&#128465; 중복 점검 기록 정리</div><ul class="help-list"><li>대시보드 &rarr; 관리자 도구 &rarr; 중복 점검 기록 일괄 정리: 날짜·설비별 최신 1건만 남기고 삭제.</li></ul></div>
+
+          <div class="help-subsection">
+            <div class="help-subsection-title">📝 이상 신고 방법</div>
+            <div class="help-steps">
+              <div class="help-step">
+                <div class="help-step-num">1</div>
+                <div>
+                  <strong>이상 감지 (자동 / 수동)</strong>
+                  <p>점검표에서 <strong>이상</strong> 또는 <strong>수리필요</strong>를 선택하면 이상 신고 패널이 자동으로 열립니다. 또는 설비 점검 화면 하단의 <strong>🚨 이상 신고</strong> 버튼을 클릭합니다.</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">2</div>
+                <div>
+                  <strong>이상 내용 입력</strong>
+                  <p>우선순위(긴급/높음/보통/낮음), 발생일시, 이상 내용(필수), 조치사항, 조치완료 예정일을 입력합니다.</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">3</div>
+                <div>
+                  <strong>조치담당자 지정 및 이메일 발송</strong>
+                  <p>조치담당자 이름을 입력하면 시스템에 등록된 해당 사용자에게 <strong>이메일 자동 발송</strong>됩니다. 입력란에 시스템 사용자 이름이 자동 완성으로 제안됩니다.</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">4</div>
+                <div>
+                  <strong>사진 첨부 (최대 5장)</strong>
+                  <p>이상 부위 사진을 최대 5장까지 첨부할 수 있습니다. 사진은 자동으로 압축 처리되어 업로드됩니다.</p>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num">5</div>
+                <div>
+                  <strong>조치 완료 처리</strong>
+                  <p>조치가 완료되면 <strong>이상발생관리</strong> 대장에서 해당 이력의 <strong>조치완료</strong>를 선택하고 완료일을 입력합니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-subsection" style="margin-top:16px;">
+            <div class="help-subsection-title">📋 이상발생관리 대장</div>
+            <table class="help-table">
+              <thead><tr><th>기능</th><th>설명</th></tr></thead>
+              <tbody>
+                <tr><td><strong>필터링</strong></td><td>팀(부서), 설비, 우선순위, 조치상태별로 이력을 필터링합니다.</td></tr>
+                <tr><td><strong>📥 엑셀 다운로드</strong></td><td>현재 필터 조건의 이상 이력을 엑셀 파일로 내려받습니다. 우선순위별 색상 서식 포함.</td></tr>
+                <tr><td><strong>🖨 프린트</strong></td><td>인쇄에 불필요한 UI를 숨기고 관리대장 형식으로 출력합니다.</td></tr>
+                <tr><td><strong>사진 보기</strong></td><td>사진 아이콘 클릭 → 라이트박스로 확대 보기. ←/→ 키 또는 버튼으로 사진을 넘깁니다.</td></tr>
+                <tr><td><strong>차트 분석</strong></td><td>하단에 월별 발생 추이, 팀별 현황, 우선순위 분포, 월별 완료율 차트를 제공합니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="help-subsection" style="margin-top:16px;">
+            <div class="help-subsection-title">🛡 관리자 전용 기능</div>
+            <ul class="help-list">
+              <li><strong>✏️ 수정:</strong> 이상발생 내용(설비, 우선순위, 이상내용, 조치사항, 담당자, 날짜 등) 전체 수정. 기존 사진 삭제 및 새 사진 추가 가능.</li>
+              <li><strong>🗑 삭제:</strong> 이상 이력 및 연결된 사진 전체 삭제. 삭제 전 확인 팝업이 표시됩니다.</li>
+            </ul>
+          </div>
+
+          <div class="help-tip">💡 이상 신고 시 <strong>긴급</strong> 우선순위로 지정하면 관리대장에서 빨간색으로 강조 표시됩니다. 미조치 긴급 건수는 통계 카드에서 별도로 확인할 수 있습니다.</div>
         </div>
       </div>
+
+      <!-- 8. 관리자 기능 -->
+      <div class="help-section" id="admin">
+        <div class="help-section-title">🛠 8. 관리자 기능</div>
+        <div class="help-section-body">
+          <div class="help-subsection">
+            <div class="help-subsection-title">👥 회원 관리</div>
+            <ul class="help-list">
+              <li>신규 회원가입 신청을 승인/거부하고 역할(점검자/승인자)을 지정합니다.</li>
+              <li>기존 회원의 역할 변경, 이메일·연락처 수정, 계정 비활성화가 가능합니다.</li>
+              <li>회원 이메일이 정확해야 점검 승인 알림 및 이상발생 알림이 정상 발송됩니다.</li>
+            </ul>
+          </div>
+          <div class="help-subsection">
+            <div class="help-subsection-title">⚙️ 설비 관리</div>
+            <ul class="help-list">
+              <li><strong>설비 등록:</strong> 설비명, 위치, 담당부서, 관리번호, 점검 주기, 담당자(정/부) 입력.</li>
+              <li><strong>승인자 지정:</strong> 드롭다운 선택 시 자동 저장.</li>
+              <li><strong>점검표 업로드:</strong> 엑셀 템플릿 업로드 → 점검 항목으로 사용.</li>
+              <li><strong>QR 다운로드:</strong> 설비별 QR 이미지 다운로드 후 설비에 부착.</li>
+              <li><strong>설비 수정/삭제:</strong> 등록 정보 수정 또는 삭제 (삭제 시 관련 점검 기록도 삭제).</li>
+            </ul>
+          </div>
+          <div class="help-subsection">
+            <div class="help-subsection-title">🗂 데이터 관리</div>
+            <ul class="help-list">
+              <li>대시보드 → 관리자 도구 → 오늘 전체 휴동 처리: 당일 전체 설비를 일괄 휴동 처리합니다.</li>
+              <li>데이터 관리 페이지에서 중복 점검 기록 정리, 날짜별 점검 삭제 등을 할 수 있습니다.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9. 이메일 알림 -->
       <div class="help-section" id="email">
-        <div class="help-section-title">8. 이메일 알림</div>
+        <div class="help-section-title">📧 9. 이메일 알림</div>
         <div class="help-section-body">
           <table class="help-table">
             <thead><tr><th>알림 시점</th><th>수신자</th><th>내용</th></tr></thead>
             <tbody>
-              <tr><td>점검 제출 시</td><td>승인자</td><td>새 점검 결과 제출 알림</td></tr>
-              <tr><td>승인 처리 시</td><td>점검자</td><td>점검 결과 승인 완료 알림</td></tr>
-              <tr><td>평일 오전 11시</td><td>미점검 설비 담당자(정/부)</td><td>미점검 설빔 목록 자동 알림</td></tr>
+              <tr>
+                <td>점검 제출 시</td>
+                <td>승인자</td>
+                <td>새 점검 결과 제출 알림 (설비명, 점검자, 결과, 링크 포함)</td>
+              </tr>
+              <tr>
+                <td>승인 처리 시</td>
+                <td>점검자</td>
+                <td>점검 결과 승인 완료 알림</td>
+              </tr>
+              <tr>
+                <td>이상발생 등록 시 <span class="new-badge">NEW</span></td>
+                <td>조치담당자</td>
+                <td>이상발생 조치 요청 알림 (설비명, 우선순위, 이상내용, 예정일, 링크 포함)</td>
+              </tr>
+              <tr>
+                <td>평일 오전 11시 자동</td>
+                <td>미점검 설비 담당자(정/부)</td>
+                <td>해당 설비 미점검 알림 목록 자동 발송</td>
+              </tr>
             </tbody>
           </table>
-          <div class="help-tip">&#128231; 이메일이 오지 않으면 등록 이메일을 확인하거나 스팸함을 확인하세요.</div>
+          <div class="help-tip">📩 이메일이 오지 않으면 ① 내 정보에서 이메일 주소 확인 ② 스팸함 확인 ③ 관리자에게 SMTP 설정 문의.</div>
         </div>
       </div>
+
+      <!-- 10. FAQ -->
       <div class="help-section" id="faq">
-        <div class="help-section-title">9. 자주 묻는 질문 (FAQ)</div>
+        <div class="help-section-title">❓ 10. 자주 묻는 질문 (FAQ)</div>
         <div class="help-section-body">
-          <div class="faq-item"><div class="faq-q">Q. 로그인이 안 됩니다.</div><div class="faq-a">관리자 승인이 필요합니다. 비밀번호 분실 시 <strong>비밀번호를 잊으셨나요?</strong>를 이용하세요.</div></div>
-          <div class="faq-item"><div class="faq-q">Q. QR 코드 스캔 후 반응이 없습니다.</div><div class="faq-a">로그인 상태에서 스캔하세요. 미로그인 시 로그인 페이지로 이동합니다. 월별 점검 결과에서 직접 클릭해도 됩니다.</div></div>
-          <div class="faq-item"><div class="faq-q">Q. 점검횟수가 실제보다 적게 표시됩니다.</div><div class="faq-a">점검횟수는 1일 1회 기준으로 집계됩니다. 같은 날 여러 번 제출해도 1회로만 집계되므로 정상입니다.</div></div>
-          <div class="faq-item"><div class="faq-q">Q. 이메일 알림이 오지 않습니다.</div><div class="faq-a">등록된 이메일 주소를 확인하고 스팸함도 확인해보세요. 계속 문제가 있으면 관리자에게 문의하세요.</div></div>
-          <div class="faq-item"><div class="faq-q">Q. 점검표 엑셀을 다운로드하려면?</div><div class="faq-a">월별 점검 결과 &rarr; 설비 선택 &rarr; 엑셀 다운로드 버튼 클릭.</div></div>
-          <div class="faq-item"><div class="faq-q">Q. 설비를 추가하거나 삭제하려면?</div><div class="faq-a">관리자 계정으로 로그인 후 설비 관리 메뉴에서 추가, 수정, 삭제할 수 있습니다.</div></div>
+          <div class="faq-item">
+            <div class="faq-q">로그인이 안 됩니다.</div>
+            <div class="faq-a">관리자 승인이 완료되어야 로그인할 수 있습니다. 비밀번호 분실 시 <strong>비밀번호를 잊으셨나요?</strong>를 이용하세요. 계속 문제가 있으면 관리자에게 문의하세요.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">QR 코드 스캔 후 반응이 없습니다.</div>
+            <div class="faq-a">로그인 상태에서 스캔하세요. 미로그인 시 로그인 페이지로 이동합니다. 월별 점검 결과 메뉴에서 설비명을 클릭해도 점검표에 접속할 수 있습니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">점검 횟수가 실제보다 적게 표시됩니다.</div>
+            <div class="faq-a">점검 횟수는 <strong>1일 1회</strong> 기준으로 집계됩니다. 같은 날 여러 번 제출해도 최신 1건으로 집계되므로 정상입니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">이상 신고 시 이메일이 발송되지 않습니다.</div>
+            <div class="faq-a">① 조치담당자로 입력한 이름이 시스템에 등록된 사용자 이름과 정확히 일치해야 합니다. ② 해당 사용자의 이메일 주소가 <strong>내 정보</strong>에 등록되어 있어야 합니다. ③ 관리자에게 SMTP 설정 여부를 확인하세요.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">이상발생관리 대장을 엑셀로 받으려면?</div>
+            <div class="faq-a">상단 메뉴 <strong>이상발생관리</strong> → 필터 조건 선택(선택사항) → <strong>📥 엑셀 다운로드</strong> 버튼 클릭. 현재 필터 조건이 적용된 데이터가 다운로드됩니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">이상 이력을 수정하거나 삭제하려면?</div>
+            <div class="faq-a"><strong>관리자</strong> 계정으로 로그인하면 이상발생관리 대장에서 각 이력 우측의 <strong>✏️ 수정</strong> 또는 <strong>🗑 삭제</strong> 버튼이 표시됩니다.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">점검표 엑셀을 다운로드하려면?</div>
+            <div class="faq-a">월별 점검 결과 → 설비 선택 → 점검표 상단의 <strong>엑셀 다운로드</strong> 버튼 클릭.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">설비를 추가하거나 삭제하려면?</div>
+            <div class="faq-a">관리자 계정으로 로그인 후 상단 메뉴 <strong>설비 관리</strong>에서 추가, 수정, 삭제할 수 있습니다.</div>
+          </div>
         </div>
       </div>
-      <div style="text-align:center;padding:20px 0 8px;color:var(--text-muted);font-size:0.82rem;">추가 문의는 시스템 관리자에게 연락하세요.</div>
+
+      <div style="text-align:center;padding:20px 0 8px;color:var(--text-muted);font-size:0.82rem;">
+        추가 문의는 시스템 관리자에게 연락하세요.
+      </div>
     </div>
   </div>
   <script src="/static/nav.js"></script>
