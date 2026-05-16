@@ -724,15 +724,30 @@
                             border-radius:8px; background:var(--card-bg); color:var(--text-main);
                             font-size:0.88rem; box-sizing:border-box;"
                      placeholder="담당자 이름">
-              <label style="display:block; font-size:0.82rem; font-weight:600; margin-top:12px; margin-bottom:8px;">조치완료여부</label>
-              <div style="display:flex; gap:20px;">
+
+              <label style="display:block; font-size:0.82rem; font-weight:600; margin-top:10px; margin-bottom:5px;">조치완료 예정일</label>
+              <input type="date" name="planned_resolve_date"
+                     style="width:100%; padding:9px 12px; border:1px solid var(--border-mid);
+                            border-radius:8px; background:var(--card-bg); color:var(--text-main);
+                            font-size:0.88rem; box-sizing:border-box;">
+
+              <label style="display:block; font-size:0.82rem; font-weight:600; margin-top:10px; margin-bottom:6px;">조치완료여부</label>
+              <div style="display:flex; gap:16px; flex-wrap:wrap;">
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;">
-                  <input type="radio" name="is_resolved" value="0" checked> ⚠ 미조치
+                  <input type="radio" name="is_resolved" value="0" checked
+                         onchange="toggleInspResolvedDate(this.value)"> ⚠ 미조치
                 </label>
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;">
-                  <input type="radio" name="is_resolved" value="1"> ✅ 조치완료
+                  <input type="radio" name="is_resolved" value="1"
+                         onchange="toggleInspResolvedDate(this.value)"> ✅ 조치완료
                 </label>
               </div>
+              <input type="date" name="resolved_date" id="insp-resolved-date"
+                     style="display:none; width:100%; margin-top:6px; padding:9px 12px;
+                            border:1px solid rgba(22,163,74,0.5); border-radius:8px;
+                            background:var(--card-bg); color:var(--text-main);
+                            font-size:0.88rem; box-sizing:border-box;"
+                     placeholder="조치완료일">
             </div>
           </div>
 
@@ -872,6 +887,18 @@
       toast.style.opacity = '1';
       clearTimeout(_hintTimer);
       _hintTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+    }
+
+    /* ── 이상 신고 패널: 조치완료 선택 시 완료일 표시 ── */
+    function toggleInspResolvedDate(val) {
+      const el = document.getElementById('insp-resolved-date');
+      if (!el) return;
+      el.style.display = val === '1' ? 'block' : 'none';
+      if (val === '1' && !el.value) {
+        const today = new Date();
+        const p = n => String(n).padStart(2,'0');
+        el.value = today.getFullYear()+'-'+p(today.getMonth()+1)+'-'+p(today.getDate());
+      }
     }
 
     /* ── 이미지 압축 & 미리보기 (공통) ── */

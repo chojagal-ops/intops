@@ -221,22 +221,31 @@
             </div>
           </div>
 
-          <div class="form-grid2" style="margin-bottom:12px;">
+          <div class="form-grid3" style="margin-bottom:12px;">
             <div>
               <label class="f-label">조치담당자</label>
               <input type="text" name="action_person" class="f-input"
-                     placeholder="조치 담당자 이름 입력">
+                     placeholder="조치 담당자 이름">
             </div>
             <div>
-              <label class="f-label">조치완료여부</label>
-              <div style="display:flex; gap:20px; padding-top:9px;">
-                <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer;">
-                  <input type="radio" name="is_resolved" value="0" checked> ⚠ 미조치
+              <label class="f-label">조치완료 예정일</label>
+              <input type="date" name="planned_resolve_date" class="f-input">
+            </div>
+            <div>
+              <label class="f-label">조치완료여부 / 완료일</label>
+              <div style="display:flex; gap:14px; flex-wrap:wrap; padding-top:4px;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.88rem;cursor:pointer;">
+                  <input type="radio" name="is_resolved" value="0" checked
+                         onchange="toggleResolvedDate(this.value,'add-resolved-date')"> ⚠ 미조치
                 </label>
-                <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;cursor:pointer;">
-                  <input type="radio" name="is_resolved" value="1"> ✅ 조치완료
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.88rem;cursor:pointer;">
+                  <input type="radio" name="is_resolved" value="1"
+                         onchange="toggleResolvedDate(this.value,'add-resolved-date')"> ✅ 조치완료
                 </label>
               </div>
+              <input type="date" name="resolved_date" id="add-resolved-date"
+                     class="f-input" style="margin-top:6px; display:none;"
+                     placeholder="조치완료일">
             </div>
           </div>
 
@@ -318,6 +327,7 @@
               <th>이상 내용</th>
               <th style="min-width:220px;">조치사항 / 담당자 / 업데이트</th>
               <th>사진</th>
+              <th>예정일 / 완료일</th>
               <th>상태</th>
               <th style="width:60px;">신고자</th>
               {% if session.is_admin %}<th style="width:44px;">삭제</th>{% endif %}
@@ -353,17 +363,32 @@
                   <textarea name="action_taken" rows="2" placeholder="조치사항 입력...">{{ a.action_taken or '' }}</textarea>
                   <input type="text" name="action_person" placeholder="조치담당자"
                          value="{{ a.action_person or '' }}">
+                  <!-- 예정일 -->
+                  <div style="display:flex;gap:4px;align-items:center;font-size:0.77rem;color:var(--text-sub);">
+                    <span style="white-space:nowrap;">예정일</span>
+                    <input type="date" name="planned_resolve_date"
+                           value="{{ a.planned_resolve_date or '' }}"
+                           style="flex:1;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;">
+                  </div>
                   <div class="action-btn-row">
                     <select name="priority" style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
                       <option value="높음" {% if a.priority=='높음' %}selected{% endif %}>🔴 높음</option>
                       <option value="보통" {% if a.priority=='보통' %}selected{% endif %}>🟡 보통</option>
                       <option value="낮음" {% if a.priority=='낮음' %}selected{% endif %}>🟢 낮음</option>
                     </select>
-                    <select name="is_resolved" style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
+                    <select name="is_resolved"
+                            id="res-sel-{{ a.id }}"
+                            onchange="toggleUpdResolvedDate(this,'upd-rdate-{{ a.id }}')"
+                            style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
                       <option value="0" {% if not a.is_resolved %}selected{% endif %}>⚠ 미조치</option>
                       <option value="1" {% if a.is_resolved %}selected{% endif %}>✅ 완료</option>
                     </select>
                   </div>
+                  <!-- 조치완료일 -->
+                  <input type="date" name="resolved_date" id="upd-rdate-{{ a.id }}"
+                         value="{{ a.resolved_date or '' }}"
+                         placeholder="조치완료일"
+                         style="width:100%;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;display:{% if a.is_resolved %}block{% else %}none{% endif %};">
                   <!-- 사진 추가 업로드 -->
                   <div class="photo-upload-inline">
                     <label class="upload-btn">
@@ -376,12 +401,16 @@
                   <div class="action-btn-row">
                     <button type="submit" class="btn-sm">💾 저장</button>
                   </div>
-                  {% if a.is_resolved and a.resolver_name %}
+                  {% if a.is_resolved %}
                   <div style="font-size:0.73rem;color:#16a34a;margin-top:2px;">
-                    ✔ {{ a.resolver_name }}{% if a.action_person %} · {{ a.action_person }}{% endif %}
-                    ({{ a.resolved_at[:10] if a.resolved_at else '' }})
+                    ✔ {% if a.resolver_name %}{{ a.resolver_name }}{% endif %}
+                    {% if a.action_person %} · {{ a.action_person }}{% endif %}
+                    {% if a.resolved_date %} — 완료: {{ a.resolved_date }}{% endif %}
                   </div>
-                  {% elif a.action_person %}
+                  {% elif a.planned_resolve_date %}
+                  <div style="font-size:0.73rem;color:#d97706;margin-top:2px;">📅 예정: {{ a.planned_resolve_date }}</div>
+                  {% endif %}
+                  {% if a.action_person and not a.is_resolved %}
                   <div style="font-size:0.73rem;color:var(--text-sub);margin-top:2px;">담당: {{ a.action_person }}</div>
                   {% endif %}
                 </form>
@@ -398,6 +427,19 @@
                 <div id="photos-{{ a.id }}" class="photo-strip" style="margin-top:6px;"></div>
                 {% else %}
                 <span style="font-size:0.76rem;color:var(--text-muted);">없음</span>
+                {% endif %}
+              </td>
+              <!-- 예정일 / 완료일 -->
+              <td style="white-space:nowrap; font-size:0.8rem;">
+                {% if a.planned_resolve_date %}
+                <div style="color:#d97706; font-weight:600;">📅 {{ a.planned_resolve_date }}</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">예정</div>
+                {% endif %}
+                {% if a.resolved_date %}
+                <div style="color:#16a34a; font-weight:600; margin-top:4px;">✅ {{ a.resolved_date }}</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">완료</div>
+                {% elif not a.planned_resolve_date %}
+                <span style="color:var(--text-muted);">—</span>
                 {% endif %}
               </td>
               <td style="text-align:center;">
@@ -438,6 +480,30 @@
   </div>
 
   <script>
+  /* ── 조치완료 선택 시 완료일 필드 표시 (등록 폼) ── */
+  function toggleResolvedDate(val, fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.style.display = val === '1' ? 'block' : 'none';
+    if (val === '1' && !el.value) {
+      const today = new Date();
+      const p = n => String(n).padStart(2,'0');
+      el.value = today.getFullYear()+'-'+p(today.getMonth()+1)+'-'+p(today.getDate());
+    }
+  }
+
+  /* ── 업데이트 폼 완료일 토글 ── */
+  function toggleUpdResolvedDate(sel, fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.style.display = sel.value === '1' ? 'block' : 'none';
+    if (sel.value === '1' && !el.value) {
+      const today = new Date();
+      const p = n => String(n).padStart(2,'0');
+      el.value = today.getFullYear()+'-'+p(today.getMonth()+1)+'-'+p(today.getDate());
+    }
+  }
+
   /* ── 폼 토글 ── */
   function toggleAddForm() {
     const f = document.getElementById('add-anomaly-form');

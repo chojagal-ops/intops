@@ -495,12 +495,14 @@ def init_db():
             occurred_at   TEXT DEFAULT ({_now}),
             description   TEXT NOT NULL,
             action_taken  TEXT DEFAULT '',
-            action_person TEXT DEFAULT '',
-            priority      TEXT DEFAULT '보통',
-            is_resolved   INTEGER DEFAULT 0,
-            resolved_at   TEXT,
-            resolved_by   INTEGER,
-            created_at    TEXT DEFAULT ({_now})
+            action_person        TEXT DEFAULT '',
+            priority             TEXT DEFAULT '보통',
+            planned_resolve_date TEXT DEFAULT '',
+            is_resolved          INTEGER DEFAULT 0,
+            resolved_date        TEXT DEFAULT '',
+            resolved_at          TEXT,
+            resolved_by          INTEGER,
+            created_at           TEXT DEFAULT ({_now})
         )
     ''')
 
@@ -539,6 +541,8 @@ def init_db():
             "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
             "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
             "ALTER TABLE equipment_anomalies ADD COLUMN IF NOT EXISTS action_person TEXT DEFAULT ''",
+            "ALTER TABLE equipment_anomalies ADD COLUMN IF NOT EXISTS planned_resolve_date TEXT DEFAULT ''",
+            "ALTER TABLE equipment_anomalies ADD COLUMN IF NOT EXISTS resolved_date TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -568,6 +572,8 @@ def init_db():
             "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
             "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
             "ALTER TABLE equipment_anomalies ADD COLUMN action_person TEXT DEFAULT ''",
+            "ALTER TABLE equipment_anomalies ADD COLUMN planned_resolve_date TEXT DEFAULT ''",
+            "ALTER TABLE equipment_anomalies ADD COLUMN resolved_date TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -4097,14 +4103,16 @@ def anomaly_report():
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
-    eq_id         = request.form.get('equipment_id', '').strip()
-    inspection_id = request.form.get('inspection_id', '').strip() or None
-    description   = request.form.get('description', '').strip()
-    action_taken  = request.form.get('action_taken', '').strip()
-    action_person = request.form.get('action_person', '').strip()
-    priority      = request.form.get('priority', '보통').strip()
-    is_resolved   = 1 if request.form.get('is_resolved') == '1' else 0
-    occurred_at   = request.form.get('occurred_at', '').strip()
+    eq_id                = request.form.get('equipment_id', '').strip()
+    inspection_id        = request.form.get('inspection_id', '').strip() or None
+    description          = request.form.get('description', '').strip()
+    action_taken         = request.form.get('action_taken', '').strip()
+    action_person        = request.form.get('action_person', '').strip()
+    priority             = request.form.get('priority', '보통').strip()
+    planned_resolve_date = request.form.get('planned_resolve_date', '').strip()
+    is_resolved          = 1 if request.form.get('is_resolved') == '1' else 0
+    resolved_date        = request.form.get('resolved_date', '').strip()
+    occurred_at          = request.form.get('occurred_at', '').strip()
 
     if not eq_id or not description:
         flash('설비와 이상 내용은 필수입니다.', 'error')
@@ -4120,12 +4128,13 @@ def anomaly_report():
         INSERT INTO equipment_anomalies
             (equipment_id, inspection_id, reporter_id, occurred_at,
              description, action_taken, action_person, priority,
-             is_resolved, resolved_at, resolved_by)
-        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
+             planned_resolve_date, is_resolved, resolved_date,
+             resolved_at, resolved_by)
+        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
     ''', (eq_id, inspection_id, session['user_id'], occ,
           description, action_taken, action_person, priority,
-          is_resolved, resolved_at,
-          session['user_id'] if is_resolved else None))
+          planned_resolve_date, is_resolved, resolved_date,
+          resolved_at, session['user_id'] if is_resolved else None))
 
     _save_anomaly_photos(conn, anomaly_id, request.form)
     conn.commit()
@@ -4142,21 +4151,25 @@ def anomaly_update(anomaly_id):
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
-    action_taken  = request.form.get('action_taken', '').strip()
-    action_person = request.form.get('action_person', '').strip()
-    priority      = request.form.get('priority', '보통').strip()
-    is_resolved   = 1 if request.form.get('is_resolved') == '1' else 0
-    now_str       = now_kst().strftime('%Y-%m-%d %H:%M:%S')
-    resolved_at   = now_str if is_resolved else None
-    resolved_by   = session['user_id'] if is_resolved else None
+    action_taken         = request.form.get('action_taken', '').strip()
+    action_person        = request.form.get('action_person', '').strip()
+    priority             = request.form.get('priority', '보통').strip()
+    planned_resolve_date = request.form.get('planned_resolve_date', '').strip()
+    is_resolved          = 1 if request.form.get('is_resolved') == '1' else 0
+    resolved_date        = request.form.get('resolved_date', '').strip()
+    now_str              = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    resolved_at          = now_str if is_resolved else None
+    resolved_by          = session['user_id'] if is_resolved else None
 
     conn.execute(f'''
         UPDATE equipment_anomalies
         SET action_taken={ph}, action_person={ph}, priority={ph},
-            is_resolved={ph}, resolved_at={ph}, resolved_by={ph}
+            planned_resolve_date={ph}, is_resolved={ph},
+            resolved_date={ph}, resolved_at={ph}, resolved_by={ph}
         WHERE id={ph}
     ''', (action_taken, action_person, priority,
-          is_resolved, resolved_at, resolved_by, anomaly_id))
+          planned_resolve_date, is_resolved,
+          resolved_date, resolved_at, resolved_by, anomaly_id))
 
     _save_anomaly_photos(conn, anomaly_id, request.form)
     conn.commit()
