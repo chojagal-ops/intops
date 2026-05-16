@@ -1270,8 +1270,9 @@ def reset_password():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        import re as _re
         name   = request.form['name'].strip()
-        emp_id = request.form['employee_id'].strip()
+        emp_id = request.form.get('employee_id', '').strip()
         email  = request.form['email'].strip()
         phone  = request.form['phone'].strip()
         team   = request.form['team'].strip()
@@ -1280,6 +1281,9 @@ def register():
         if pw != pw_cfm:
             flash('비밀번호가 일치하지 않습니다.', 'error')
             return render_template('register.html', teams=TEAMS)
+        # 사번 미입력 시 전화번호 숫자만 추출하여 내부 식별자로 사용
+        if not emp_id:
+            emp_id = _re.sub(r'\D', '', phone) or phone
         conn = get_db()
         try:
             conn.execute(
@@ -1290,7 +1294,7 @@ def register():
             flash('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success')
             return redirect(url_for('login'))
         except Exception:
-            flash('이미 사용 중인 사번입니다.', 'error')
+            flash('이미 사용 중인 사번 또는 전화번호입니다.', 'error')
         finally:
             conn.close()
     return render_template('register.html', teams=TEAMS)
