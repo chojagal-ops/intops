@@ -4483,6 +4483,104 @@ def anomaly_photo_delete(photo_id):
     return redirect(ref)
 
 
+@app.route('/anomaly/<int:anomaly_id>/edit-data')
+def anomaly_edit_data(anomaly_id):
+    """관리자용: 이상 상세 데이터 JSON 반환 (모달 팝업용)"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        return {'error': '권한 없음'}, 403
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+    row  = conn.execute(f'''
+        SELECT a.*, e.name AS eq_name
+        FROM equipment_anomalies a
+        JOIN equipment e ON e.id = a.equipment_id
+        WHERE a.id = {ph}
+    ''', (anomaly_id,)).fetchone()
+    photos = conn.execute(
+        f'SELECT id, filename FROM anomaly_photos WHERE anomaly_id={ph} ORDER BY id',
+        (anomaly_id,)
+    ).fetchall()
+    conn.close()
+    if not row:
+        return {'error': '없음'}, 404
+    return {
+        'id':                   row['id'],
+        'equipment_id':         row['equipment_id'],
+        'eq_name':              row['eq_name'],
+        'occurred_at':          (row['occurred_at'] or '')[:16].replace(' ', 'T'),
+        'description':          row['description'] or '',
+        'action_taken':         row['action_taken'] or '',
+        'action_person':        row['action_person'] or '',
+        'priority':             row['priority'] or '보통',
+        'planned_resolve_date': row['planned_resolve_date'] or '',
+        'is_resolved':          int(row['is_resolved'] or 0),
+        'resolved_date':        row['resolved_date'] or '',
+        'photos':               [{'id': p['id'], 'filename': p['filename']} for p in photos],
+    }
+
+
+@app.route('/anomaly/<int:anomaly_id>/edit', methods=['POST'])
+def anomaly_edit(anomaly_id):
+    """관리자용: 이상 전체 내용 수정"""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자만 수정할 수 있습니다.', 'error')
+        return redirect(url_for('anomaly_management'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    equipment_id         = request.form.get('equipment_id', '').strip()
+    occurred_at          = request.form.get('occurred_at', '').strip().replace('T', ' ')
+    description          = request.form.get('description', '').strip()
+    action_taken         = request.form.get('action_taken', '').strip()
+    action_person        = request.form.get('action_person', '').strip()
+    priority             = request.form.get('priority', '보통').strip()
+    planned_resolve_date = request.form.get('planned_resolve_date', '').strip()
+    is_resolved          = 1 if request.form.get('is_resolved') == '1' else 0
+    resolved_date        = request.form.get('resolved_date', '').strip()
+    now_str              = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+
+    # 기존 조치완료 기록 유지 (처음 완료 처리 시만 resolved_at/by 설정)
+    existing = conn.execute(
+        f'SELECT is_resolved, resolved_at, resolved_by FROM equipment_anomalies WHERE id={ph}',
+        (anomaly_id,)
+    ).fetchone()
+    if is_resolved and existing and not existing['is_resolved']:
+        resolved_at = now_str
+        resolved_by = session['user_id']
+    elif is_resolved and existing:
+        resolved_at = existing['resolved_at']
+        resolved_by = existing['resolved_by']
+    else:
+        resolved_at = None
+        resolved_by = None
+
+    conn.execute(f'''
+        UPDATE equipment_anomalies
+        SET equipment_id={ph}, occurred_at={ph}, description={ph},
+            action_taken={ph}, action_person={ph}, priority={ph},
+            planned_resolve_date={ph}, is_resolved={ph},
+            resolved_date={ph}, resolved_at={ph}, resolved_by={ph}
+        WHERE id={ph}
+    ''', (equipment_id, occurred_at, description,
+          action_taken, action_person, priority,
+          planned_resolve_date, is_resolved,
+          resolved_date, resolved_at, resolved_by,
+          anomaly_id))
+
+    # 삭제 요청된 사진 처리
+    del_photos = request.form.getlist('delete_photo')
+    for pid in del_photos:
+        conn.execute(f'DELETE FROM anomaly_photos WHERE id={ph} AND anomaly_id={ph}',
+                     (int(pid), anomaly_id))
+
+    # 새 사진 추가
+    _save_anomaly_photos(conn, anomaly_id, request.form)
+    conn.commit()
+    conn.close()
+    flash('이상 내용이 수정되었습니다.', 'success')
+    return redirect(url_for('anomaly_management'))
+
+
 @app.route('/anomaly/<int:anomaly_id>/delete', methods=['POST'])
 def anomaly_delete(anomaly_id):
     if 'user_id' not in session or not session.get('is_admin'):

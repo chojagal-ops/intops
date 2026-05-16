@@ -93,6 +93,35 @@
     }
     .photo-upload-inline label.upload-btn:hover { background:rgba(59,130,246,0.12); }
 
+    /* ── 수정 모달 ── */
+    #edit-modal-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+      z-index:8000; align-items:center; justify-content:center; padding:16px;
+    }
+    #edit-modal-overlay.show { display:flex; }
+    #edit-modal {
+      background:var(--card-bg); border-radius:18px; width:100%; max-width:700px;
+      max-height:90vh; overflow-y:auto; padding:28px;
+      box-shadow:0 8px 40px rgba(0,0,0,0.3);
+      position:relative;
+    }
+    #edit-modal .modal-title {
+      font-size:1.05rem; font-weight:800; color:var(--orange-dark);
+      margin-bottom:18px; display:flex; align-items:center; gap:8px;
+    }
+    #edit-modal .modal-close {
+      position:absolute; top:16px; right:18px; background:none; border:none;
+      font-size:1.5rem; color:var(--text-sub); cursor:pointer; line-height:1;
+    }
+    #edit-modal .modal-close:hover { color:#dc2626; }
+    .existing-photo-item {
+      display:flex; align-items:center; gap:8px; padding:6px 10px;
+      border:1px solid var(--border-light); border-radius:8px;
+      background:var(--bg); margin-bottom:6px;
+    }
+    .existing-photo-item img { width:44px; height:44px; object-fit:cover; border-radius:6px; }
+    .existing-photo-item .photo-del-chk { accent-color:#dc2626; width:16px; height:16px; cursor:pointer; }
+
     /* ── 프린트 스타일 ── */
     @media print {
       * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
@@ -389,7 +418,7 @@
               <th>예정일 / 완료일</th>
               <th>상태</th>
               <th style="width:60px;">신고자</th>
-              {% if session.is_admin %}<th style="width:44px;">삭제</th>{% endif %}
+              {% if session.is_admin %}<th style="width:80px;">관리</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -510,10 +539,17 @@
               </td>
               <td style="font-size:0.78rem;color:var(--text-sub);white-space:nowrap;">{{ a.reporter_name }}</td>
               {% if session.is_admin %}
-              <td style="text-align:center;">
+              <td style="text-align:center; white-space:nowrap;">
+                <!-- 수정 버튼 -->
+                <button type="button" class="btn-sm"
+                        onclick="openEditModal({{ a.id }})"
+                        style="margin-bottom:4px; display:block; width:100%;">
+                  ✏️ 수정
+                </button>
+                <!-- 삭제 버튼 -->
                 <form method="POST" action="/anomaly/{{ a.id }}/delete"
-                      onsubmit="return confirm('이 이상 기록(사진 포함)을 삭제하시겠습니까?')">
-                  <button type="submit" class="btn-sm btn-sm-red">🗑</button>
+                      onsubmit="return confirm('❗ 이 이상 기록과 첨부 사진을 모두 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')">
+                  <button type="submit" class="btn-sm btn-sm-red" style="width:100%;">🗑 삭제</button>
                 </form>
               </td>
               {% endif %}
@@ -1111,6 +1147,240 @@
       });
     }
   })();
+
+  /* ── 수정 모달 ── */
+  let _editAnomalyId = null;
+
+  async function openEditModal(anomalyId) {
+    _editAnomalyId = anomalyId;
+    const overlay = document.getElementById('edit-modal-overlay');
+    const loading = document.getElementById('edit-modal-loading');
+    const body    = document.getElementById('edit-modal-body');
+
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    loading.style.display = 'flex';
+    body.style.display = 'none';
+
+    try {
+      const res  = await fetch(`/anomaly/${anomalyId}/edit-data`);
+      const data = await res.json();
+      if (data.error) { alert(data.error); closeEditModal(); return; }
+
+      // 폼 action
+      document.getElementById('edit-form').action = `/anomaly/${anomalyId}/edit`;
+
+      // 필드 채우기
+      document.getElementById('edit-equipment-id').value        = data.equipment_id;
+      document.getElementById('edit-occurred-at').value         = data.occurred_at;
+      document.getElementById('edit-priority').value            = data.priority;
+      document.getElementById('edit-description').value         = data.description;
+      document.getElementById('edit-action-taken').value        = data.action_taken;
+      document.getElementById('edit-action-person').value       = data.action_person;
+      document.getElementById('edit-planned-date').value        = data.planned_resolve_date;
+      document.getElementById('edit-resolved-date').value       = data.resolved_date;
+
+      // 조치완료여부 라디오
+      document.querySelectorAll('input[name="edit_is_resolved"]').forEach(r => {
+        r.checked = (r.value === String(data.is_resolved));
+      });
+      const rdateEl = document.getElementById('edit-resolved-date');
+      rdateEl.style.display = data.is_resolved ? 'block' : 'none';
+
+      // 기존 사진 목록
+      const photoList = document.getElementById('edit-photo-list');
+      photoList.innerHTML = '';
+      if (data.photos.length === 0) {
+        photoList.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">첨부 사진 없음</span>';
+      } else {
+        data.photos.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'existing-photo-item';
+          item.innerHTML = `
+            <img src="/anomaly-photo/${p.id}" alt="${p.filename||'사진'}">
+            <span style="flex:1;font-size:0.8rem;color:var(--text-sub);">${p.filename || '사진 #' + p.id}</span>
+            <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:#dc2626;cursor:pointer;">
+              <input type="checkbox" name="delete_photo" value="${p.id}" class="photo-del-chk" form="edit-form">
+              삭제
+            </label>`;
+          photoList.appendChild(item);
+        });
+      }
+
+      // 새 사진 미리보기 초기화
+      document.getElementById('edit-new-preview').innerHTML = '';
+      // 기존 숨김 photo_data 제거
+      document.querySelectorAll('#edit-form input[name^="photo_data_"]').forEach(el => el.remove());
+      document.querySelectorAll('#edit-form input[name^="photo_name_"]').forEach(el => el.remove());
+
+      loading.style.display = 'none';
+      body.style.display    = 'block';
+    } catch(e) {
+      alert('데이터를 불러오는 중 오류가 발생했습니다.');
+      closeEditModal();
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal-overlay').classList.remove('show');
+    document.body.style.overflow = '';
+    _editAnomalyId = null;
+  }
+
+  function editModalResolvedChange(val) {
+    const el = document.getElementById('edit-resolved-date');
+    if (!el) return;
+    el.style.display = val === '1' ? 'block' : 'none';
+    if (val === '1' && !el.value) {
+      const today = new Date();
+      const p = n => String(n).padStart(2,'0');
+      el.value = today.getFullYear()+'-'+p(today.getMonth()+1)+'-'+p(today.getDate());
+    }
+  }
+
+  // 모달 바깥 클릭 시 닫기
+  document.getElementById('edit-modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('edit-modal-overlay').classList.contains('show')) {
+      closeEditModal();
+    }
+  });
   </script>
+
+  <!-- ── 수정 모달 ── -->
+  {% if session.is_admin %}
+  <div id="edit-modal-overlay" onclick="">
+    <div id="edit-modal">
+      <button class="modal-close" type="button" onclick="closeEditModal()">✕</button>
+      <div class="modal-title">✏️ 이상 내용 수정 <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">(관리자)</span></div>
+
+      <!-- 로딩 -->
+      <div id="edit-modal-loading" style="display:flex;align-items:center;justify-content:center;height:120px;color:var(--text-sub);">
+        ⏳ 불러오는 중...
+      </div>
+
+      <!-- 폼 본문 -->
+      <div id="edit-modal-body" style="display:none;">
+        <form id="edit-form" method="POST" action="">
+
+          <!-- 설비 + 발생일시 + 우선순위 -->
+          <div class="form-grid3" style="margin-bottom:12px;">
+            <div>
+              <label class="f-label">설비 *</label>
+              <select name="equipment_id" id="edit-equipment-id" required class="f-input">
+                {% for eq in equipments %}
+                <option value="{{ eq.id }}">[{{ eq.department or '-' }}] {{ eq.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="f-label">발생 일시</label>
+              <input type="datetime-local" name="occurred_at" id="edit-occurred-at" class="f-input">
+            </div>
+            <div>
+              <label class="f-label">우선순위</label>
+              <select name="priority" id="edit-priority" class="f-input">
+                <option value="높음">🔴 높음 (긴급)</option>
+                <option value="보통">🟡 보통</option>
+                <option value="낮음">🟢 낮음</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 이상 내용 -->
+          <div style="margin-bottom:12px;">
+            <label class="f-label">이상 내용 *</label>
+            <textarea name="description" id="edit-description" rows="3" required class="f-textarea"
+                      placeholder="이상 내용을 입력하세요"></textarea>
+          </div>
+
+          <!-- 조치사항 + 담당자 -->
+          <div class="form-grid2" style="margin-bottom:12px;">
+            <div>
+              <label class="f-label">조치사항</label>
+              <textarea name="action_taken" id="edit-action-taken" rows="3" class="f-textarea"
+                        placeholder="조치사항 입력"></textarea>
+            </div>
+            <div>
+              <label class="f-label">조치담당자</label>
+              <input type="text" name="action_person" id="edit-action-person" class="f-input"
+                     placeholder="담당자 이름" style="margin-bottom:10px;">
+
+              <label class="f-label">조치완료 예정일</label>
+              <input type="date" name="planned_resolve_date" id="edit-planned-date" class="f-input"
+                     style="margin-bottom:10px;">
+
+              <label class="f-label">조치완료여부</label>
+              <div style="display:flex;gap:16px;padding-top:4px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.88rem;cursor:pointer;">
+                  <input type="radio" name="edit_is_resolved" value="0"
+                         onchange="editModalResolvedChange(this.value)"> ⚠ 미조치
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.88rem;cursor:pointer;">
+                  <input type="radio" name="edit_is_resolved" value="1"
+                         onchange="editModalResolvedChange(this.value)"> ✅ 조치완료
+                </label>
+              </div>
+              <!-- 실제 POST 될 is_resolved 값 — 라디오 변경 시 JS로 업데이트 -->
+              <input type="hidden" name="is_resolved" id="edit-is-resolved-hidden" value="0">
+              <input type="date" name="resolved_date" id="edit-resolved-date"
+                     class="f-input" style="margin-top:6px;display:none;"
+                     placeholder="조치완료일">
+            </div>
+          </div>
+
+          <!-- 기존 사진 관리 -->
+          <div style="margin-bottom:12px;">
+            <label class="f-label">📷 기존 사진 <span style="font-weight:400;color:var(--text-muted);">(체크 후 저장 시 삭제)</span></label>
+            <div id="edit-photo-list"></div>
+          </div>
+
+          <!-- 새 사진 추가 -->
+          <div style="margin-bottom:16px;">
+            <label class="f-label">📷 사진 추가 <span style="font-weight:400;color:var(--text-muted);">(최대 5장)</span></label>
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
+                          border:1.5px dashed rgba(59,130,246,.4);border-radius:9px;color:#2563eb;
+                          font-size:0.84rem;font-weight:600;cursor:pointer;background:rgba(59,130,246,.06);">
+              📷 사진 선택
+              <input type="file" accept="image/*" multiple style="display:none;"
+                     onchange="handlePhotoSelect(this,'edit-new-preview','edit-form')">
+            </label>
+            <div id="edit-new-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+          </div>
+
+          <!-- 저장 버튼 -->
+          <div style="display:flex;gap:10px;padding-top:4px;border-top:1px solid var(--border-light);margin-top:4px;">
+            <button type="submit"
+                    onclick="syncEditResolved()"
+                    style="padding:11px 28px;background:linear-gradient(135deg,#f97316,#ea580c);
+                           color:#fff;border:none;border-radius:9px;font-size:0.9rem;font-weight:700;cursor:pointer;">
+              💾 수정 저장
+            </button>
+            <button type="button" onclick="closeEditModal()"
+                    style="padding:11px 20px;background:var(--bg);border:1.5px solid var(--border-mid);
+                           border-radius:8px;color:var(--text-sub);font-size:0.88rem;cursor:pointer;">
+              취소
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // 라디오 → 히든 input 동기화
+  function syncEditResolved() {
+    const checked = document.querySelector('input[name="edit_is_resolved"]:checked');
+    if (checked) document.getElementById('edit-is-resolved-hidden').value = checked.value;
+  }
+  // 라디오 change 시도 동기화
+  document.querySelectorAll('input[name="edit_is_resolved"]').forEach(r => {
+    r.addEventListener('change', syncEditResolved);
+  });
+  </script>
+  {% endif %}
+
 </body>
 </html>
