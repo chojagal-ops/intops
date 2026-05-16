@@ -95,7 +95,7 @@
       <table>
         <thead>
           <tr>
-            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th><th>삭제</th>
+            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th><th>비밀번호 초기화</th><th>삭제</th>
           </tr>
         </thead>
         <tbody>
@@ -124,6 +124,14 @@
                   <button type="submit" class="btn btn-outline" style="width:auto; padding:6px 12px; font-size:0.8rem; margin:0; white-space:nowrap;">변경</button>
                 </form>
               </td>
+              <td style="text-align:center;">
+                <button type="button"
+                        class="btn btn-outline"
+                        style="width:auto; padding:5px 11px; font-size:0.8rem; white-space:nowrap; border-color:#f59e0b; color:#f59e0b;"
+                        onclick="openResetModal({{ u.id }}, '{{ u.name }}', '{{ u.employee_id }}')">
+                  🔑 초기화
+                </button>
+              </td>
               <td>
                 {% if u.id != session.user_id %}
                 <a href="/admin/delete-user/{{ u.id }}"
@@ -139,7 +147,7 @@
             </tr>
             {% endfor %}
           {% else %}
-            <tr><td colspan="7" class="empty-row">승인된 사용자가 없습니다.</td></tr>
+            <tr><td colspan="8" class="empty-row">승인된 사용자가 없습니다.</td></tr>
           {% endif %}
         </tbody>
       </table>
@@ -194,7 +202,57 @@
 
   </div>
 
+  <!-- 비밀번호 초기화 모달 -->
+  <div id="resetPwModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg,#1e2530); border:1px solid var(--border,#2d3748); border-radius:14px; padding:32px 28px; min-width:340px; max-width:420px; width:90%; box-shadow:0 8px 40px rgba(0,0,0,0.4);">
+      <h3 style="margin:0 0 6px; font-size:1.1rem; color:var(--text);">🔑 비밀번호 초기화</h3>
+      <p id="resetModalDesc" style="margin:0 0 20px; font-size:0.88rem; color:var(--text-sub);"></p>
+
+      <form id="resetPwForm" method="POST" action="" style="margin:0;">
+        <label style="display:block; font-size:0.85rem; color:var(--text-sub); margin-bottom:6px;">
+          새 비밀번호 <span style="color:#78909c;">(비워두면 자동 생성 · 10자리 영숫자)</span>
+        </label>
+        <input type="text" name="new_password" id="resetPwInput"
+               placeholder="6자 이상 입력하거나 비워두세요"
+               autocomplete="new-password"
+               style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px;
+                      border:1px solid var(--border,#2d3748); background:var(--input-bg,#151b27);
+                      color:var(--text); font-size:0.95rem; margin-bottom:18px;">
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" onclick="closeResetModal()"
+                  class="btn btn-outline" style="padding:8px 18px; font-size:0.88rem;">취소</button>
+          <button type="submit"
+                  style="padding:8px 20px; font-size:0.88rem; border-radius:8px; border:none; cursor:pointer;
+                         background:#f59e0b; color:#fff; font-weight:600;">
+            초기화 실행
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/static/nav.js"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}
+
+    function openResetModal(userId, userName, empId) {
+      document.getElementById('resetModalDesc').textContent =
+        userName + ' (' + empId + ') 님의 비밀번호를 초기화합니다.';
+      document.getElementById('resetPwForm').action = '/admin/reset-password/' + userId;
+      document.getElementById('resetPwInput').value = '';
+      const modal = document.getElementById('resetPwModal');
+      modal.style.display = 'flex';
+    }
+
+    function closeResetModal() {
+      document.getElementById('resetPwModal').style.display = 'none';
+    }
+
+    // 모달 바깥 클릭 시 닫기
+    document.getElementById('resetPwModal').addEventListener('click', function(e) {
+      if (e.target === this) closeResetModal();
+    });
+  </script>
 </body>
 </html>

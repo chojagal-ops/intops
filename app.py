@@ -1365,15 +1365,43 @@ def admin_delete_user(user_id):
         flash('자기 자신은 삭제할 수 없습니다.', 'error')
         return redirect(url_for('admin'))
     conn = get_db()
-    target = conn.execute('SELECT name FROM users WHERE id=?', (user_id,)).fetchone()
+    ph = '%s' if conn._pg else '?'
+    target = conn.execute(f'SELECT name FROM users WHERE id={ph}', (user_id,)).fetchone()
     if not target:
         conn.close()
         flash('해당 사용자를 찾을 수 없습니다.', 'error')
         return redirect(url_for('admin'))
-    conn.execute('DELETE FROM users WHERE id=?', (user_id,))
+    conn.execute(f'DELETE FROM users WHERE id={ph}', (user_id,))
     conn.commit()
     conn.close()
     flash(f'{target["name"]} 님의 계정이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/reset-password/<int:user_id>', methods=['POST'])
+@admin_required
+def admin_reset_password(user_id):
+    import secrets, string
+    conn = get_db()
+    ph = '%s' if conn._pg else '?'
+    user = conn.execute(f'SELECT name, employee_id FROM users WHERE id={ph}', (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        flash('사용자를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('admin'))
+    new_pw = request.form.get('new_password', '').strip()
+    if not new_pw:
+        chars = string.ascii_letters + string.digits
+        new_pw = ''.join(secrets.choice(chars) for _ in range(10))
+    if len(new_pw) < 6:
+        conn.close()
+        flash('비밀번호는 6자 이상이어야 합니다.', 'error')
+        return redirect(url_for('admin'))
+    conn.execute(f'UPDATE users SET password={ph} WHERE id={ph}',
+                 (generate_password_hash(new_pw), user_id))
+    conn.commit()
+    conn.close()
+    flash(f'✅ [{user["name"]}] 님의 비밀번호가 초기화되었습니다. 임시 비밀번호: {new_pw}', 'success')
     return redirect(url_for('admin'))
 
 
