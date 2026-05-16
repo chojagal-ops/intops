@@ -4133,6 +4133,16 @@ def _save_anomaly_photos(conn, anomaly_id, form):
 def anomaly_management():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    try:
+        return _anomaly_management_inner()
+    except Exception as _e:
+        import traceback as _tb
+        app.logger.error('[이상발생관리 오류]\n' + _tb.format_exc())
+        flash(f'페이지 로딩 중 오류가 발생했습니다: {_e}', 'error')
+        return redirect(url_for('dashboard'))
+
+
+def _anomaly_management_inner():
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
@@ -4201,8 +4211,10 @@ def anomaly_management():
                    SUM(CASE WHEN a.is_resolved=1 THEN 1 ELSE 0 END) AS resolved
             FROM equipment_anomalies a
             JOIN equipment e ON e.id = a.equipment_id
-            WHERE a.occurred_at >= NOW() - INTERVAL '12 months'
-            GROUP BY ym ORDER BY ym
+            WHERE a.occurred_at IS NOT NULL
+              AND a.occurred_at != ''
+              AND a.occurred_at::timestamp >= NOW() - INTERVAL '12 months'
+            GROUP BY TO_CHAR(a.occurred_at::timestamp, 'YYYY-MM') ORDER BY ym
         """
     else:
         month_sql = """
@@ -4211,8 +4223,9 @@ def anomaly_management():
                    SUM(CASE WHEN a.is_resolved=1 THEN 1 ELSE 0 END) AS resolved
             FROM equipment_anomalies a
             JOIN equipment e ON e.id = a.equipment_id
-            WHERE a.occurred_at >= datetime('now','localtime','-12 months')
-            GROUP BY ym ORDER BY ym
+            WHERE a.occurred_at IS NOT NULL AND a.occurred_at != ''
+              AND a.occurred_at >= datetime('now','localtime','-12 months')
+            GROUP BY strftime('%Y-%m', a.occurred_at) ORDER BY ym
         """
     month_rows  = conn.execute(month_sql).fetchall()
     chart_months    = [r['ym']       for r in month_rows]
