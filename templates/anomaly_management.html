@@ -15,7 +15,10 @@
       font-weight:700; padding:10px 12px; text-align:left;
       border-bottom:2px solid rgba(249,115,22,0.2); white-space:nowrap;
     }
-    .anomaly-table td { padding:10px 12px; border-bottom:1px solid var(--border-light); vertical-align:top; }
+    .anomaly-table td { padding:8px 10px; border-bottom:1px solid var(--border-light); vertical-align:middle; }
+    .act-view { display:flex; flex-direction:column; gap:2px; }
+    .act-summary { font-size:0.82rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; color:var(--text-main); }
+    .act-form-wrap { display:none; min-width:220px; }
     .anomaly-table tr:hover td { background:rgba(249,115,22,0.03); }
     .priority-high   { background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; }
     .priority-normal { background:#fef3c7; color:#d97706; border:1px solid #fcd34d; }
@@ -194,7 +197,7 @@
   </div>
 
   <div class="page-wrap" style="align-items:flex-start; padding-top:28px;">
-    <div class="card card-wide">
+    <div class="card card-wide" style="max-width:1560px; width:100%;">
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -418,17 +421,17 @@
           <thead>
             <tr>
               <th style="width:34px;">No.</th>
-              <th>발생일시</th>
-              <th>설비명</th>
-              <th>팀</th>
-              <th>우선순위</th>
-              <th>이상 내용</th>
-              <th style="min-width:220px;">조치사항 / 담당자 / 업데이트</th>
-              <th>사진</th>
-              <th>예정일 / 완료일</th>
-              <th>상태</th>
-              <th style="width:60px;">신고자</th>
-              {% if session.is_admin %}<th style="width:80px;">관리</th>{% endif %}
+              <th style="white-space:nowrap;">발생일시</th>
+              <th style="white-space:nowrap;">설비명</th>
+              <th style="white-space:nowrap;">팀</th>
+              <th style="white-space:nowrap;">우선순위</th>
+              <th style="min-width:140px;">이상 내용</th>
+              <th style="min-width:180px;">조치사항 / 담당자</th>
+              <th style="white-space:nowrap;">사진</th>
+              <th style="white-space:nowrap;">예정일 / 완료일</th>
+              <th style="white-space:nowrap;">상태</th>
+              <th style="width:60px; white-space:nowrap;">신고자</th>
+              {% if session.is_admin %}<th style="width:80px; white-space:nowrap;">관리</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -439,8 +442,8 @@
                 <div style="font-size:0.82rem;font-weight:600;">{{ a.occurred_at[:10] }}</div>
                 <div style="font-size:0.76rem;color:var(--text-sub);">{{ a.occurred_at[11:16] if a.occurred_at|length > 10 else '' }}</div>
               </td>
-              <td><strong>{{ a.eq_name }}</strong></td>
-              <td style="font-size:0.8rem;color:var(--text-sub);">{{ a.department or '-' }}</td>
+              <td style="white-space:nowrap;"><strong>{{ a.eq_name }}</strong></td>
+              <td style="font-size:0.8rem;color:var(--text-sub);white-space:nowrap;">{{ a.department or '-' }}</td>
               <td style="text-align:center;">
                 {% if a.priority == '높음' %}
                   <span class="priority-badge priority-high">🔴 높음</span>
@@ -450,69 +453,74 @@
                   <span class="priority-badge priority-normal">🟡 보통</span>
                 {% endif %}
               </td>
-              <td style="max-width:180px;">
-                <div style="font-size:0.85rem;line-height:1.5;">{{ a.description }}</div>
-                <div style="font-size:0.74rem;color:var(--text-muted);margin-top:3px;">신고: {{ a.reporter_name }}</div>
+              <td style="max-width:160px;">
+                <div style="font-size:0.83rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;" title="{{ a.description }}">{{ a.description }}</div>
+                <div style="font-size:0.74rem;color:var(--text-muted);white-space:nowrap;">신고: {{ a.reporter_name }}</div>
               </td>
-              <td>
-                <!-- 조치 업데이트 인라인 폼 -->
-                <form method="POST" action="/anomaly/{{ a.id }}/update" class="action-form"
-                      id="upd-form-{{ a.id }}">
-                  <textarea name="action_taken" rows="2" placeholder="조치사항 입력...">{{ a.action_taken or '' }}</textarea>
-                  <input type="text" name="action_person" placeholder="조치담당자"
-                         list="user-names-list"
-                         value="{{ a.action_person or '' }}">
-                  <!-- 예정일 -->
-                  <div style="display:flex;gap:4px;align-items:center;font-size:0.77rem;color:var(--text-sub);">
-                    <span style="white-space:nowrap;">예정일</span>
-                    <input type="date" name="planned_resolve_date"
-                           value="{{ a.planned_resolve_date or '' }}"
-                           style="flex:1;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;">
-                  </div>
-                  <div class="action-btn-row">
-                    <select name="priority" style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
-                      <option value="높음" {% if a.priority=='높음' %}selected{% endif %}>🔴 높음</option>
-                      <option value="보통" {% if a.priority=='보통' %}selected{% endif %}>🟡 보통</option>
-                      <option value="낮음" {% if a.priority=='낮음' %}selected{% endif %}>🟢 낮음</option>
-                    </select>
-                    <select name="is_resolved"
-                            id="res-sel-{{ a.id }}"
-                            onchange="toggleUpdResolvedDate(this,'upd-rdate-{{ a.id }}')"
-                            style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
-                      <option value="0" {% if not a.is_resolved %}selected{% endif %}>⚠ 미조치</option>
-                      <option value="1" {% if a.is_resolved %}selected{% endif %}>✅ 완료</option>
-                    </select>
-                  </div>
-                  <!-- 조치완료일 -->
-                  <input type="date" name="resolved_date" id="upd-rdate-{{ a.id }}"
-                         value="{{ a.resolved_date or '' }}"
-                         placeholder="조치완료일"
-                         style="width:100%;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;display:{% if a.is_resolved %}block{% else %}none{% endif %};">
-                  <!-- 사진 추가 업로드 -->
-                  <div class="photo-upload-inline">
-                    <label class="upload-btn">
-                      📷 사진 추가
-                      <input type="file" accept="image/*" multiple style="display:none;"
-                             onchange="handlePhotoSelect(this,'upd-preview-{{ a.id }}','upd-form-{{ a.id }}')">
-                    </label>
-                    <div id="upd-preview-{{ a.id }}" class="preview-grid" style="margin-top:4px;"></div>
-                  </div>
-                  <div class="action-btn-row">
-                    <button type="submit" class="btn-sm">💾 저장</button>
-                  </div>
+              <td style="min-width:180px; max-width:240px;">
+                <!-- 요약 뷰 (기본 표시) -->
+                <div class="act-view" id="act-view-{{ a.id }}">
+                  <div class="act-summary" title="{{ a.action_taken or '' }}">{{ a.action_taken or '—' }}</div>
+                  {% if a.action_person %}
+                  <div style="font-size:0.76rem;color:var(--text-sub);white-space:nowrap;">👤 {{ a.action_person }}</div>
+                  {% endif %}
                   {% if a.is_resolved %}
-                  <div style="font-size:0.73rem;color:#16a34a;margin-top:2px;">
-                    ✔ {% if a.resolver_name %}{{ a.resolver_name }}{% endif %}
-                    {% if a.action_person %} · {{ a.action_person }}{% endif %}
-                    {% if a.resolved_date %} — 완료: {{ a.resolved_date }}{% endif %}
+                  <div style="font-size:0.72rem;color:#16a34a;white-space:nowrap;">
+                    ✔ {% if a.resolver_name %}{{ a.resolver_name }}{% endif %}{% if a.resolved_date %} · {{ a.resolved_date }}{% endif %}
                   </div>
                   {% elif a.planned_resolve_date %}
-                  <div style="font-size:0.73rem;color:#d97706;margin-top:2px;">📅 예정: {{ a.planned_resolve_date }}</div>
+                  <div style="font-size:0.72rem;color:#d97706;white-space:nowrap;">📅 {{ a.planned_resolve_date }}</div>
                   {% endif %}
-                  {% if a.action_person and not a.is_resolved %}
-                  <div style="font-size:0.73rem;color:var(--text-sub);margin-top:2px;">담당: {{ a.action_person }}</div>
-                  {% endif %}
-                </form>
+                  <button type="button" class="btn-sm" style="margin-top:5px;width:fit-content;"
+                          onclick="toggleActionForm({{ a.id }})">✏️ 업데이트</button>
+                </div>
+                <!-- 인라인 편집 폼 (토글) -->
+                <div class="act-form-wrap" id="act-form-{{ a.id }}">
+                  <form method="POST" action="/anomaly/{{ a.id }}/update" class="action-form"
+                        id="upd-form-{{ a.id }}">
+                    <textarea name="action_taken" rows="2" placeholder="조치사항 입력...">{{ a.action_taken or '' }}</textarea>
+                    <input type="text" name="action_person" placeholder="조치담당자"
+                           list="user-names-list"
+                           value="{{ a.action_person or '' }}">
+                    <div style="display:flex;gap:4px;align-items:center;font-size:0.77rem;color:var(--text-sub);">
+                      <span style="white-space:nowrap;">예정일</span>
+                      <input type="date" name="planned_resolve_date"
+                             value="{{ a.planned_resolve_date or '' }}"
+                             style="flex:1;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;">
+                    </div>
+                    <div class="action-btn-row">
+                      <select name="priority" style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
+                        <option value="높음" {% if a.priority=='높음' %}selected{% endif %}>🔴 높음</option>
+                        <option value="보통" {% if a.priority=='보통' %}selected{% endif %}>🟡 보통</option>
+                        <option value="낮음" {% if a.priority=='낮음' %}selected{% endif %}>🟢 낮음</option>
+                      </select>
+                      <select name="is_resolved"
+                              id="res-sel-{{ a.id }}"
+                              onchange="toggleUpdResolvedDate(this,'upd-rdate-{{ a.id }}')"
+                              style="flex:1;padding:4px 6px;font-size:0.78rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);">
+                        <option value="0" {% if not a.is_resolved %}selected{% endif %}>⚠ 미조치</option>
+                        <option value="1" {% if a.is_resolved %}selected{% endif %}>✅ 완료</option>
+                      </select>
+                    </div>
+                    <input type="date" name="resolved_date" id="upd-rdate-{{ a.id }}"
+                           value="{{ a.resolved_date or '' }}"
+                           placeholder="조치완료일"
+                           style="width:100%;padding:4px 6px;font-size:0.77rem;border:1px solid var(--border-mid);border-radius:6px;background:var(--card-bg);color:var(--text-main);box-sizing:border-box;display:{% if a.is_resolved %}block{% else %}none{% endif %};">
+                    <div class="photo-upload-inline">
+                      <label class="upload-btn">
+                        📷 사진 추가
+                        <input type="file" accept="image/*" multiple style="display:none;"
+                               onchange="handlePhotoSelect(this,'upd-preview-{{ a.id }}','upd-form-{{ a.id }}')">
+                      </label>
+                      <div id="upd-preview-{{ a.id }}" class="preview-grid" style="margin-top:4px;"></div>
+                    </div>
+                    <div class="action-btn-row" style="margin-top:4px;">
+                      <button type="submit" class="btn-sm">💾 저장</button>
+                      <button type="button" class="btn-sm btn-sm-red"
+                              onclick="toggleActionForm({{ a.id }})">✕ 취소</button>
+                    </div>
+                  </form>
+                </div>
               </td>
               <!-- 사진 셀 -->
               <td>
@@ -762,6 +770,15 @@
       const p = n => String(n).padStart(2,'0');
       el.value = today.getFullYear()+'-'+p(today.getMonth()+1)+'-'+p(today.getDate());
     }
+  }
+
+  /* ── 조치 인라인 폼 토글 ── */
+  function toggleActionForm(id) {
+    const view = document.getElementById('act-view-' + id);
+    const wrap = document.getElementById('act-form-' + id);
+    const show = wrap.style.display === 'none' || !wrap.style.display;
+    view.style.display = show ? 'none' : 'flex';
+    wrap.style.display = show ? 'block' : 'none';
   }
 
   /* ── 폼 토글 ── */
