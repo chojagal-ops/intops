@@ -639,6 +639,108 @@
       </form>
       {% endif %}{# is_inspector #}
 
+      <!-- ── 이상 신고 버튼 & 패널 ─────────────────────────── -->
+      <hr class="divider" style="margin:20px 0 16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+        <div>
+          <span style="font-size:0.95rem; font-weight:700; color:var(--text-main);">🚨 이상 신고</span>
+          <span style="font-size:0.8rem; color:var(--text-sub); margin-left:8px;">이 설비에 이상이 발생했을 때 등록하세요</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" onclick="toggleAnomalyForm()"
+                  style="padding:9px 18px; background:linear-gradient(135deg,#dc2626,#b91c1c);
+                         color:#fff; border:none; border-radius:10px; font-size:0.88rem;
+                         font-weight:700; cursor:pointer;">
+            ＋ 이상 내용 등록
+          </button>
+          <a href="/anomaly-management?eq_id={{ eq.id }}"
+             style="padding:9px 16px; background:rgba(220,38,38,0.08); border:1.5px solid rgba(220,38,38,0.3);
+                    color:#dc2626; border-radius:10px; font-size:0.85rem; font-weight:600;
+                    text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+            📋 이상 이력 보기
+          </a>
+        </div>
+      </div>
+
+      <!-- 이상 신고 입력 패널 -->
+      <div id="anomaly-form-panel"
+           style="display:none; background:rgba(220,38,38,0.05); border:1.5px solid rgba(220,38,38,0.25);
+                  border-radius:14px; padding:20px; margin-bottom:16px;">
+        <div style="font-size:0.95rem; font-weight:700; color:#dc2626; margin-bottom:14px;">🚨 이상 내용 신고</div>
+        <form method="POST" action="/anomaly/report">
+          <input type="hidden" name="equipment_id" value="{{ eq.id }}">
+          <input type="hidden" name="next" value="/inspect/{{ eq.id }}">
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">우선순위</label>
+              <select name="priority"
+                      style="width:100%; padding:9px 12px; border:1px solid var(--border-mid);
+                             border-radius:8px; background:var(--card-bg); color:var(--text-main); font-size:0.88rem;">
+                <option value="높음">🔴 높음 (긴급)</option>
+                <option value="보통" selected>🟡 보통</option>
+                <option value="낮음">🟢 낮음</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">발생 일시</label>
+              <input type="datetime-local" name="occurred_at" id="anomaly-occurred"
+                     style="width:100%; padding:9px 12px; border:1px solid var(--border-mid);
+                            border-radius:8px; background:var(--card-bg); color:var(--text-main);
+                            font-size:0.88rem; box-sizing:border-box;">
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">
+              이상 내용 * <span style="color:var(--text-muted); font-weight:400;">(발생한 이상 상황을 구체적으로 입력)</span>
+            </label>
+            <textarea name="description" rows="3" required
+              style="width:100%; padding:10px 12px; border:1.5px solid rgba(220,38,38,0.3);
+                     border-radius:8px; background:var(--bg); color:var(--text-main);
+                     font-size:0.88rem; resize:vertical; box-sizing:border-box;"
+              placeholder="예) 3호 압축기 유압라인 누유 발생, 오일 바닥에 고임 확인"></textarea>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">
+              조치사항 <span style="color:var(--text-muted); font-weight:400;">(현재까지 취한 조치 내용)</span>
+            </label>
+            <textarea name="action_taken" rows="2"
+              style="width:100%; padding:10px 12px; border:1px solid var(--border-mid);
+                     border-radius:8px; background:var(--bg); color:var(--text-main);
+                     font-size:0.88rem; resize:vertical; box-sizing:border-box;"
+              placeholder="예) 임시 테이프 처리 후 부품 발주, 정비팀 연락"></textarea>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:8px;">조치완료여부</label>
+            <div style="display:flex; gap:20px;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;">
+                <input type="radio" name="is_resolved" value="0" checked> ⚠ 미조치
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;">
+                <input type="radio" name="is_resolved" value="1"> ✅ 조치완료
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button type="submit"
+                    style="padding:10px 24px; background:linear-gradient(135deg,#dc2626,#b91c1c);
+                           color:#fff; border:none; border-radius:9px; font-size:0.9rem;
+                           font-weight:700; cursor:pointer;">
+              🚨 이상 등록
+            </button>
+            <button type="button" onclick="toggleAnomalyForm()"
+                    style="padding:10px 18px; background:var(--bg); border:1.5px solid var(--border-mid);
+                           border-radius:8px; color:var(--text-sub); font-size:0.88rem; cursor:pointer;">
+              취소
+            </button>
+          </div>
+        </form>
+      </div>
+
       <!-- ── 점검 이력 ─────────────────────────────────────── -->
       {% if history %}
       <hr class="divider">
@@ -686,6 +788,25 @@
   </div>
 
   <script>
+    // 이상 신고 패널 토글
+    function toggleAnomalyForm() {
+      const panel = document.getElementById('anomaly-form-panel');
+      if (!panel) return;
+      const isHidden = panel.style.display === 'none' || !panel.style.display;
+      panel.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        // 발생일시 현재 시각으로 자동 입력
+        const occ = document.getElementById('anomaly-occurred');
+        if (occ && !occ.value) {
+          const now = new Date();
+          const pad = n => String(n).padStart(2,'0');
+          occ.value = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate())
+                    + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        }
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
     // 오늘 날짜 표시
     const todayDate = new Date();
     const label = todayDate.getFullYear() + '년 ' + (todayDate.getMonth()+1) + '월 ' + todayDate.getDate() + '일';

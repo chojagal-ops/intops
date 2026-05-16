@@ -486,6 +486,23 @@ def init_db():
         )
     ''')
 
+    conn.execute(f'''
+        CREATE TABLE IF NOT EXISTS equipment_anomalies (
+            id           {_pk},
+            equipment_id INTEGER NOT NULL,
+            inspection_id INTEGER,
+            reporter_id  INTEGER NOT NULL,
+            occurred_at  TEXT DEFAULT ({_now}),
+            description  TEXT NOT NULL,
+            action_taken TEXT DEFAULT '',
+            priority     TEXT DEFAULT '보통',
+            is_resolved  INTEGER DEFAULT 0,
+            resolved_at  TEXT,
+            resolved_by  INTEGER,
+            created_at   TEXT DEFAULT ({_now})
+        )
+    ''')
+
     # 마이그레이션
     if conn._pg:
         migrations = [
@@ -3968,6 +3985,151 @@ def my_profile():
 
     conn.close()
     return render_template('my_profile.html', user=user, teams=TEAMS)
+
+
+# ── 이상발생관리 ─────────────────────────────────────────────────────────────
+
+@app.route('/anomaly-management')
+def anomaly_management():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    # 필터 파라미터
+    f_dept     = request.args.get('dept', '').strip()
+    f_resolved = request.args.get('resolved', '').strip()   # '' / '0' / '1'
+    f_eq       = request.args.get('eq_id', '').strip()
+    f_priority = request.args.get('priority', '').strip()
+
+    # 팀 목록 + 설비 목록 (필터용)
+    equipments = conn.execute('SELECT id, name, department FROM equipment ORDER BY department, name').fetchall()
+
+    where_parts = []
+    params      = []
+
+    if f_dept:
+        where_parts.append(f'e.department = {ph}')
+        params.append(f_dept)
+    if f_resolved in ('0', '1'):
+        where_parts.append(f'a.is_resolved = {ph}')
+        params.append(int(f_resolved))
+    if f_eq:
+        where_parts.append(f'a.equipment_id = {ph}')
+        params.append(int(f_eq))
+    if f_priority:
+        where_parts.append(f'a.priority = {ph}')
+        params.append(f_priority)
+
+    # 비관리자: 자기 팀만
+    if not session.get('is_admin'):
+        my_team = session.get('team', '')
+        if my_team and my_team != '관리자':
+            where_parts.append(f'e.department = {ph}')
+            params.append(my_team)
+
+    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+
+    anomalies = conn.execute(f'''
+        SELECT a.*,
+               e.name AS eq_name, e.department,
+               u.name AS reporter_name,
+               r.name AS resolver_name
+        FROM equipment_anomalies a
+        JOIN equipment e ON e.id = a.equipment_id
+        JOIN users u ON u.id = a.reporter_id
+        LEFT JOIN users r ON r.id = a.resolved_by
+        {where_sql}
+        ORDER BY a.occurred_at DESC
+    ''', params).fetchall()
+
+    conn.close()
+    return render_template('anomaly_management.html',
+        anomalies=anomalies, equipments=equipments,
+        teams=TEAMS,
+        f_dept=f_dept, f_resolved=f_resolved,
+        f_eq=f_eq, f_priority=f_priority)
+
+
+@app.route('/anomaly/report', methods=['POST'])
+def anomaly_report():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    eq_id       = request.form.get('equipment_id', '').strip()
+    inspection_id = request.form.get('inspection_id', '').strip() or None
+    description = request.form.get('description', '').strip()
+    action_taken = request.form.get('action_taken', '').strip()
+    priority    = request.form.get('priority', '보통').strip()
+    is_resolved = 1 if request.form.get('is_resolved') == '1' else 0
+    occurred_at = request.form.get('occurred_at', '').strip()
+
+    if not eq_id or not description:
+        flash('설비와 이상 내용은 필수입니다.', 'error')
+        conn.close()
+        ref = request.referrer or url_for('anomaly_management')
+        return redirect(ref)
+
+    now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    occ     = occurred_at if occurred_at else now_str
+    resolved_at = now_str if is_resolved else None
+
+    conn.execute(f'''
+        INSERT INTO equipment_anomalies
+            (equipment_id, inspection_id, reporter_id, occurred_at,
+             description, action_taken, priority, is_resolved, resolved_at, resolved_by)
+        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
+    ''', (eq_id, inspection_id, session['user_id'], occ,
+          description, action_taken, priority, is_resolved,
+          resolved_at, session['user_id'] if is_resolved else None))
+    conn.commit()
+    conn.close()
+    flash('이상 내용이 등록되었습니다.', 'success')
+    ref = request.form.get('next') or request.referrer or url_for('anomaly_management')
+    return redirect(ref)
+
+
+@app.route('/anomaly/<int:anomaly_id>/update', methods=['POST'])
+def anomaly_update(anomaly_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    action_taken = request.form.get('action_taken', '').strip()
+    priority     = request.form.get('priority', '보통').strip()
+    is_resolved  = 1 if request.form.get('is_resolved') == '1' else 0
+    now_str      = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    resolved_at  = now_str if is_resolved else None
+    resolved_by  = session['user_id'] if is_resolved else None
+
+    conn.execute(f'''
+        UPDATE equipment_anomalies
+        SET action_taken={ph}, priority={ph}, is_resolved={ph},
+            resolved_at={ph}, resolved_by={ph}
+        WHERE id={ph}
+    ''', (action_taken, priority, is_resolved, resolved_at, resolved_by, anomaly_id))
+    conn.commit()
+    conn.close()
+    flash('이상 내용이 업데이트되었습니다.', 'success')
+    ref = request.referrer or url_for('anomaly_management')
+    return redirect(ref)
+
+
+@app.route('/anomaly/<int:anomaly_id>/delete', methods=['POST'])
+def anomaly_delete(anomaly_id):
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('관리자만 삭제할 수 있습니다.', 'error')
+        return redirect(url_for('anomaly_management'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+    conn.execute(f'DELETE FROM equipment_anomalies WHERE id={ph}', (anomaly_id,))
+    conn.commit()
+    conn.close()
+    flash('이상 기록이 삭제되었습니다.', 'success')
+    return redirect(url_for('anomaly_management'))
 
 
 # ── 로그아웃 ──────────────────────────────────────────────────────────────────

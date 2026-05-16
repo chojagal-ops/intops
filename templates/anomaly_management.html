@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이상발생관리 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    .anomaly-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .anomaly-table th {
+      background:rgba(249,115,22,0.08); color:var(--orange-dark);
+      font-weight:700; padding:10px 12px; text-align:left;
+      border-bottom:2px solid rgba(249,115,22,0.2); white-space:nowrap;
+    }
+    .anomaly-table td {
+      padding:10px 12px; border-bottom:1px solid var(--border-light);
+      vertical-align:top;
+    }
+    .anomaly-table tr:hover td { background:rgba(249,115,22,0.04); }
+    .priority-high   { background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; }
+    .priority-normal { background:#fef3c7; color:#d97706; border:1px solid #fcd34d; }
+    .priority-low    { background:#f0fdf4; color:#16a34a; border:1px solid #86efac; }
+    .priority-badge  { display:inline-block; padding:2px 10px; border-radius:8px; font-size:0.75rem; font-weight:700; }
+    .resolved-yes    { background:#dcfce7; color:#16a34a; border:1px solid #86efac; }
+    .resolved-no     { background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; }
+    .resolved-badge  { display:inline-block; padding:3px 10px; border-radius:8px; font-size:0.78rem; font-weight:700; }
+    .filter-bar      { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+    .filter-bar select, .filter-bar input {
+      padding:7px 10px; border:1px solid var(--border-mid); border-radius:8px;
+      font-size:0.85rem; background:var(--card-bg); color:var(--text-main);
+    }
+    .stat-cards      { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:20px; }
+    .stat-card       { background:var(--card-bg); border:1px solid var(--border-light); border-radius:12px;
+                       padding:14px 16px; text-align:center; }
+    .stat-card .num  { font-size:1.8rem; font-weight:900; color:var(--orange); }
+    .stat-card .lbl  { font-size:0.75rem; color:var(--text-sub); margin-top:2px; }
+    .action-form     { display:flex; flex-direction:column; gap:6px; min-width:180px; }
+    .action-form textarea {
+      width:100%; padding:6px 8px; font-size:0.8rem; border:1px solid var(--border-mid);
+      border-radius:6px; background:var(--bg); color:var(--text-main); resize:vertical;
+      box-sizing:border-box;
+    }
+    .action-btn-row  { display:flex; gap:6px; flex-wrap:wrap; }
+    .btn-sm          { padding:5px 12px; font-size:0.78rem; border-radius:7px; cursor:pointer;
+                       border:1.5px solid var(--orange); background:rgba(249,115,22,0.1);
+                       color:var(--orange); font-weight:700; transition:background 0.15s; }
+    .btn-sm:hover    { background:rgba(249,115,22,0.2); }
+    .btn-sm-red      { border-color:#dc2626; background:rgba(220,38,38,0.08); color:#dc2626; }
+    .btn-sm-red:hover{ background:rgba(220,38,38,0.18); }
+    .btn-sm-green    { border-color:#16a34a; background:rgba(22,163,74,0.08); color:#16a34a; }
+    .btn-sm-green:hover { background:rgba(22,163,74,0.18); }
+    .add-anomaly-card {
+      background:linear-gradient(135deg,rgba(249,115,22,0.06),rgba(234,88,12,0.04));
+      border:1.5px dashed rgba(249,115,22,0.35); border-radius:14px;
+      padding:20px; margin-bottom:20px;
+    }
+    .add-anomaly-card .form-row {
+      display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;
+    }
+    @media(max-width:640px){ .add-anomaly-card .form-row { grid-template-columns:1fr; } }
+    .detail-cell { max-width:200px; word-break:break-all; }
+    .occurred-dt { font-size:0.78rem; color:var(--text-sub); white-space:nowrap; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard" class="nav-link">홈</a>
+      {% if session.role == '승인자' %}
+      <a href="/my-approvals" class="nav-link">내 승인 결과</a>
+      {% else %}
+      <a href="/my-inspections" class="nav-link">내 점검 결과</a>
+      {% endif %}
+      <a href="/daily-results" class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list" class="nav-link">월별 점검 결과</a>
+      <a href="/monitoring" class="nav-link">점검율 모니터링</a>
+      <a href="/anomaly-management" class="nav-link active">이상발생관리</a>
+      {% if session.is_admin %}
+      <a href="/admin" class="nav-link">회원 관리</a>
+      <a href="/admin/equipment" class="nav-link">설비 관리</a>
+      {% endif %}
+    </div>
+    <div class="topbar-user">
+      <span class="role-badge-sm">{{ session.role }}</span>
+      {{ session.user_name }} 님
+      <a href="/help" class="help-btn">❓ 도움말</a>
+      <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="page-wrap" style="align-items:flex-start; padding-top:28px;">
+    <div class="card card-wide">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- 페이지 헤더 -->
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <div>
+          <div style="font-size:1.3rem; font-weight:800; color:var(--text-main);">🚨 이상발생관리 대장</div>
+          <div style="font-size:0.82rem; color:var(--text-sub); margin-top:3px;">설비 이상 신고 · 조치 현황 관리</div>
+        </div>
+        <button onclick="toggleAddForm()"
+                style="padding:10px 20px; background:linear-gradient(135deg,#f97316,#ea580c);
+                       color:#fff; border:none; border-radius:10px; font-size:0.9rem;
+                       font-weight:700; cursor:pointer;">
+          ＋ 이상 신고 등록
+        </button>
+      </div>
+
+      <!-- 통계 카드 -->
+      {% set total  = anomalies|length %}
+      {% set unres  = anomalies|selectattr('is_resolved','equalto',0)|list|length %}
+      {% set res    = total - unres %}
+      {% set high_p = anomalies|selectattr('priority','equalto','높음')|selectattr('is_resolved','equalto',0)|list|length %}
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="num">{{ total }}</div>
+          <div class="lbl">전체 이상건수</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(220,38,38,0.3);">
+          <div class="num" style="color:#dc2626;">{{ unres }}</div>
+          <div class="lbl">미조치 건수</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(22,163,74,0.3);">
+          <div class="num" style="color:#16a34a;">{{ res }}</div>
+          <div class="lbl">조치완료 건수</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(234,179,8,0.4);">
+          <div class="num" style="color:#d97706;">{{ high_p }}</div>
+          <div class="lbl">긴급 미조치</div>
+        </div>
+      </div>
+
+      <!-- 이상 신고 등록 폼 -->
+      <div id="add-anomaly-form" class="add-anomaly-card" style="display:none;">
+        <div style="font-size:1rem; font-weight:700; color:var(--orange); margin-bottom:14px;">🚨 이상 내용 신고</div>
+        <form method="POST" action="/anomaly/report">
+          <input type="hidden" name="next" value="/anomaly-management">
+          <div class="form-row">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:0.83rem;">설비 선택 *</label>
+              <select name="equipment_id" required style="width:100%; padding:9px 12px; border:1px solid var(--border-mid); border-radius:8px; background:var(--card-bg); color:var(--text-main); font-size:0.88rem;">
+                <option value="">— 설비를 선택하세요 —</option>
+                {% for eq in equipments %}
+                <option value="{{ eq.id }}">[{{ eq.department or '-' }}] {{ eq.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:0.83rem;">발생 일시</label>
+              <input type="datetime-local" name="occurred_at"
+                     style="width:100%; padding:9px 12px; border:1px solid var(--border-mid); border-radius:8px; background:var(--card-bg); color:var(--text-main); font-size:0.88rem; box-sizing:border-box;">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:0.83rem;">우선순위</label>
+              <select name="priority" style="width:100%; padding:9px 12px; border:1px solid var(--border-mid); border-radius:8px; background:var(--card-bg); color:var(--text-main); font-size:0.88rem;">
+                <option value="높음">🔴 높음 (긴급)</option>
+                <option value="보통" selected>🟡 보통</option>
+                <option value="낮음">🟢 낮음</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:0.83rem;">조치완료여부</label>
+              <div style="display:flex; gap:16px; padding-top:8px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+                  <input type="radio" name="is_resolved" value="0" checked> 미조치
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer;">
+                  <input type="radio" name="is_resolved" value="1"> 조치완료
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label style="font-size:0.83rem;">이상 내용 * <span style="color:var(--text-muted); font-weight:400;">(발생한 이상 상황을 구체적으로 입력)</span></label>
+            <textarea name="description" rows="3" required
+              style="width:100%; padding:10px 12px; border:1px solid var(--border-mid); border-radius:8px; background:var(--bg); color:var(--text-main); font-size:0.88rem; resize:vertical; box-sizing:border-box;"
+              placeholder="예) 3호 압축기 유압라인 누유 발생, 오일 바닥에 고임 확인"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-size:0.83rem;">조치사항 <span style="color:var(--text-muted); font-weight:400;">(현재까지 취한 조치 내용)</span></label>
+            <textarea name="action_taken" rows="2"
+              style="width:100%; padding:10px 12px; border:1px solid var(--border-mid); border-radius:8px; background:var(--bg); color:var(--text-main); font-size:0.88rem; resize:vertical; box-sizing:border-box;"
+              placeholder="예) 임시 테이프 처리 후 부품 발주, 정비팀 연락"></textarea>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button type="submit" class="btn btn-primary" style="width:auto; padding:10px 28px; font-size:0.9rem;">
+              🚨 이상 등록
+            </button>
+            <button type="button" onclick="toggleAddForm()"
+                    style="padding:10px 20px; background:var(--bg); border:1.5px solid var(--border-mid);
+                           border-radius:8px; color:var(--text-sub); font-size:0.88rem; cursor:pointer;">
+              취소
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 필터 바 -->
+      <form method="GET" class="filter-bar">
+        {% if session.is_admin %}
+        <select name="dept" onchange="this.form.submit()" style="min-width:100px;">
+          <option value="">전체 팀</option>
+          {% for t in teams %}
+          <option value="{{ t }}" {% if f_dept == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <select name="eq_id" onchange="this.form.submit()" style="min-width:130px;">
+          <option value="">전체 설비</option>
+          {% for eq in equipments %}
+          <option value="{{ eq.id }}" {% if f_eq == eq.id|string %}selected{% endif %}>{{ eq.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="resolved" onchange="this.form.submit()">
+          <option value="">전체 상태</option>
+          <option value="0" {% if f_resolved == '0' %}selected{% endif %}>⚠ 미조치</option>
+          <option value="1" {% if f_resolved == '1' %}selected{% endif %}>✅ 조치완료</option>
+        </select>
+        <select name="priority" onchange="this.form.submit()">
+          <option value="">전체 우선순위</option>
+          <option value="높음" {% if f_priority == '높음' %}selected{% endif %}>🔴 높음</option>
+          <option value="보통" {% if f_priority == '보통' %}selected{% endif %}>🟡 보통</option>
+          <option value="낮음" {% if f_priority == '낮음' %}selected{% endif %}>🟢 낮음</option>
+        </select>
+        {% if f_dept or f_resolved or f_eq or f_priority %}
+        <a href="/anomaly-management"
+           style="padding:7px 12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+                  border-radius:8px; color:#dc2626; font-size:0.82rem; font-weight:600; text-decoration:none;">
+          ✕ 필터 초기화
+        </a>
+        {% endif %}
+      </form>
+
+      <!-- 관리대장 테이블 -->
+      {% if anomalies %}
+      <div class="tmpl-table-wrap" style="overflow-x:auto;">
+        <table class="anomaly-table">
+          <thead>
+            <tr>
+              <th style="width:36px;">No.</th>
+              <th>발생일시</th>
+              <th>설비명</th>
+              <th>팀</th>
+              <th>우선순위</th>
+              <th>이상 내용</th>
+              <th>조치사항 / 업데이트</th>
+              <th>조치상태</th>
+              <th>신고자</th>
+              {% if session.is_admin %}<th>삭제</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in anomalies %}
+            <tr id="row-{{ a.id }}">
+              <td style="text-align:center; color:var(--text-muted); font-size:0.78rem;">{{ loop.index }}</td>
+              <td>
+                <div class="occurred-dt">{{ a.occurred_at[:10] }}</div>
+                <div class="occurred-dt">{{ a.occurred_at[11:16] if a.occurred_at|length > 10 else '' }}</div>
+              </td>
+              <td>
+                <strong style="color:var(--text-main);">{{ a.eq_name }}</strong>
+              </td>
+              <td style="font-size:0.8rem; color:var(--text-sub);">{{ a.department or '-' }}</td>
+              <td style="text-align:center;">
+                {% if a.priority == '높음' %}
+                  <span class="priority-badge priority-high">🔴 높음</span>
+                {% elif a.priority == '낮음' %}
+                  <span class="priority-badge priority-low">🟢 낮음</span>
+                {% else %}
+                  <span class="priority-badge priority-normal">🟡 보통</span>
+                {% endif %}
+              </td>
+              <td class="detail-cell">
+                <div style="font-size:0.85rem; color:var(--text-main); line-height:1.5;">{{ a.description }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">신고: {{ a.reporter_name }}</div>
+              </td>
+              <td>
+                <!-- 조치 업데이트 폼 -->
+                <form method="POST" action="/anomaly/{{ a.id }}/update" class="action-form">
+                  <textarea name="action_taken" rows="2"
+                    placeholder="조치사항 입력...">{{ a.action_taken or '' }}</textarea>
+                  <div class="action-btn-row">
+                    <select name="priority" style="flex:1; padding:4px 6px; font-size:0.78rem; border:1px solid var(--border-mid); border-radius:6px; background:var(--card-bg); color:var(--text-main);">
+                      <option value="높음" {% if a.priority=='높음' %}selected{% endif %}>🔴 높음</option>
+                      <option value="보통" {% if a.priority=='보통' %}selected{% endif %}>🟡 보통</option>
+                      <option value="낮음" {% if a.priority=='낮음' %}selected{% endif %}>🟢 낮음</option>
+                    </select>
+                    <select name="is_resolved" style="flex:1; padding:4px 6px; font-size:0.78rem; border:1px solid var(--border-mid); border-radius:6px; background:var(--card-bg); color:var(--text-main);">
+                      <option value="0" {% if not a.is_resolved %}selected{% endif %}>⚠ 미조치</option>
+                      <option value="1" {% if a.is_resolved %}selected{% endif %}>✅ 완료</option>
+                    </select>
+                  </div>
+                  <div class="action-btn-row">
+                    <button type="submit" class="btn-sm">💾 저장</button>
+                  </div>
+                  {% if a.is_resolved and a.resolver_name %}
+                  <div style="font-size:0.73rem; color:#16a34a; margin-top:2px;">
+                    ✔ {{ a.resolver_name }} ({{ a.resolved_at[:10] if a.resolved_at else '' }})
+                  </div>
+                  {% endif %}
+                </form>
+              </td>
+              <td style="text-align:center;">
+                {% if a.is_resolved %}
+                  <span class="resolved-badge resolved-yes">✅ 완료</span>
+                {% else %}
+                  <span class="resolved-badge resolved-no">⚠ 미조치</span>
+                {% endif %}
+              </td>
+              <td style="font-size:0.8rem; color:var(--text-sub); white-space:nowrap;">{{ a.reporter_name }}</td>
+              {% if session.is_admin %}
+              <td style="text-align:center;">
+                <form method="POST" action="/anomaly/{{ a.id }}/delete"
+                      onsubmit="return confirm('이 이상 기록을 삭제하시겠습니까?')">
+                  <button type="submit" class="btn-sm btn-sm-red">🗑</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:12px; font-size:0.8rem; color:var(--text-sub);">
+        총 <strong>{{ anomalies|length }}</strong>건
+        {% if f_dept or f_resolved or f_eq or f_priority %}(필터 적용됨){% endif %}
+      </div>
+
+      {% else %}
+      <div style="text-align:center; padding:60px 20px; color:var(--text-muted);">
+        <div style="font-size:2.5rem; margin-bottom:12px;">📋</div>
+        <div style="font-size:1rem; font-weight:600;">등록된 이상 기록이 없습니다</div>
+        <div style="font-size:0.85rem; margin-top:6px;">설비 이상 발생 시 위의 "이상 신고 등록" 버튼을 눌러 기록하세요</div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>
+    function toggleAddForm() {
+      const f = document.getElementById('add-anomaly-form');
+      if (f.style.display === 'none' || !f.style.display) {
+        f.style.display = 'block';
+        f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        f.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
