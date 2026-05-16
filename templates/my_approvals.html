@@ -9,6 +9,21 @@
   <link rel="manifest" href="/static/manifest.json">
   <style>
     .my-insp-wrap { width:100%; max-width:none; margin:0; padding:28px 36px 48px; box-sizing:border-box; }
+    .view-tabs { display:flex; gap:6px; margin-bottom:20px; }
+    .view-tab  {
+      padding:8px 20px; border-radius:9px; font-size:0.86rem; font-weight:700;
+      border:1.5px solid var(--border-mid); background:transparent;
+      color:var(--text-sub); text-decoration:none; cursor:pointer; transition:all .15s;
+    }
+    .view-tab:hover  { background:rgba(249,115,22,0.07); border-color:rgba(249,115,22,0.4); color:var(--orange); }
+    .view-tab.active { background:rgba(249,115,22,0.12); border-color:var(--orange); color:var(--orange); }
+    .group-header {
+      display:flex; align-items:center; gap:10px;
+      margin:20px 0 8px; padding:8px 14px;
+      background:rgba(249,115,22,0.07); border-left:3px solid var(--orange);
+      border-radius:0 8px 8px 0; font-size:0.88rem; font-weight:700; color:var(--orange);
+    }
+    .group-header .group-cnt { margin-left:auto; font-size:0.78rem; font-weight:400; color:var(--text-sub); }
   </style>
 </head>
 <body>
@@ -32,9 +47,17 @@
 
   <div class="my-insp-wrap">
 
-      <div style="margin-bottom:24px;">
+      <div style="margin-bottom:20px;">
         <div style="font-size:1.2rem; font-weight:800; color:var(--text); margin-bottom:4px;">🔏 내 승인 결과</div>
         <div style="font-size:0.85rem; color:var(--text-sub);">{{ session.user_name }} 님이 승인 처리한 점검 이력입니다.</div>
+      </div>
+
+      <!-- 기간 탭 -->
+      <div class="view-tabs">
+        <a href="/my-approvals?view=all"     class="view-tab {% if view=='all'     %}active{% endif %}">전체</a>
+        <a href="/my-approvals?view=daily"   class="view-tab {% if view=='daily'   %}active{% endif %}">📅 일별</a>
+        <a href="/my-approvals?view=weekly"  class="view-tab {% if view=='weekly'  %}active{% endif %}">📆 주별</a>
+        <a href="/my-approvals?view=monthly" class="view-tab {% if view=='monthly' %}active{% endif %}">🗓 월별</a>
       </div>
 
       <!-- 통계 카드 -->
@@ -68,6 +91,7 @@
 
       <!-- 필터 -->
       <form method="GET" action="/my-approvals" class="filter-form">
+        <input type="hidden" name="view" value="{{ view }}">
         <div class="filter-group">
           <label>시작일</label>
           <input type="date" name="date_from" value="{{ date_from }}">
@@ -88,19 +112,26 @@
         </div>
         <button type="submit" class="btn btn-primary"
                 style="width:auto; padding:10px 20px; align-self:flex-end;">검색</button>
-        <a href="/my-approvals" class="btn btn-outline"
+        <a href="/my-approvals?view={{ view }}" class="btn btn-outline"
            style="width:auto; padding:10px 16px; align-self:flex-end; margin-top:0;">초기화</a>
       </form>
 
       <hr class="divider">
 
-      <!-- 결과 테이블 -->
+      <!-- 결과 -->
       {% if records %}
       <div style="font-size:0.82rem; color:#546e7a; margin-bottom:10px;">
         총 <strong style="color:#e0e6ed;">{{ records | length }}</strong> 건
+        {% if view != 'all' %}
+        <span style="margin-left:8px; font-size:0.78rem; color:var(--orange);">
+          {{ {'daily':'📅 일별','weekly':'📆 주별','monthly':'🗓 월별'}[view] }} 보기
+        </span>
+        {% endif %}
       </div>
 
-      <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+      {# ── 공통 테이블 매크로 ── #}
+      {% macro appr_table(rows) %}
+      <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border); margin-bottom:4px;">
         <table style="width:100%; border-collapse:collapse; font-size:0.85rem; white-space:nowrap;">
           <thead>
             <tr>
@@ -116,7 +147,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for r in records %}
+            {% for r in rows %}
             <tr style="border-bottom:1px solid var(--border);">
               <td style="padding:10px 12px; font-size:0.82rem; color:var(--text-sub);">{{ r.approved_at[:16] if r.approved_at else '-' }}</td>
               <td style="padding:10px 12px;"><strong>{{ r.eq_name }}</strong></td>
@@ -140,11 +171,39 @@
           </tbody>
         </table>
       </div>
+      {% endmacro %}
+
+      {# ── 그룹 뷰 ── #}
+      {% if view in ('daily','weekly','monthly') and grouped %}
+        {% for group_key, group_rows in grouped.items() %}
+          <div class="group-header">
+            {% if view == 'daily' %}📅{% elif view == 'weekly' %}📆{% else %}🗓{% endif %}
+            {{ group_key }}
+            <span class="group-cnt">
+              {{ group_rows | length }}건
+              &nbsp;·&nbsp; 정상 {{ group_rows | selectattr('result','equalto','정상') | list | length }}
+              &nbsp;/&nbsp; 이상 {{ group_rows | selectattr('result','equalto','이상') | list | length }}
+              &nbsp;/&nbsp; 수리 {{ group_rows | selectattr('result','in',['수리필요','수리중']) | list | length }}
+            </span>
+          </div>
+          {{ appr_table(group_rows) }}
+        {% endfor %}
+
+      {# ── 전체 뷰 ── #}
+      {% else %}
+        {{ appr_table(records) }}
+      {% endif %}
 
       {% else %}
       <div class="empty-row" style="padding:48px;">
         {% if date_from or date_to or result_filter %}
           해당 조건의 승인 결과가 없습니다.
+        {% elif view == 'daily' %}
+          오늘 승인 처리한 기록이 없습니다.
+        {% elif view == 'weekly' %}
+          이번 주 승인 처리한 기록이 없습니다.
+        {% elif view == 'monthly' %}
+          이번 달 승인 처리한 기록이 없습니다.
         {% else %}
           아직 승인 처리한 점검 기록이 없습니다.
         {% endif %}

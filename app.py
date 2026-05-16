@@ -3296,9 +3296,24 @@ def help_page():
 @app.route('/my-approvals')
 @login_required
 def my_approvals():
+    from datetime import date as _date, timedelta as _td
+
+    view          = request.args.get('view', 'all')
     date_from     = request.args.get('date_from', '')
     date_to       = request.args.get('date_to', '')
     result_filter = request.args.get('result', '')
+
+    today = _date.today()
+    if not date_from and not date_to:
+        if view == 'daily':
+            date_from = date_to = today.strftime('%Y-%m-%d')
+        elif view == 'weekly':
+            week_start = today - _td(days=today.weekday())
+            date_from  = week_start.strftime('%Y-%m-%d')
+            date_to    = today.strftime('%Y-%m-%d')
+        elif view == 'monthly':
+            date_from = today.strftime('%Y-%m-01')
+            date_to   = today.strftime('%Y-%m-%d')
 
     conn = get_db()
 
@@ -3337,9 +3352,33 @@ def my_approvals():
         'idle':     sum(1 for r in records if r['result'] == '휴동'),
     }
 
+    # 기간별 그룹화 (approved_at 기준)
+    grouped = {}
+    if view == 'daily':
+        for r in records:
+            key = str(r['approved_at'] or r['inspected_at'])[:10]
+            grouped.setdefault(key, []).append(r)
+    elif view == 'weekly':
+        for r in records:
+            d_str = str(r['approved_at'] or r['inspected_at'])[:10]
+            try:
+                dt = _date.fromisoformat(d_str)
+                ws = dt - _td(days=dt.weekday())
+                we = ws + _td(days=6)
+                key = f"{ws.strftime('%Y-%m-%d')} ~ {we.strftime('%m-%d')}"
+            except Exception:
+                key = d_str[:7]
+            grouped.setdefault(key, []).append(r)
+    elif view == 'monthly':
+        for r in records:
+            ym  = str(r['approved_at'] or r['inspected_at'])[:7]
+            key = ym[:4] + '년 ' + ym[5:7] + '월'
+            grouped.setdefault(key, []).append(r)
+
     return render_template('my_approvals.html', records=records, stats=stats,
                            date_from=date_from, date_to=date_to,
-                           result_filter=result_filter)
+                           result_filter=result_filter, view=view,
+                           grouped=grouped)
 
 
 # ── 대시보드 ──────────────────────────────────────────────────────────────────
