@@ -4096,6 +4096,191 @@ def anomaly_management():
         f_eq=f_eq, f_priority=f_priority)
 
 
+@app.route('/anomaly-management/export')
+def anomaly_export():
+    """이상발생관리 대장 엑셀 다운로드"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    if not HAS_OPENPYXL:
+        flash('openpyxl 라이브러리가 없어 엑셀 내보내기를 사용할 수 없습니다.', 'error')
+        return redirect(url_for('anomaly_management'))
+
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    f_dept     = request.args.get('dept', '').strip()
+    f_resolved = request.args.get('resolved', '').strip()
+    f_eq       = request.args.get('eq_id', '').strip()
+    f_priority = request.args.get('priority', '').strip()
+
+    where_parts, params = [], []
+    if f_dept:
+        where_parts.append(f'e.department = {ph}'); params.append(f_dept)
+    if f_resolved in ('0', '1'):
+        where_parts.append(f'a.is_resolved = {ph}'); params.append(int(f_resolved))
+    if f_eq:
+        where_parts.append(f'a.equipment_id = {ph}'); params.append(int(f_eq))
+    if f_priority:
+        where_parts.append(f'a.priority = {ph}'); params.append(f_priority)
+    if not session.get('is_admin'):
+        my_team = session.get('team', '')
+        if my_team and my_team != '관리자':
+            where_parts.append(f'e.department = {ph}'); params.append(my_team)
+
+    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+    rows = conn.execute(f'''
+        SELECT a.*,
+               e.name AS eq_name, e.department,
+               u.name AS reporter_name,
+               r.name AS resolver_name
+        FROM equipment_anomalies a
+        JOIN equipment e ON e.id = a.equipment_id
+        JOIN users u ON u.id = a.reporter_id
+        LEFT JOIN users r ON r.id = a.resolved_by
+        {where_sql}
+        ORDER BY a.occurred_at DESC
+    ''', params).fetchall()
+    conn.close()
+
+    # ── openpyxl 워크북 생성 ──────────────────────────────────
+    from openpyxl.styles import (Font, PatternFill, Alignment,
+                                  Border, Side, GradientFill)
+    from openpyxl.utils import get_column_letter
+
+    wb  = openpyxl.Workbook()
+    ws  = wb.active
+    ws.title = '이상발생관리대장'
+
+    # 제목 행
+    ws.merge_cells('A1:M1')
+    title_cell = ws['A1']
+    title_cell.value = '이상발생관리 대장'
+    title_cell.font      = Font(name='맑은 고딕', bold=True, size=14, color='FFFFFF')
+    title_cell.fill      = PatternFill('solid', fgColor='C0392B')
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 32
+
+    # 출력일시
+    ws.merge_cells('A2:M2')
+    info_cell = ws['A2']
+    info_cell.value = f'출력일시: {now_kst().strftime("%Y-%m-%d %H:%M")}  |  출력자: {session.get("user_name","")}'
+    info_cell.font  = Font(name='맑은 고딕', size=9, color='666666')
+    info_cell.alignment = Alignment(horizontal='right', vertical='center')
+    ws.row_dimensions[2].height = 16
+
+    # 헤더
+    headers = ['No.', '발생일시', '설비명', '팀', '우선순위',
+               '이상 내용', '조치사항', '조치담당자',
+               '조치완료예정일', '조치완료일', '상태', '신고자', '사진수']
+    col_widths = [5, 18, 18, 10, 9, 30, 28, 10, 14, 12, 9, 10, 6]
+
+    hdr_fill   = PatternFill('solid', fgColor='FFF3E0')
+    hdr_font   = Font(name='맑은 고딕', bold=True, size=10, color='BF360C')
+    hdr_border = Border(
+        bottom=Side(style='medium', color='F97316'),
+        top=Side(style='thin', color='CCCCCC'),
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+    )
+    hdr_align  = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    for ci, (hdr, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=3, column=ci, value=hdr)
+        cell.font      = hdr_font
+        cell.fill      = hdr_fill
+        cell.border    = hdr_border
+        cell.alignment = hdr_align
+        ws.column_dimensions[get_column_letter(ci)].width = w
+    ws.row_dimensions[3].height = 22
+
+    # 데이터 행
+    thin = Side(style='thin', color='DDDDDD')
+    cell_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    cell_align  = Alignment(vertical='center', wrap_text=True)
+    center_align= Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    priority_colors = {'높음': 'FFEBEE', '보통': 'FFFDE7', '낮음': 'E8F5E9'}
+    status_colors   = {'미조치': 'FFEBEE', '조치완료': 'E8F5E9'}
+
+    # 사진 수 일괄 조회
+    anomaly_ids = [r['id'] for r in rows]
+    photo_cnt_map = {}
+    if anomaly_ids:
+        conn2 = get_db()
+        pls   = ','.join([ph]*len(anomaly_ids))
+        prows = conn2.execute(
+            f'SELECT anomaly_id, COUNT(*) as cnt FROM anomaly_photos WHERE anomaly_id IN ({pls}) GROUP BY anomaly_id',
+            anomaly_ids).fetchall()
+        photo_cnt_map = {r['anomaly_id']: r['cnt'] for r in prows}
+        conn2.close()
+
+    for ri, a in enumerate(rows, start=1):
+        row_num = ri + 3
+        status  = '조치완료' if a['is_resolved'] else '미조치'
+        p_color = priority_colors.get(a['priority'] or '보통', 'FFFFFF')
+        s_color = status_colors.get(status, 'FFFFFF')
+
+        vals = [
+            ri,
+            (a['occurred_at'] or '')[:16],
+            a['eq_name'] or '',
+            a['department'] or '',
+            a['priority'] or '',
+            a['description'] or '',
+            a['action_taken'] or '',
+            a['action_person'] or '',
+            a['planned_resolve_date'] or '',
+            a['resolved_date'] or '',
+            status,
+            a['reporter_name'] or '',
+            photo_cnt_map.get(a['id'], 0),
+        ]
+        for ci, val in enumerate(vals, start=1):
+            cell = ws.cell(row=row_num, column=ci, value=val)
+            cell.font   = Font(name='맑은 고딕', size=9)
+            cell.border = cell_border
+            cell.alignment = center_align if ci in (1, 4, 5, 9, 10, 11, 12, 13) else cell_align
+            # 우선순위 컬럼 배경
+            if ci == 5:
+                cell.fill = PatternFill('solid', fgColor=p_color)
+            # 상태 컬럼 배경
+            if ci == 11:
+                cell.fill = PatternFill('solid', fgColor=s_color)
+                cell.font = Font(name='맑은 고딕', size=9, bold=True,
+                                 color='16A34A' if status == '조치완료' else 'DC2626')
+        ws.row_dimensions[row_num].height = 40
+
+    # 요약행
+    sum_row = len(rows) + 4
+    ws.merge_cells(f'A{sum_row}:E{sum_row}')
+    s = ws.cell(row=sum_row, column=1,
+                value=f'합계: 총 {len(rows)}건  |  미조치 {sum(1 for r in rows if not r["is_resolved"])}건  |  조치완료 {sum(1 for r in rows if r["is_resolved"])}건')
+    s.font      = Font(name='맑은 고딕', bold=True, size=9, color='BF360C')
+    s.alignment = Alignment(horizontal='left', vertical='center')
+    s.fill      = PatternFill('solid', fgColor='FFF3E0')
+    ws.row_dimensions[sum_row].height = 18
+
+    # 틀 고정
+    ws.freeze_panes = 'A4'
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    fname = f'이상발생관리대장_{now_kst().strftime("%Y%m%d_%H%M")}.xlsx'
+    import urllib.parse
+    fname_encoded = urllib.parse.quote(fname)
+    from flask import Response as _Resp
+    return _Resp(
+        buf.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={
+            'Content-Disposition': f"attachment; filename*=UTF-8''{fname_encoded}",
+            'Content-Length': buf.getbuffer().nbytes,
+        }
+    )
+
+
 @app.route('/anomaly/report', methods=['POST'])
 def anomaly_report():
     if 'user_id' not in session:

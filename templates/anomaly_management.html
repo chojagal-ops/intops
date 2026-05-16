@@ -91,6 +91,32 @@
       transition:background .15s; white-space:nowrap;
     }
     .photo-upload-inline label.upload-btn:hover { background:rgba(59,130,246,0.12); }
+
+    /* ── 프린트 스타일 ── */
+    @media print {
+      * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+      .topbar, .filter-bar, .stat-cards, #add-anomaly-form,
+      .action-form, .photo-upload-inline, .photo-count-badge,
+      .photo-strip, #lb-overlay, .btn-sm, .btn-sm-red,
+      .no-print { display:none !important; }
+      body { background:#fff !important; }
+      .page-wrap { padding:0 !important; }
+      .card { box-shadow:none !important; border:none !important; padding:8px !important; }
+      .card-wide { max-width:100% !important; }
+      .print-header { display:block !important; }
+      .anomaly-table { font-size:8pt !important; border-collapse:collapse !important; width:100% !important; }
+      .anomaly-table th, .anomaly-table td {
+        border:1px solid #999 !important; padding:4px 6px !important;
+        font-size:8pt !important; word-break:break-all !important;
+      }
+      .anomaly-table th { background:#f5f5f5 !important; font-weight:bold !important; }
+      .priority-badge, .resolved-badge { border:1px solid #999 !important; }
+      .tmpl-table-wrap { overflow:visible !important; }
+      a { text-decoration:none !important; color:inherit !important; }
+      .print-only { display:block !important; }
+    }
+    .print-header { display:none; }
+    .print-only   { display:none; }
   </style>
 </head>
 <body>
@@ -145,17 +171,48 @@
         {% endfor %}
       {% endwith %}
 
+      <!-- 프린트용 상단 (화면에선 숨김) -->
+      <div class="print-header" style="margin-bottom:12px; border-bottom:2px solid #c0392b; padding-bottom:10px;">
+        <div style="font-size:16pt; font-weight:900; color:#c0392b;">🚨 이상발생관리 대장</div>
+        <div style="font-size:9pt; color:#666; margin-top:4px;">
+          출력일시: <span id="print-date"></span> &nbsp;|&nbsp; 출력자: {{ session.user_name }}
+          {% if f_dept %} &nbsp;|&nbsp; 팀: {{ f_dept }}{% endif %}
+          {% if f_resolved == '0' %} &nbsp;|&nbsp; 상태: 미조치{% elif f_resolved == '1' %} &nbsp;|&nbsp; 상태: 조치완료{% endif %}
+          {% if f_priority %} &nbsp;|&nbsp; 우선순위: {{ f_priority }}{% endif %}
+        </div>
+      </div>
+
       <!-- 헤더 -->
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+      <div class="no-print" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
         <div>
           <div style="font-size:1.3rem; font-weight:800;">🚨 이상발생관리 대장</div>
           <div style="font-size:0.82rem; color:var(--text-sub); margin-top:3px;">설비 이상 신고 · 조치 현황 관리</div>
         </div>
-        <button onclick="toggleAddForm()"
-          style="padding:10px 20px; background:linear-gradient(135deg,#dc2626,#b91c1c);
-                 color:#fff; border:none; border-radius:10px; font-size:0.9rem; font-weight:700; cursor:pointer;">
-          ＋ 이상 신고 등록
-        </button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <!-- 엑셀 내보내기 -->
+          <a href="/anomaly-management/export?dept={{ f_dept }}&resolved={{ f_resolved }}&eq_id={{ f_eq }}&priority={{ f_priority }}"
+             style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px;
+                    background:linear-gradient(135deg,#16a34a,#15803d);
+                    color:#fff; border:none; border-radius:10px; font-size:0.88rem;
+                    font-weight:700; text-decoration:none; cursor:pointer;">
+            📥 엑셀 다운로드
+          </a>
+          <!-- 프린트 -->
+          <button onclick="printAnomalies()"
+            style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px;
+                   background:linear-gradient(135deg,#2563eb,#1d4ed8);
+                   color:#fff; border:none; border-radius:10px; font-size:0.88rem;
+                   font-weight:700; cursor:pointer;">
+            🖨️ 프린트
+          </button>
+          <!-- 신고 등록 -->
+          <button onclick="toggleAddForm()"
+            style="display:inline-flex; align-items:center; gap:6px; padding:10px 18px;
+                   background:linear-gradient(135deg,#dc2626,#b91c1c);
+                   color:#fff; border:none; border-radius:10px; font-size:0.9rem; font-weight:700; cursor:pointer;">
+            ＋ 이상 신고 등록
+          </button>
+        </div>
       </div>
 
       <!-- 통계 -->
@@ -463,9 +520,25 @@
           </tbody>
         </table>
       </div>
-      <div style="margin-top:12px;font-size:0.8rem;color:var(--text-sub);">
-        총 <strong>{{ anomalies|length }}</strong>건
-        {% if f_dept or f_resolved or f_eq or f_priority %}(필터 적용됨){% endif %}
+      <!-- 요약 행 (화면 + 프린트 공용) -->
+      <div style="margin-top:12px; padding:10px 16px;
+                  background:rgba(249,115,22,0.06); border-radius:10px;
+                  display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.85rem; color:var(--text-sub);">
+          총 <strong style="color:var(--orange);">{{ anomalies|length }}</strong>건
+          {% if f_dept or f_resolved or f_eq or f_priority %}
+          <span style="font-size:0.78rem;">(필터 적용됨)</span>
+          {% endif %}
+        </span>
+        <span style="font-size:0.85rem; color:#dc2626;">
+          ⚠ 미조치 <strong>{{ anomalies|selectattr('is_resolved','equalto',0)|list|length }}</strong>건
+        </span>
+        <span style="font-size:0.85rem; color:#16a34a;">
+          ✅ 조치완료 <strong>{{ anomalies|selectattr('is_resolved','equalto',1)|list|length }}</strong>건
+        </span>
+        <span style="font-size:0.85rem; color:#d97706;">
+          🔴 긴급 미조치 <strong>{{ anomalies|selectattr('priority','equalto','높음')|selectattr('is_resolved','equalto',0)|list|length }}</strong>건
+        </span>
       </div>
 
       {% else %}
@@ -480,6 +553,27 @@
   </div>
 
   <script>
+  /* ── 프린트 날짜 세팅 ── */
+  (function() {
+    const el = document.getElementById('print-date');
+    if (el) {
+      const now = new Date();
+      const p = n => String(n).padStart(2,'0');
+      el.textContent = now.getFullYear()+'-'+p(now.getMonth()+1)+'-'+p(now.getDate())
+                     +' '+p(now.getHours())+':'+p(now.getMinutes());
+    }
+  })();
+
+  /* ── 프린트 실행 ── */
+  function printAnomalies() {
+    // 라이트박스 닫기
+    lbHide();
+    // 열린 이상 신고 폼 닫기
+    const addForm = document.getElementById('add-anomaly-form');
+    if (addForm) addForm.style.display = 'none';
+    window.print();
+  }
+
   /* ── 조치완료 선택 시 완료일 필드 표시 (등록 폼) ── */
   function toggleResolvedDate(val, fieldId) {
     const el = document.getElementById(fieldId);
