@@ -1419,6 +1419,16 @@ def admin_reset_password(user_id):
     return redirect(url_for('admin'))
 
 
+# ── 블루프린트 다운로드 ───────────────────────────────────────────────────────
+@app.route('/download/blueprint')
+@admin_required
+def download_blueprint():
+    import os as _os
+    path = _os.path.join(_os.path.dirname(__file__), 'BLUEPRINT.md')
+    return send_file(path, as_attachment=True, download_name='BLUEPRINT.md',
+                     mimetype='text/markdown; charset=utf-8')
+
+
 # ── 관리자: 설비 관리 ─────────────────────────────────────────────────────────
 @app.route('/admin/equipment')
 @admin_required
