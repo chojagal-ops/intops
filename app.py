@@ -507,9 +507,9 @@ def init_db():
             "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS center_val TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN IF NOT EXISTS max_val TEXT DEFAULT ''",
             # 기존 unit 텍스트값 정규화 (공백 제거)
-            "UPDATE inspection_items SET unit='주1회' WHERE REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
-            "UPDATE inspection_items SET unit='월1회' WHERE REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
-            "UPDATE inspection_items SET unit='일1회' WHERE unit IN ('매일','일 1회','daily','')",
+            "UPDATE inspection_items SET unit='주1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
+            "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
+            "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
         ]
         for sql in migrations:
             try:
@@ -535,9 +535,9 @@ def init_db():
             "ALTER TABLE inspection_items ADD COLUMN min_val TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN center_val TEXT DEFAULT ''",
             "ALTER TABLE inspection_items ADD COLUMN max_val TEXT DEFAULT ''",
-            "UPDATE inspection_items SET unit='주1회' WHERE REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
-            "UPDATE inspection_items SET unit='월1회' WHERE REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
-            "UPDATE inspection_items SET unit='일1회' WHERE unit IN ('매일','일 1회','daily','')",
+            "UPDATE inspection_items SET unit='주1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
+            "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
+            "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
         ]
         for sql in migrations:
             try:
