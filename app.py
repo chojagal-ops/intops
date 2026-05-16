@@ -488,18 +488,29 @@ def init_db():
 
     conn.execute(f'''
         CREATE TABLE IF NOT EXISTS equipment_anomalies (
-            id           {_pk},
-            equipment_id INTEGER NOT NULL,
+            id            {_pk},
+            equipment_id  INTEGER NOT NULL,
             inspection_id INTEGER,
-            reporter_id  INTEGER NOT NULL,
-            occurred_at  TEXT DEFAULT ({_now}),
-            description  TEXT NOT NULL,
-            action_taken TEXT DEFAULT '',
-            priority     TEXT DEFAULT '보통',
-            is_resolved  INTEGER DEFAULT 0,
-            resolved_at  TEXT,
-            resolved_by  INTEGER,
-            created_at   TEXT DEFAULT ({_now})
+            reporter_id   INTEGER NOT NULL,
+            occurred_at   TEXT DEFAULT ({_now}),
+            description   TEXT NOT NULL,
+            action_taken  TEXT DEFAULT '',
+            action_person TEXT DEFAULT '',
+            priority      TEXT DEFAULT '보통',
+            is_resolved   INTEGER DEFAULT 0,
+            resolved_at   TEXT,
+            resolved_by   INTEGER,
+            created_at    TEXT DEFAULT ({_now})
+        )
+    ''')
+
+    conn.execute(f'''
+        CREATE TABLE IF NOT EXISTS anomaly_photos (
+            id          {_pk},
+            anomaly_id  INTEGER NOT NULL,
+            photo_data  TEXT NOT NULL,
+            filename    TEXT DEFAULT '',
+            created_at  TEXT DEFAULT ({_now})
         )
     ''')
 
@@ -527,6 +538,7 @@ def init_db():
             "UPDATE inspection_items SET unit='주1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
             "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
             "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
+            "ALTER TABLE equipment_anomalies ADD COLUMN IF NOT EXISTS action_person TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -555,6 +567,7 @@ def init_db():
             "UPDATE inspection_items SET unit='주1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='주1회' AND unit<>'주1회'",
             "UPDATE inspection_items SET unit='월1회' WHERE item_type='일반' AND REPLACE(unit,' ','')='월1회' AND unit<>'월1회'",
             "UPDATE inspection_items SET unit='일1회' WHERE item_type='일반' AND unit IN ('매일','일 1회','일1회 ','daily','')",
+            "ALTER TABLE equipment_anomalies ADD COLUMN action_person TEXT DEFAULT ''",
         ]
         for sql in migrations:
             try:
@@ -3989,6 +4002,22 @@ def my_profile():
 
 # ── 이상발생관리 ─────────────────────────────────────────────────────────────
 
+def _save_anomaly_photos(conn, anomaly_id, form):
+    """form 에서 photo_data_1~5 를 읽어 anomaly_photos 에 저장. 저장 건수 반환."""
+    ph = '%s' if conn._pg else '?'
+    saved = 0
+    for i in range(1, 6):
+        data = form.get(f'photo_data_{i}', '').strip()
+        fname = form.get(f'photo_name_{i}', '').strip()
+        if data and data.startswith('data:image'):
+            conn.execute(
+                f'INSERT INTO anomaly_photos (anomaly_id, photo_data, filename) VALUES ({ph},{ph},{ph})',
+                (anomaly_id, data, fname)
+            )
+            saved += 1
+    return saved
+
+
 @app.route('/anomaly-management')
 def anomaly_management():
     if 'user_id' not in session:
@@ -3998,11 +4027,10 @@ def anomaly_management():
 
     # 필터 파라미터
     f_dept     = request.args.get('dept', '').strip()
-    f_resolved = request.args.get('resolved', '').strip()   # '' / '0' / '1'
+    f_resolved = request.args.get('resolved', '').strip()
     f_eq       = request.args.get('eq_id', '').strip()
     f_priority = request.args.get('priority', '').strip()
 
-    # 팀 목록 + 설비 목록 (필터용)
     equipments = conn.execute('SELECT id, name, department FROM equipment ORDER BY department, name').fetchall()
 
     where_parts = []
@@ -4021,7 +4049,6 @@ def anomaly_management():
         where_parts.append(f'a.priority = {ph}')
         params.append(f_priority)
 
-    # 비관리자: 자기 팀만
     if not session.get('is_admin'):
         my_team = session.get('team', '')
         if my_team and my_team != '관리자':
@@ -4043,9 +4070,21 @@ def anomaly_management():
         ORDER BY a.occurred_at DESC
     ''', params).fetchall()
 
+    # 각 이상 건 사진 수 조회
+    anomaly_ids = [a['id'] for a in anomalies]
+    photo_counts = {}
+    if anomaly_ids:
+        placeholders = ','.join([ph] * len(anomaly_ids))
+        rows = conn.execute(
+            f'SELECT anomaly_id, COUNT(*) as cnt FROM anomaly_photos WHERE anomaly_id IN ({placeholders}) GROUP BY anomaly_id',
+            anomaly_ids
+        ).fetchall()
+        photo_counts = {r['anomaly_id']: r['cnt'] for r in rows}
+
     conn.close()
     return render_template('anomaly_management.html',
         anomalies=anomalies, equipments=equipments,
+        photo_counts=photo_counts,
         teams=TEAMS,
         f_dept=f_dept, f_resolved=f_resolved,
         f_eq=f_eq, f_priority=f_priority)
@@ -4058,13 +4097,14 @@ def anomaly_report():
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
-    eq_id       = request.form.get('equipment_id', '').strip()
+    eq_id         = request.form.get('equipment_id', '').strip()
     inspection_id = request.form.get('inspection_id', '').strip() or None
-    description = request.form.get('description', '').strip()
-    action_taken = request.form.get('action_taken', '').strip()
-    priority    = request.form.get('priority', '보통').strip()
-    is_resolved = 1 if request.form.get('is_resolved') == '1' else 0
-    occurred_at = request.form.get('occurred_at', '').strip()
+    description   = request.form.get('description', '').strip()
+    action_taken  = request.form.get('action_taken', '').strip()
+    action_person = request.form.get('action_person', '').strip()
+    priority      = request.form.get('priority', '보통').strip()
+    is_resolved   = 1 if request.form.get('is_resolved') == '1' else 0
+    occurred_at   = request.form.get('occurred_at', '').strip()
 
     if not eq_id or not description:
         flash('설비와 이상 내용은 필수입니다.', 'error')
@@ -4072,18 +4112,22 @@ def anomaly_report():
         ref = request.referrer or url_for('anomaly_management')
         return redirect(ref)
 
-    now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
-    occ     = occurred_at if occurred_at else now_str
+    now_str     = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    occ         = occurred_at if occurred_at else now_str
     resolved_at = now_str if is_resolved else None
 
-    conn.execute(f'''
+    anomaly_id = conn.insert(f'''
         INSERT INTO equipment_anomalies
             (equipment_id, inspection_id, reporter_id, occurred_at,
-             description, action_taken, priority, is_resolved, resolved_at, resolved_by)
-        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
+             description, action_taken, action_person, priority,
+             is_resolved, resolved_at, resolved_by)
+        VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})
     ''', (eq_id, inspection_id, session['user_id'], occ,
-          description, action_taken, priority, is_resolved,
-          resolved_at, session['user_id'] if is_resolved else None))
+          description, action_taken, action_person, priority,
+          is_resolved, resolved_at,
+          session['user_id'] if is_resolved else None))
+
+    _save_anomaly_photos(conn, anomaly_id, request.form)
     conn.commit()
     conn.close()
     flash('이상 내용이 등록되었습니다.', 'success')
@@ -4098,22 +4142,92 @@ def anomaly_update(anomaly_id):
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
-    action_taken = request.form.get('action_taken', '').strip()
-    priority     = request.form.get('priority', '보통').strip()
-    is_resolved  = 1 if request.form.get('is_resolved') == '1' else 0
-    now_str      = now_kst().strftime('%Y-%m-%d %H:%M:%S')
-    resolved_at  = now_str if is_resolved else None
-    resolved_by  = session['user_id'] if is_resolved else None
+    action_taken  = request.form.get('action_taken', '').strip()
+    action_person = request.form.get('action_person', '').strip()
+    priority      = request.form.get('priority', '보통').strip()
+    is_resolved   = 1 if request.form.get('is_resolved') == '1' else 0
+    now_str       = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    resolved_at   = now_str if is_resolved else None
+    resolved_by   = session['user_id'] if is_resolved else None
 
     conn.execute(f'''
         UPDATE equipment_anomalies
-        SET action_taken={ph}, priority={ph}, is_resolved={ph},
-            resolved_at={ph}, resolved_by={ph}
+        SET action_taken={ph}, action_person={ph}, priority={ph},
+            is_resolved={ph}, resolved_at={ph}, resolved_by={ph}
         WHERE id={ph}
-    ''', (action_taken, priority, is_resolved, resolved_at, resolved_by, anomaly_id))
+    ''', (action_taken, action_person, priority,
+          is_resolved, resolved_at, resolved_by, anomaly_id))
+
+    _save_anomaly_photos(conn, anomaly_id, request.form)
     conn.commit()
     conn.close()
     flash('이상 내용이 업데이트되었습니다.', 'success')
+    ref = request.referrer or url_for('anomaly_management')
+    return redirect(ref)
+
+
+@app.route('/anomaly-photo/<int:photo_id>')
+def anomaly_photo(photo_id):
+    """저장된 base64 사진을 이미지로 반환"""
+    if 'user_id' not in session:
+        return '', 403
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+    row  = conn.execute(
+        f'SELECT photo_data, filename FROM anomaly_photos WHERE id={ph}', (photo_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return '', 404
+    data = row['photo_data']
+    # data:image/jpeg;base64,.... 형식에서 파싱
+    if ',' in data:
+        header, b64 = data.split(',', 1)
+        mime = header.split(':')[1].split(';')[0] if ':' in header else 'image/jpeg'
+    else:
+        b64  = data
+        mime = 'image/jpeg'
+    import base64 as _b64
+    raw = _b64.b64decode(b64)
+    from flask import Response
+    return Response(raw, mimetype=mime)
+
+
+@app.route('/anomaly-photos/<int:anomaly_id>')
+def anomaly_photos_list(anomaly_id):
+    """특정 이상 건의 사진 목록(id 리스트) JSON 반환"""
+    if 'user_id' not in session:
+        return {'photos': []}
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+    rows = conn.execute(
+        f'SELECT id, filename, created_at FROM anomaly_photos WHERE anomaly_id={ph} ORDER BY id',
+        (anomaly_id,)
+    ).fetchall()
+    conn.close()
+    return {'photos': [{'id': r['id'], 'filename': r['filename'], 'created_at': r['created_at']} for r in rows]}
+
+
+@app.route('/anomaly-photo/<int:photo_id>/delete', methods=['POST'])
+def anomaly_photo_delete(photo_id):
+    """사진 삭제 (신고자 본인 또는 관리자)"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+    # anomaly의 reporter 확인
+    row = conn.execute(
+        f'''SELECT ap.id, ea.reporter_id FROM anomaly_photos ap
+            JOIN equipment_anomalies ea ON ea.id=ap.anomaly_id
+            WHERE ap.id={ph}''', (photo_id,)
+    ).fetchone()
+    if row and (session.get('is_admin') or row['reporter_id'] == session['user_id']):
+        conn.execute(f'DELETE FROM anomaly_photos WHERE id={ph}', (photo_id,))
+        conn.commit()
+        flash('사진이 삭제되었습니다.', 'success')
+    else:
+        flash('삭제 권한이 없습니다.', 'error')
+    conn.close()
     ref = request.referrer or url_for('anomaly_management')
     return redirect(ref)
 
@@ -4125,6 +4239,7 @@ def anomaly_delete(anomaly_id):
         return redirect(url_for('anomaly_management'))
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
+    conn.execute(f'DELETE FROM anomaly_photos WHERE anomaly_id={ph}', (anomaly_id,))
     conn.execute(f'DELETE FROM equipment_anomalies WHERE id={ph}', (anomaly_id,))
     conn.commit()
     conn.close()
