@@ -4081,11 +4081,55 @@ def anomaly_management():
     photo_counts = {}
     if anomaly_ids:
         placeholders = ','.join([ph] * len(anomaly_ids))
-        rows = conn.execute(
+        prows = conn.execute(
             f'SELECT anomaly_id, COUNT(*) as cnt FROM anomaly_photos WHERE anomaly_id IN ({placeholders}) GROUP BY anomaly_id',
             anomaly_ids
         ).fetchall()
-        photo_counts = {r['anomaly_id']: r['cnt'] for r in rows}
+        photo_counts = {r['anomaly_id']: r['cnt'] for r in prows}
+
+    # ── 차트 데이터 (필터 무관, 전체 기준) ──────────────────
+    # 최근 12개월 월별 이상 발생 / 조치완료 건수
+    if conn._pg:
+        month_sql = """
+            SELECT TO_CHAR(a.occurred_at::timestamp, 'YYYY-MM') AS ym,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN a.is_resolved=1 THEN 1 ELSE 0 END) AS resolved
+            FROM equipment_anomalies a
+            JOIN equipment e ON e.id = a.equipment_id
+            WHERE a.occurred_at >= NOW() - INTERVAL '12 months'
+            GROUP BY ym ORDER BY ym
+        """
+    else:
+        month_sql = """
+            SELECT strftime('%Y-%m', a.occurred_at) AS ym,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN a.is_resolved=1 THEN 1 ELSE 0 END) AS resolved
+            FROM equipment_anomalies a
+            JOIN equipment e ON e.id = a.equipment_id
+            WHERE a.occurred_at >= datetime('now','localtime','-12 months')
+            GROUP BY ym ORDER BY ym
+        """
+    month_rows  = conn.execute(month_sql).fetchall()
+    chart_months    = [r['ym']       for r in month_rows]
+    chart_total     = [r['total']    for r in month_rows]
+    chart_resolved  = [int(r['resolved'] or 0) for r in month_rows]
+    chart_unresolved= [t - r for t, r in zip(chart_total, chart_resolved)]
+
+    # 팀별 이상 발생 건수 (전체)
+    team_sql = """
+        SELECT e.department AS dept,
+               COUNT(*) AS total,
+               SUM(CASE WHEN a.is_resolved=1 THEN 1 ELSE 0 END) AS resolved
+        FROM equipment_anomalies a
+        JOIN equipment e ON e.id = a.equipment_id
+        WHERE e.department IS NOT NULL AND e.department != ''
+        GROUP BY e.department ORDER BY total DESC
+    """
+    team_rows        = conn.execute(team_sql).fetchall()
+    chart_teams      = [r['dept']    for r in team_rows]
+    chart_team_total = [r['total']   for r in team_rows]
+    chart_team_res   = [int(r['resolved'] or 0) for r in team_rows]
+    chart_team_unres = [t - r for t, r in zip(chart_team_total, chart_team_res)]
 
     conn.close()
     return render_template('anomaly_management.html',
@@ -4093,7 +4137,16 @@ def anomaly_management():
         photo_counts=photo_counts,
         teams=TEAMS,
         f_dept=f_dept, f_resolved=f_resolved,
-        f_eq=f_eq, f_priority=f_priority)
+        f_eq=f_eq, f_priority=f_priority,
+        chart_months=chart_months,
+        chart_total=chart_total,
+        chart_resolved=chart_resolved,
+        chart_unresolved=chart_unresolved,
+        chart_teams=chart_teams,
+        chart_team_total=chart_team_total,
+        chart_team_res=chart_team_res,
+        chart_team_unres=chart_team_unres,
+    )
 
 
 @app.route('/anomaly-management/export')
