@@ -380,14 +380,12 @@
 
       <!-- 필터 -->
       <form method="GET" class="filter-bar">
-        {% if session.is_admin %}
         <select name="dept" onchange="this.form.submit()">
           <option value="">전체 팀</option>
           {% for t in teams %}
           <option value="{{ t }}" {% if f_dept==t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
-        {% endif %}
         <select name="eq_id" onchange="this.form.submit()">
           <option value="">전체 설비</option>
           {% for eq in equipments %}
