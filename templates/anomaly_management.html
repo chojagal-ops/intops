@@ -309,11 +309,21 @@
             </div>
           </div>
 
+          <!-- 사용자 자동완성 datalist -->
+          <datalist id="user-names-list">
+            {% for uname in all_user_names %}
+            <option value="{{ uname }}">{% if uname in user_names_with_email %}✉{% endif %}</option>
+            {% endfor %}
+          </datalist>
+
           <div class="form-grid3" style="margin-bottom:12px;">
             <div>
-              <label class="f-label">조치담당자</label>
-              <input type="text" name="action_person" class="f-input"
-                     placeholder="조치 담당자 이름">
+              <label class="f-label">조치담당자
+                <span id="email-hint-add" style="display:none;font-size:0.74rem;font-weight:400;color:#16a34a;margin-left:6px;">✉ 이메일 발송됨</span>
+              </label>
+              <input type="text" name="action_person" id="add-action-person" class="f-input"
+                     list="user-names-list" placeholder="조치 담당자 이름"
+                     oninput="checkEmailHint(this.value,'email-hint-add')">
             </div>
             <div>
               <label class="f-label">조치완료 예정일</label>
@@ -450,6 +460,7 @@
                       id="upd-form-{{ a.id }}">
                   <textarea name="action_taken" rows="2" placeholder="조치사항 입력...">{{ a.action_taken or '' }}</textarea>
                   <input type="text" name="action_person" placeholder="조치담당자"
+                         list="user-names-list"
                          value="{{ a.action_person or '' }}">
                   <!-- 예정일 -->
                   <div style="display:flex;gap:4px;align-items:center;font-size:0.77rem;color:var(--text-sub);">
@@ -719,6 +730,14 @@
     const addForm = document.getElementById('add-anomaly-form');
     if (addForm) addForm.style.display = 'none';
     window.print();
+  }
+
+  /* ── 조치담당자 이메일 발송 힌트 ── */
+  const _emailUsers = new Set({{ user_names_with_email | tojson }});
+  function checkEmailHint(val, hintId) {
+    const hint = document.getElementById(hintId);
+    if (!hint) return;
+    hint.style.display = _emailUsers.has(val.trim()) ? 'inline' : 'none';
   }
 
   /* ── 조치완료 선택 시 완료일 필드 표시 (등록 폼) ── */
@@ -1306,6 +1325,7 @@
             <div>
               <label class="f-label">조치담당자</label>
               <input type="text" name="action_person" id="edit-action-person" class="f-input"
+                     list="user-names-list"
                      placeholder="담당자 이름" style="margin-bottom:10px;">
 
               <label class="f-label">조치완료 예정일</label>

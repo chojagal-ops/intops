@@ -718,12 +718,24 @@
                 placeholder="예) 임시 테이프 처리 후 부품 발주, 정비팀 연락"></textarea>
             </div>
             <div>
-              <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">조치담당자</label>
-              <input type="text" name="action_person"
+              <!-- 조치담당자 자동완성 datalist -->
+              <datalist id="insp-user-names-list">
+                {% for uname in all_user_names %}
+                <option value="{{ uname }}"></option>
+                {% endfor %}
+              </datalist>
+
+              <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px;">
+                조치담당자
+                <span id="insp-email-hint" style="display:none;font-size:0.74rem;font-weight:400;color:#16a34a;margin-left:6px;">✉ 이메일 발송됨</span>
+              </label>
+              <input type="text" name="action_person" id="insp-action-person"
+                     list="insp-user-names-list"
                      style="width:100%; padding:9px 12px; border:1px solid var(--border-mid);
                             border-radius:8px; background:var(--card-bg); color:var(--text-main);
                             font-size:0.88rem; box-sizing:border-box;"
-                     placeholder="담당자 이름">
+                     placeholder="담당자 이름"
+                     oninput="checkInspEmailHint(this.value)">
 
               <label style="display:block; font-size:0.82rem; font-weight:600; margin-top:10px; margin-bottom:5px;">조치완료 예정일</label>
               <input type="date" name="planned_resolve_date"
@@ -887,6 +899,14 @@
       toast.style.opacity = '1';
       clearTimeout(_hintTimer);
       _hintTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+    }
+
+    /* ── 이상 신고 패널: 조치담당자 이메일 힌트 ── */
+    const _inspEmailUsers = new Set({{ user_names_with_email | tojson }});
+    function checkInspEmailHint(val) {
+      const hint = document.getElementById('insp-email-hint');
+      if (!hint) return;
+      hint.style.display = _inspEmailUsers.has(val.trim()) ? 'inline' : 'none';
     }
 
     /* ── 이상 신고 패널: 조치완료 선택 시 완료일 표시 ── */

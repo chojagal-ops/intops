@@ -366,6 +366,104 @@ def send_approval_request(to_email, approver_name, inspector_name,
     t.start()
 
 
+# ── 이상발생 이메일 빌더 ──────────────────────────────────────────────────────
+def _build_anomaly_email_html(action_person, reporter_name, eq_name, eq_location,
+                               description, action_taken, priority, occurred_at,
+                               planned_resolve_date, anomaly_url):
+    priority_color = {'긴급': '#dc2626', '높음': '#ea580c', '보통': '#2563eb', '낮음': '#16a34a'}.get(priority, '#2563eb')
+    planned_str = f'<tr><td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">조치 예정일</td><td style="padding:8px 12px;">{planned_resolve_date}</td></tr>' if planned_resolve_date else ''
+    action_str  = f'<tr><td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">현재 조치사항</td><td style="padding:8px 12px;">{action_taken}</td></tr>' if action_taken else ''
+    return f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Malgun Gothic',Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12);">
+    <div style="background:#1e293b;padding:24px 28px;">
+      <div style="color:#94a3b8;font-size:13px;letter-spacing:1px;">INTOPS 설비점검 시스템</div>
+      <div style="color:#fff;font-size:22px;font-weight:700;margin-top:6px;">🚨 이상발생 조치 담당 안내</div>
+    </div>
+    <div style="padding:28px;">
+      <p style="margin:0 0 18px;color:#374151;font-size:15px;">
+        안녕하세요, <strong>{action_person}</strong>님.<br>
+        아래 설비에 이상이 발생하여 귀하가 <strong>조치 담당자</strong>로 지정되었습니다.
+      </p>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px;">
+        <tr style="background:#f8fafc;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;width:120px;border-bottom:1px solid #e5e7eb;">설비명</td>
+          <td style="padding:8px 12px;font-weight:600;border-bottom:1px solid #e5e7eb;">{eq_name}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">위치/팀</td>
+          <td style="padding:8px 12px;">{eq_location or '-'}</td>
+        </tr>
+        <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">우선순위</td>
+          <td style="padding:8px 12px;"><span style="background:{priority_color};color:#fff;padding:2px 10px;border-radius:9999px;font-size:13px;font-weight:600;">{priority}</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">발생일시</td>
+          <td style="padding:8px 12px;">{occurred_at}</td>
+        </tr>
+        <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">이상내용</td>
+          <td style="padding:8px 12px;color:#dc2626;font-weight:600;">{description}</td>
+        </tr>
+        {action_str}
+        {planned_str}
+        <tr style="background:#f8fafc;">
+          <td style="padding:8px 12px;color:#6b7280;white-space:nowrap;">신고자</td>
+          <td style="padding:8px 12px;">{reporter_name}</td>
+        </tr>
+      </table>
+      <div style="text-align:center;margin:24px 0 8px;">
+        <a href="{anomaly_url}" style="background:#2563eb;color:#fff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;">📋 이상발생관리 페이지 바로가기</a>
+      </div>
+    </div>
+    <div style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:16px 28px;text-align:center;color:#9ca3af;font-size:12px;">
+      이 메일은 INTOPS 설비점검 시스템에서 자동 발송된 메일입니다.
+    </div>
+  </div>
+</body></html>'''
+
+
+def send_anomaly_notification(action_person_name, reporter_name, eq_name, eq_location,
+                               description, action_taken, priority, occurred_at,
+                               planned_resolve_date, host_url):
+    """조치담당자 이름으로 users 테이블에서 이메일 조회 후 이상발생 알림 발송 (백그라운드)"""
+    if not email_config.ENABLED:
+        print(f'[이상알림] SMTP 미설정 - 발송 스킵 (담당자: {action_person_name})', flush=True)
+        return
+    if get_setting('email_enabled', '1') != '1':
+        print(f'[이상알림] 이메일 발송 OFF - 발송 스킵', flush=True)
+        return
+    if not action_person_name or not action_person_name.strip():
+        return
+
+    def _lookup_and_send():
+        try:
+            conn2 = get_db()
+            ph2   = '%s' if conn2._pg else '?'
+            row   = conn2.execute(
+                f"SELECT email FROM users WHERE name={ph2} LIMIT 1",
+                (action_person_name.strip(),)
+            ).fetchone()
+            conn2.close()
+            if not row or not row['email']:
+                print(f'[이상알림] {action_person_name} 의 이메일 없음 - 발송 스킵', flush=True)
+                return
+            to_email  = row['email']
+            anomaly_url = host_url.rstrip('/') + '/anomaly-management'
+            subject   = f'[설비점검] 이상발생 조치 요청 - {eq_name} ({priority})'
+            html_body = _build_anomaly_email_html(
+                action_person_name, reporter_name, eq_name, eq_location,
+                description, action_taken, priority, occurred_at,
+                planned_resolve_date, anomaly_url
+            )
+            _send_mail(to_email, subject, html_body)
+        except Exception as e:
+            print(f'[이상알림] 오류: {e}', flush=True)
+
+    t = threading.Thread(target=_lookup_and_send, daemon=True)
+    t.start()
+
+
 # ── DB 초기화 ─────────────────────────────────────────────────────────────────
 def init_db():
     conn = get_db()
@@ -2099,6 +2197,11 @@ def inspect(eq_id):
             })
     details_json = json.dumps(details_for_edit, ensure_ascii=False)
 
+    # 조치담당자 자동완성 + 이메일 힌트용 사용자 목록
+    all_users_insp = conn.execute("SELECT name, email FROM users ORDER BY name").fetchall()
+    all_user_names_insp = [r['name'] for r in all_users_insp]
+    email_users_insp    = [r['name'] for r in all_users_insp if r['email']]
+
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
                            is_approver=is_approver, is_inspector=is_inspector,
@@ -2107,7 +2210,9 @@ def inspect(eq_id):
                            today_insp_details=today_insp_details,
                            today_date=today_date,
                            now_year=now.year, now_month=now.month,
-                           details_json=details_json)
+                           details_json=details_json,
+                           all_user_names=all_user_names_insp,
+                           user_names_with_email=email_users_insp)
 
 
 # ── 점검 결과 수정 ───────────────────────────────────────────────────────────
@@ -4131,6 +4236,14 @@ def anomaly_management():
     chart_team_res   = [int(r['resolved'] or 0) for r in team_rows]
     chart_team_unres = [t - r for t, r in zip(chart_team_total, chart_team_res)]
 
+    # 조치담당자 자동완성 + 이메일 발송용 사용자 목록
+    users_all = conn.execute(
+        "SELECT name, email FROM users WHERE email IS NOT NULL AND email != '' ORDER BY name"
+    ).fetchall()
+    user_names_with_email = [r['name'] for r in users_all]
+    all_users = conn.execute("SELECT name FROM users ORDER BY name").fetchall()
+    all_user_names = [r['name'] for r in all_users]
+
     conn.close()
     return render_template('anomaly_management.html',
         anomalies=anomalies, equipments=equipments,
@@ -4146,6 +4259,8 @@ def anomaly_management():
         chart_team_total=chart_team_total,
         chart_team_res=chart_team_res,
         chart_team_unres=chart_team_unres,
+        all_user_names=all_user_names,
+        user_names_with_email=user_names_with_email,
     )
 
 
@@ -4358,6 +4473,19 @@ def anomaly_report():
         ref = request.referrer or url_for('anomaly_management')
         return redirect(ref)
 
+    # 설비명/위치 조회 (이메일 알림용)
+    eq_row = conn.execute(
+        f'SELECT name, department FROM equipment WHERE id={ph}', (eq_id,)
+    ).fetchone()
+    eq_name     = eq_row['name']     if eq_row else ''
+    eq_location = eq_row['department'] if eq_row else ''
+
+    # 신고자 이름 조회
+    reporter_row = conn.execute(
+        f'SELECT name FROM users WHERE id={ph}', (session['user_id'],)
+    ).fetchone()
+    reporter_name = reporter_row['name'] if reporter_row else session.get('user_name', '')
+
     now_str     = now_kst().strftime('%Y-%m-%d %H:%M:%S')
     occ         = occurred_at if occurred_at else now_str
     resolved_at = now_str if is_resolved else None
@@ -4377,6 +4505,22 @@ def anomaly_report():
     _save_anomaly_photos(conn, anomaly_id, request.form)
     conn.commit()
     conn.close()
+
+    # 조치담당자에게 이메일 알림 발송 (백그라운드)
+    if action_person:
+        send_anomaly_notification(
+            action_person_name=action_person,
+            reporter_name=reporter_name,
+            eq_name=eq_name,
+            eq_location=eq_location,
+            description=description,
+            action_taken=action_taken,
+            priority=priority,
+            occurred_at=occ,
+            planned_resolve_date=planned_resolve_date,
+            host_url=request.host_url,
+        )
+
     flash('이상 내용이 등록되었습니다.', 'success')
     ref = request.form.get('next') or request.referrer or url_for('anomaly_management')
     return redirect(ref)
