@@ -2232,6 +2232,11 @@ def inspect(eq_id):
         ORDER BY i.inspected_at DESC
         LIMIT 20
     ''', (eq_id,)).fetchall()
+    # 조치담당자 자동완성 + 이메일 힌트용 사용자 목록 (conn.close() 전에 조회)
+    all_users_insp      = conn.execute("SELECT name, email FROM users ORDER BY name").fetchall()
+    all_user_names_insp = [r['name'] for r in all_users_insp]
+    email_users_insp    = [r['name'] for r in all_users_insp if r['email']]
+
     conn.close()
 
     now = now_kst()
@@ -2248,11 +2253,6 @@ def inspect(eq_id):
                 'item_type':    d['item_type'] or '일반',
             })
     details_json = json.dumps(details_for_edit, ensure_ascii=False)
-
-    # 조치담당자 자동완성 + 이메일 힌트용 사용자 목록
-    all_users_insp = conn.execute("SELECT name, email FROM users ORDER BY name").fetchall()
-    all_user_names_insp = [r['name'] for r in all_users_insp]
-    email_users_insp    = [r['name'] for r in all_users_insp if r['email']]
 
     return render_template('inspect.html', eq=eq, history=history,
                            pending_approvals=pending_approvals,
