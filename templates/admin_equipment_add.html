@@ -343,9 +343,19 @@
           <input type="text" name="item_criteria" placeholder="판단기준 (예: 온도 정상범위)"
                  value="${data && itype==='일반' ? escHtml(data.criteria||'') : ''}"
                  style="font-size:0.82rem; padding:6px 10px;">
-          <input type="text" name="item_unit" placeholder="단위/주기"
-                 value="${data && itype==='일반' ? escHtml(data.unit||'') : ''}"
-                 style="font-size:0.82rem; padding:6px 10px;">
+          <select name="item_unit"
+                  style="font-size:0.82rem; padding:6px 8px; border:1px solid var(--border-mid);
+                         border-radius:6px; background:var(--card-bg); color:var(--text-main);">
+            ${(function(){
+              const u=(data&&itype==='일반'?data.unit||'':'').replace(/\s+/g,'');
+              const s1=(u===''||u==='일1회'||u==='매일')?'selected':'';
+              const s2=(u==='주1회')?'selected':'';
+              const s3=(u==='월1회')?'selected':'';
+              return '<option value="일1회" '+s1+'>일 1회</option>'
+                    +'<option value="주1회" '+s2+'>주 1회</option>'
+                    +'<option value="월1회" '+s3+'>월 1회</option>';
+            })()}
+          </select>
           <input type="text" name="item_category" placeholder="분류(선택)"
                  value="${data ? escHtml(data.category||'') : ''}"
                  style="font-size:0.82rem; padding:6px 10px;">
