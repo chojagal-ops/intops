@@ -493,11 +493,13 @@
                         <span>정상</span>
                       </label>
                       <label class="item-radio item-abnormal">
-                        <input type="radio" name="result_item_{{ item.id }}" value="이상">
+                        <input type="radio" name="result_item_{{ item.id }}" value="이상"
+                               data-item-name="{{ item.item_name }}">
                         <span>이상</span>
                       </label>
                       <label class="item-radio item-repair">
-                        <input type="radio" name="result_item_{{ item.id }}" value="수리중">
+                        <input type="radio" name="result_item_{{ item.id }}" value="수리중"
+                               data-item-name="{{ item.item_name }}">
                         <span>수리중</span>
                       </label>
                       <label class="item-radio item-idle">
@@ -553,11 +555,13 @@
                       <span>정상</span>
                     </label>
                     <label class="item-radio item-abnormal">
-                      <input type="radio" name="result_{{ idx }}" value="이상">
+                      <input type="radio" name="result_{{ idx }}" value="이상"
+                             data-item-name="{{ row.cells[0] if row.cells else '' }}">
                       <span>이상</span>
                     </label>
                     <label class="item-radio item-repair">
-                      <input type="radio" name="result_{{ idx }}" value="수리중">
+                      <input type="radio" name="result_{{ idx }}" value="수리중"
+                             data-item-name="{{ row.cells[0] if row.cells else '' }}">
                       <span>수리중</span>
                     </label>
                     <label class="item-radio item-idle">
@@ -610,11 +614,11 @@
               <span class="result-radio-box"><span class="result-radio-icon">✅</span><span>정 상</span></span>
             </label>
             <label class="result-radio result-abnormal">
-              <input type="radio" name="result" value="이상">
+              <input type="radio" name="result" value="이상" data-item-name="{{ eq.name }}">
               <span class="result-radio-box"><span class="result-radio-icon">⚠️</span><span>이 상</span></span>
             </label>
             <label class="result-radio result-repair">
-              <input type="radio" name="result" value="수리필요">
+              <input type="radio" name="result" value="수리필요" data-item-name="{{ eq.name }}">
               <span class="result-radio-box"><span class="result-radio-icon">🔴</span><span>수리필요</span></span>
             </label>
             <label class="result-radio result-idle">
@@ -811,6 +815,65 @@
   </div>
 
   <script>
+    /* ── 이상/수리중 선택 시 이상 신고 패널 자동 열기 ── */
+    document.addEventListener('change', function(e) {
+      const inp = e.target;
+      if (inp.type !== 'radio') return;
+
+      const n = inp.name;
+      const isResultRadio = n === 'result'
+                         || n.startsWith('result_item_')
+                         || (n.startsWith('result_') && !n.startsWith('result_item_'));
+      if (!isResultRadio) return;
+
+      const triggerValues = ['이상', '수리중', '수리필요'];
+      if (!triggerValues.includes(inp.value)) return;
+
+      // 패널 열기
+      const panel = document.getElementById('anomaly-form-panel');
+      if (!panel) return;
+      if (panel.style.display === 'none' || !panel.style.display) {
+        toggleAnomalyForm();
+      }
+
+      // 항목명 자동 입력 (이미 내용이 없을 때만)
+      const itemName = (inp.dataset.itemName || '').trim();
+      const desc = panel.querySelector('textarea[name="description"]');
+      if (desc && !desc.value.trim() && itemName) {
+        const label = inp.value === '이상' ? '이상 발생' : inp.value === '수리중' ? '수리 필요' : '수리 필요';
+        desc.value = '[' + itemName + '] ' + label + ' — ';
+        // 커서를 맨 뒤로
+        setTimeout(() => {
+          desc.focus();
+          desc.setSelectionRange(desc.value.length, desc.value.length);
+        }, 300);
+      }
+
+      // 안내 토스트
+      _showAnomalyHint();
+    });
+
+    let _hintTimer = null;
+    function _showAnomalyHint() {
+      let toast = document.getElementById('anomaly-hint-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'anomaly-hint-toast';
+        toast.style.cssText = [
+          'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+          'background:rgba(220,38,38,0.92)','color:#fff','padding:10px 22px',
+          'border-radius:24px','font-size:0.88rem','font-weight:700',
+          'box-shadow:0 4px 20px rgba(0,0,0,0.25)','z-index:9000',
+          'pointer-events:none','transition:opacity 0.4s','white-space:nowrap'
+        ].join(';');
+        document.body.appendChild(toast);
+      }
+      toast.textContent = '🚨 하단 이상 신고 패널에 내용을 입력해 주세요';
+      toast.style.opacity = '1';
+      clearTimeout(_hintTimer);
+      _hintTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+    }
+
     /* ── 이미지 압축 & 미리보기 (공통) ── */
     const _MAX_PX = 1280, _QUALITY = 0.72, _MAX_PHOTOS = 5;
     function _compressImage(file) {
