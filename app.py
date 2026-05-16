@@ -308,6 +308,50 @@ def _send_mail(to_email, subject, html_body):
         return str(e)  # 에러 메시지 반환
 
 
+def _auto_fill_cycle(conn, eq_id, inspector_id, approver_id, result, inspected_date_str, cycle):
+    """주1회/월1회 점검 시 해당 기간 나머지 평일에 자동 승인완료 기록 삽입."""
+    if cycle not in ('주1회', '월1회'):
+        return 0
+    ph = '%s' if conn._pg else '?'
+    day_col = "LEFT(inspected_at,10)" if conn._pg else "substr(inspected_at,1,10)"
+    base = datetime.strptime(inspected_date_str, '%Y-%m-%d')
+
+    if cycle == '주1회':
+        mon = base - timedelta(days=base.weekday())
+        target_dates = [mon + timedelta(days=i) for i in range(5)]  # 월~금
+    else:  # 월1회
+        days_in_m = calendar.monthrange(base.year, base.month)[1]
+        target_dates = [
+            datetime(base.year, base.month, d)
+            for d in range(1, days_in_m + 1)
+            if datetime(base.year, base.month, d).weekday() < 5
+        ]
+
+    auto_notes = f'자동입력({cycle})'
+    inserted   = 0
+    for d in target_dates:
+        if d.date() == base.date():
+            continue                    # 점검한 날은 이미 존재
+        ds = d.strftime('%Y-%m-%d')
+        if conn.execute(f'SELECT id FROM inspections WHERE equipment_id={ph} AND {day_col}={ph}',
+                        (eq_id, ds)).fetchone():
+            continue                    # 이미 기록 있는 날 건너뜀
+        ts = ds + ' 00:00:00'
+        app_id = approver_id or inspector_id
+        if conn._pg:
+            conn.execute('''INSERT INTO inspections
+                (equipment_id,inspector_id,result,notes,status,inspected_at,approved_by,approved_at)
+                VALUES (%s,%s,%s,%s,'승인완료',%s,%s,NOW())''',
+                (eq_id, inspector_id, result, auto_notes, ts, app_id))
+        else:
+            conn.execute('''INSERT INTO inspections
+                (equipment_id,inspector_id,result,notes,status,inspected_at,approved_by,approved_at)
+                VALUES (?,?,?,?,'승인완료',?,?,datetime('now','localtime'))''',
+                (eq_id, inspector_id, result, auto_notes, ts, app_id))
+        inserted += 1
+    return inserted
+
+
 def send_approval_request(to_email, approver_name, inspector_name,
                           eq_name, location, result, notes, eq_id, host_url):
     if not email_config.ENABLED or not to_email:
@@ -1813,6 +1857,18 @@ def inspect(eq_id):
                     (eq_id, session['user_id'], result, overall_notes, inspected_at)
                 )
                 conn.commit()
+
+            # ── 주1회/월1회 자동 채움 ─────────────────────────────────────────
+            cycle = eq.get('inspection_cycle', '일1회') or '일1회'
+            if cycle in ('주1회', '월1회'):
+                insp_date_str = inspected_at[:10]
+                auto_cnt = _auto_fill_cycle(
+                    conn, eq_id, session['user_id'], eq.get('approver_id'),
+                    result, insp_date_str, cycle
+                )
+                conn.commit()
+                if auto_cnt > 0:
+                    flash(f'({cycle}) 나머지 {auto_cnt}일 자동 점검완료 처리됐습니다.', 'info')
 
             if eq['approver_id']:
                 approver = conn.execute(

@@ -65,6 +65,16 @@
             {% endif %}
           </div>
           {% if eq.description %}<div class="eq-info-desc">{{ eq.description }}</div>{% endif %}
+          {% set cyc = eq.inspection_cycle or '일1회' %}
+          {% if cyc in ('주1회','월1회') %}
+          <div style="margin-top:8px; display:inline-flex; align-items:center; gap:7px;
+                      padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700;
+                      background:rgba(59,130,246,0.10); color:#1d4ed8; border:1px solid rgba(59,130,246,0.25);">
+            🔄 점검 주기: {{ '주 1회' if cyc=='주1회' else '월 1회' }}
+            &nbsp;—&nbsp;
+            <span style="font-weight:400;">점검 완료 시 {{ '이번 주' if cyc=='주1회' else '이번 달' }} 나머지 평일이 자동 완료 처리됩니다</span>
+          </div>
+          {% endif %}
         </div>
       </div>
 

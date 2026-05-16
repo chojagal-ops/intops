@@ -200,6 +200,7 @@
               <div class="col-dropdown" id="dd-mgmt"></div>
             </th>
             <th>담당자(정/부)</th>
+            <th class="col-center">점검 주기</th>
             <th class="col-center">점검횟수</th>
 
             <th style="position:relative;">
@@ -249,6 +250,16 @@
                   {{ eq.manager_primary or '-' }} / {{ eq.manager_secondary or '-' }}
                 {% else %}-{% endif %}
               </td>
+              <td style="text-align:center; font-size:0.8rem;">
+                {% set cyc = eq.inspection_cycle or '일1회' %}
+                {% if cyc == '주1회' %}
+                  <span style="background:rgba(59,130,246,0.12);color:#1d4ed8;padding:2px 8px;border-radius:8px;font-weight:700;font-size:0.75rem;">주 1회</span>
+                {% elif cyc == '월1회' %}
+                  <span style="background:rgba(139,92,246,0.12);color:#6d28d9;padding:2px 8px;border-radius:8px;font-weight:700;font-size:0.75rem;">월 1회</span>
+                {% else %}
+                  <span style="background:rgba(107,114,128,0.10);color:#6b7280;padding:2px 8px;border-radius:8px;font-weight:700;font-size:0.75rem;">일 1회</span>
+                {% endif %}
+              </td>
               <td style="text-align:center;">
                 <span class="badge badge-approved">{{ eq.inspection_count }} 회</span>
               </td>
@@ -267,7 +278,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="10" class="empty-row" style="padding:40px; text-align:center;">
+              <td colspan="11" class="empty-row" style="padding:40px; text-align:center;">
                 등록된 설비가 없습니다.
                 <a href="/admin/equipment/add" style="color:var(--orange);">설비를 등록하세요</a>
               </td>

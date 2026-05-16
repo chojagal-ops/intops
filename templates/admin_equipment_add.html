@@ -145,13 +145,31 @@
 
         <div class="form-group">
           <label>점검 주기</label>
-          <select name="inspection_cycle">
-            <option value="매일">매일</option>
-            <option value="주1회">주 1회</option>
-            <option value="격주">격주</option>
-            <option value="월1회">월 1회</option>
-            <option value="분기1회">분기 1회</option>
-          </select>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+            {% for val, label, desc in [
+              ('일1회', '일 1회', '매일 점검 (기본)'),
+              ('주1회', '주 1회', '1회 점검 시 해당 주 나머지 평일 자동 완료'),
+              ('월1회', '월 1회', '1회 점검 시 해당 월 나머지 평일 자동 완료')
+            ] %}
+            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;
+                          padding:12px 14px; border:1.5px solid var(--border); border-radius:10px;
+                          background:var(--bg-subtle); flex:1; min-width:150px;
+                          transition:border-color 0.15s, background 0.15s;"
+                   onclick="this.style.borderColor='var(--orange)'; this.style.background='rgba(249,115,22,0.06)';"
+                   id="cycle-label-{{ val }}">
+              <input type="radio" name="inspection_cycle" value="{{ val }}"
+                     {% if val == '일1회' %}checked{% endif %}
+                     onchange="document.querySelectorAll('[id^=cycle-label-]').forEach(function(el){el.style.borderColor='';el.style.background='';});
+                               document.getElementById('cycle-label-{{ val }}').style.borderColor='var(--orange)';
+                               document.getElementById('cycle-label-{{ val }}').style.background='rgba(249,115,22,0.06)';"
+                     style="margin-top:3px; accent-color:var(--orange); flex-shrink:0;">
+              <div>
+                <div style="font-weight:700; font-size:0.9rem; color:var(--text);">{{ label }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; line-height:1.4;">{{ desc }}</div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
         </div>
 
         <hr class="divider">
