@@ -119,19 +119,23 @@ body {
 
 .topbar-nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   justify-content: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .nav-link {
-  padding: 6px 18px;
+  padding: 5px 9px;
   border-radius: 6px;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-sub);
   text-decoration: none;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 .nav-link:hover { color: var(--text); background: var(--bg-subtle); }
 .nav-link.active { color: var(--orange); background: var(--orange-light); }
