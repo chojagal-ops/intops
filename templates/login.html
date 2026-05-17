@@ -7,172 +7,447 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
+  <style>
+    /* ── 전체 레이아웃 ── */
+    html, body {
+      margin: 0; padding: 0; min-height: 100vh;
+      font-family: 'Malgun Gothic','맑은 고딕',sans-serif;
+    }
+    body { display: flex; background: #0a1628; }
+
+    /* ── 왼쪽 브랜딩 패널 ── */
+    .lp-left {
+      width: 420px; min-width: 380px;
+      background: linear-gradient(160deg, #081020 0%, #0e2050 45%, #152d70 100%);
+      display: flex; flex-direction: column;
+      padding: 52px 44px;
+      position: relative; overflow: hidden; z-index: 1;
+    }
+    .lp-left::before {
+      content: ''; position: absolute;
+      width: 440px; height: 440px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,115,22,0.09) 0%, transparent 70%);
+      top: -100px; right: -120px; z-index: 0;
+    }
+    .lp-left::after {
+      content: ''; position: absolute;
+      width: 320px; height: 320px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 70%);
+      bottom: 80px; left: -70px; z-index: 0;
+    }
+    .lp-left > * { position: relative; z-index: 1; }
+
+    /* 로고 */
+    .lp-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 52px; }
+    .lp-logo img { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; }
+    .lp-logo-name { font-size: 1rem; font-weight: 800; color: #fff; letter-spacing: 1px; }
+
+    /* 타이틀 */
+    .lp-title {
+      font-size: 2.4rem; font-weight: 900; color: #fff;
+      line-height: 1.18; margin-bottom: 16px; letter-spacing: -0.5px;
+    }
+    .lp-title span { color: #f97316; }
+
+    .lp-subtitle {
+      font-size: 0.9rem; color: rgba(255,255,255,0.55);
+      line-height: 1.75; margin-bottom: 44px;
+    }
+
+    /* 기능 그리드 */
+    .lp-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: auto; }
+    .lp-feat {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px; padding: 14px 14px 14px 12px;
+      display: flex; align-items: flex-start; gap: 10px;
+      transition: background 0.2s;
+    }
+    .lp-feat:hover { background: rgba(255,255,255,0.09); }
+    .lp-feat-icon {
+      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(249,115,22,0.15);
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+    .lp-feat-name  { font-size: 0.82rem; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .lp-feat-desc  { font-size: 0.71rem; color: rgba(255,255,255,0.42); line-height: 1.4; }
+
+    /* 하단 슬로건 */
+    .lp-tagline {
+      margin-top: 34px; padding: 16px 18px;
+      background: rgba(249,115,22,0.09);
+      border: 1px solid rgba(249,115,22,0.22); border-radius: 12px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .lp-tagline-icon { font-size: 1.5rem; }
+    .lp-tagline-main { font-size: 0.9rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .lp-tagline-sub  { font-size: 0.73rem; color: rgba(255,255,255,0.48); line-height: 1.5; }
+
+    /* ── 오른쪽 패널 (배경) ── */
+    .lp-right {
+      flex: 1; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      background: linear-gradient(135deg, #0c1a38 0%, #162a56 35%, #0e2248 70%, #091528 100%);
+    }
+    /* 격자 패턴 */
+    .lp-right::before {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 52px 52px;
+    }
+    /* 대각선 라인 장식 */
+    .lp-right::after {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background-image:
+        repeating-linear-gradient(
+          45deg,
+          transparent, transparent 80px,
+          rgba(249,115,22,0.015) 80px, rgba(249,115,22,0.015) 81px
+        );
+    }
+
+    .bg-orb {
+      position: absolute; border-radius: 50%; z-index: 0; pointer-events: none;
+    }
+
+    /* ── 로그인 카드 ── */
+    .lp-card {
+      position: relative; z-index: 1;
+      background: #fff;
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 400px; max-width: calc(100vw - 40px);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
+    }
+    .lp-card-logo { text-align: center; margin-bottom: 22px; }
+    .lp-card-logo img { width: 54px; height: 54px; border-radius: 13px; object-fit: cover; }
+    .lp-card-title {
+      font-size: 1.2rem; font-weight: 900; color: #0f172a;
+      text-align: center; margin-bottom: 5px;
+    }
+    .lp-card-desc {
+      font-size: 0.78rem; color: #64748b; text-align: center; margin-bottom: 26px;
+    }
+
+    /* 폼 */
+    .lp-form-group { margin-bottom: 15px; }
+    .lp-label {
+      display: block; font-size: 0.82rem; font-weight: 700;
+      color: #334155; margin-bottom: 7px;
+    }
+    .lp-input {
+      width: 100%; box-sizing: border-box;
+      padding: 12px 14px;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font-size: 0.92rem; color: #0f172a; background: #f8fafc;
+      outline: none; transition: border-color .15s, box-shadow .15s;
+      font-family: inherit;
+    }
+    .lp-input:focus {
+      border-color: #f97316;
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.13);
+      background: #fff;
+    }
+    .lp-input::placeholder { color: #94a3b8; }
+
+    .lp-btn-primary {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 800; cursor: pointer;
+      margin-top: 6px; letter-spacing: 0.5px;
+      transition: opacity .15s, transform .1s;
+      font-family: inherit;
+    }
+    .lp-btn-primary:hover  { opacity: 0.91; }
+    .lp-btn-primary:active { transform: scale(0.99); }
+
+    .lp-forgot {
+      display: block; text-align: center; margin: 14px 0 18px;
+      font-size: 0.82rem; color: #6b7280; text-decoration: none;
+    }
+    .lp-forgot:hover { color: #f97316; }
+
+    .lp-divider { border: none; border-top: 1px solid #e5e7eb; margin: 0 0 14px; }
+
+    .lp-btn-outline {
+      width: 100%; padding: 12px;
+      background: transparent; color: #374151;
+      border: 1.5px solid #d1d5db; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      text-align: center; text-decoration: none; display: block;
+      transition: border-color .15s, color .15s, background .15s;
+      font-family: inherit;
+    }
+    .lp-btn-outline:hover {
+      border-color: #f97316; color: #f97316;
+      background: rgba(249,115,22,0.04);
+    }
+
+    /* 플래시 */
+    .lp-alert {
+      padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+      margin-bottom: 14px; font-weight: 600;
+    }
+    .lp-alert-error   { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+    .lp-alert-success { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+    .lp-alert-warning { background:#fffbeb; color:#d97706; border:1px solid #fde68a; }
+
+    /* PWA 배너 */
+    .lp-install-banner {
+      display: none;
+      background: linear-gradient(135deg,rgba(249,115,22,0.07),rgba(249,115,22,0.02));
+      border: 1px solid rgba(249,115,22,0.22); border-radius: 10px;
+      padding: 13px 15px 11px; margin-bottom: 16px; position: relative;
+    }
+    .lp-install-close {
+      position: absolute; top: 8px; right: 10px;
+      background: none; border: none; color: #9ca3af;
+      font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 2px 4px;
+    }
+
+    /* 반응형 */
+    @media (max-width: 860px) { .lp-left { display: none; } }
+    @media (max-width: 480px) { .lp-card { padding: 30px 22px; } }
+  </style>
 </head>
 <body>
-  <div class="page-wrap">
-    <div class="card">
 
-      <div class="card-header">
-        <div class="card-icon">
-          <img src="/static/logo.png" alt="INTOPS" style="width:64px;height:64px;border-radius:12px;object-fit:cover;">
+  <!-- ── 왼쪽 브랜딩 패널 ── -->
+  <div class="lp-left">
+    <div class="lp-logo">
+      <img src="/static/logo.png" alt="INTOPS">
+      <div class="lp-logo-name">INTOPS</div>
+    </div>
+
+    <h1 class="lp-title">설비점검<br><span>시스템</span></h1>
+    <p class="lp-subtitle">
+      설비의 안전과 효율을 위한<br>
+      체계적인 점검 및 관리 솔루션
+    </p>
+
+    <div class="lp-features">
+      <div class="lp-feat">
+        <div class="lp-feat-icon">📋</div>
+        <div>
+          <div class="lp-feat-name">점검 관리</div>
+          <div class="lp-feat-desc">정기/일상/예방 점검</div>
         </div>
-        <div class="card-title">INTOPS 설비점검 시스템</div>
-        <div class="card-desc">사번 또는 전화번호(11자리)와 비밀번호로 로그인하세요</div>
       </div>
+      <div class="lp-feat">
+        <div class="lp-feat-icon">🚨</div>
+        <div>
+          <div class="lp-feat-name">이상 관리</div>
+          <div class="lp-feat-desc">이상 발생 및 조치 관리</div>
+        </div>
+      </div>
+      <div class="lp-feat">
+        <div class="lp-feat-icon">⚙️</div>
+        <div>
+          <div class="lp-feat-name">설비 관리</div>
+          <div class="lp-feat-desc">설비 정보 및 이력 관리</div>
+        </div>
+      </div>
+      <div class="lp-feat">
+        <div class="lp-feat-icon">📊</div>
+        <div>
+          <div class="lp-feat-name">통계 분석</div>
+          <div class="lp-feat-desc">점검 현황 및 데이터 분석</div>
+        </div>
+      </div>
+    </div>
 
-      <!-- ── 앱 설치 배너 ─────────────────────────────────────────────── -->
-      <div id="installBanner" style="display:none; background:linear-gradient(135deg,rgba(249,115,22,0.10),rgba(249,115,22,0.04)); border:1.5px solid rgba(249,115,22,0.30); border-radius:14px; padding:16px 18px 14px; margin-bottom:20px; position:relative;">
+    <div class="lp-tagline">
+      <div class="lp-tagline-icon">🛡️</div>
+      <div>
+        <div class="lp-tagline-main">안전 · 신뢰 · 효율</div>
+        <div class="lp-tagline-sub">체계적인 설비 관리를 통해<br>안전하고 효율적인 작업환경을 만듭니다.</div>
+      </div>
+    </div>
+  </div>
 
-        <!-- 닫기 버튼 -->
-        <button onclick="dismissInstall()" title="닫기"
-                style="position:absolute;top:10px;right:12px;background:none;border:none;color:#9ca3af;font-size:1.3rem;line-height:1;cursor:pointer;padding:2px 4px;">×</button>
+  <!-- ── 오른쪽 패널 ── -->
+  <div class="lp-right">
+    <!-- 배경 장식 -->
+    <div class="bg-orb" style="width:560px;height:560px;top:-140px;right:-140px;
+         background:radial-gradient(circle,rgba(249,115,22,0.08) 0%,transparent 65%);"></div>
+    <div class="bg-orb" style="width:380px;height:380px;bottom:-100px;left:8%;
+         background:radial-gradient(circle,rgba(37,99,235,0.09) 0%,transparent 65%);"></div>
+    <div class="bg-orb" style="width:220px;height:220px;top:38%;right:12%;
+         background:radial-gradient(circle,rgba(249,115,22,0.06) 0%,transparent 70%);"></div>
+    <div class="bg-orb" style="width:140px;height:140px;top:20%;left:18%;
+         background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 70%);"></div>
 
-        <!-- 헤더 -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-          <span style="font-size:2rem;line-height:1;">📲</span>
+    <!-- 로그인 카드 -->
+    <div class="lp-card">
+
+      <div class="lp-card-logo">
+        <img src="/static/logo.png" alt="INTOPS">
+      </div>
+      <div class="lp-card-title">INTOPS 설비점검 시스템</div>
+      <div class="lp-card-desc">사번 또는 전화번호(11자리)와 비밀번호로 로그인하세요</div>
+
+      <!-- PWA 설치 배너 -->
+      <div id="installBanner" class="lp-install-banner">
+        <button onclick="dismissInstall()" class="lp-install-close" title="닫기">×</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+          <span style="font-size:1.5rem;">📲</span>
           <div>
-            <div style="font-size:0.92rem;font-weight:800;color:var(--text);">홈 화면에 앱 설치</div>
-            <div style="font-size:0.76rem;color:var(--text-sub);margin-top:1px;">앱처럼 바로 실행 · 주소창 없는 전체화면</div>
+            <div style="font-size:0.84rem;font-weight:800;color:#1e293b;">홈 화면에 앱 설치</div>
+            <div style="font-size:0.73rem;color:#64748b;">앱처럼 바로 실행 · 전체화면</div>
           </div>
         </div>
-
-        <!-- Android: 원클릭 설치 버튼 (beforeinstallprompt 이벤트 발생 시 표시) -->
         <div id="androidBtnWrap" style="display:none;">
           <button onclick="doInstall()"
-                  style="width:100%;padding:12px 0;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
-            ⬇&nbsp; 홈 화면에 설치하기
+                  style="width:100%;padding:10px;background:#f97316;color:#fff;border:none;
+                         border-radius:8px;font-size:0.87rem;font-weight:700;cursor:pointer;font-family:inherit;">
+            ⬇ 홈 화면에 설치하기
           </button>
         </div>
-
-        <!-- Android/PC: 수동 안내 (이벤트 없을 때 기본 표시) -->
-        <div id="androidGuide" style="display:none;">
-          <div style="background:rgba(255,255,255,0.45);border-radius:10px;padding:12px 14px;font-size:0.83rem;color:var(--text);line-height:2.0;">
-            <div style="margin-bottom:4px;font-weight:700;font-size:0.79rem;color:var(--text-sub);">설치 방법 (Chrome)</div>
-            <div>① 주소창 오른쪽 <strong>⋮ 메뉴</strong> 클릭</div>
-            <div>② <strong>INTOPS 설치</strong> 또는 <strong>홈 화면에 추가</strong> 선택</div>
-            <div>③ <strong>설치</strong> 클릭</div>
-          </div>
-          <div style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;">※ 주소창에 설치 아이콘(⊕)이 보이면 클릭해도 됩니다</div>
+        <div id="androidGuide" style="display:none;font-size:0.77rem;color:#374151;line-height:1.9;
+             background:rgba(0,0,0,0.04);border-radius:8px;padding:9px 12px;">
+          ① 주소창 오른쪽 <strong>⋮ 메뉴</strong> → ② <strong>홈 화면에 추가</strong> → ③ <strong>설치</strong>
         </div>
-
-        <!-- iOS 안내 -->
-        <div id="iosGuide" style="display:none;">
-          <div style="background:rgba(255,255,255,0.45);border-radius:10px;padding:12px 14px;font-size:0.83rem;color:var(--text);line-height:2.0;">
-            <div style="margin-bottom:4px;font-weight:700;font-size:0.79rem;color:var(--text-sub);">설치 방법 (Safari)</div>
-            <div>① 하단 공유 버튼 <strong>⬆</strong> 탭</div>
-            <div>② <strong>홈 화면에 추가</strong> 선택</div>
-            <div>③ 오른쪽 상단 <strong>추가</strong> 탭</div>
-          </div>
-          <div style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;">※ Safari에서만 설치 가능합니다 (Chrome 불가)</div>
+        <div id="iosGuide" style="display:none;font-size:0.77rem;color:#374151;line-height:1.9;
+             background:rgba(0,0,0,0.04);border-radius:8px;padding:9px 12px;">
+          ① 하단 공유 <strong>⬆</strong> → ② <strong>홈 화면에 추가</strong> → ③ <strong>추가</strong>
         </div>
-
       </div>
-      <!-- ── /앱 설치 배너 ───────────────────────────────────────────── -->
 
+      <!-- 플래시 메시지 -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }}">{{ message }}</div>
+          <div class="lp-alert lp-alert-{{ category }}">{{ message }}</div>
         {% endfor %}
       {% endwith %}
 
+      <!-- 로그인 폼 -->
       <form method="POST" action="/login">
         <input type="hidden" name="next" value="{{ next_url }}">
-        <div class="form-group">
-          <label>사번 / 전화번호</label>
-          <input type="text" name="employee_id" placeholder="사번 또는 전화번호 11자리" required autofocus
-                 autocomplete="username" inputmode="text">
+        <div class="lp-form-group">
+          <label class="lp-label">사번 / 전화번호</label>
+          <input class="lp-input" type="text" name="employee_id"
+                 placeholder="사번 또는 전화번호 11자리"
+                 required autofocus autocomplete="username" inputmode="text">
         </div>
-        <div class="form-group">
-          <label>비밀번호</label>
-          <input type="password" name="password" placeholder="비밀번호를 입력하세요" required>
+        <div class="lp-form-group">
+          <label class="lp-label">비밀번호</label>
+          <input class="lp-input" type="password" name="password"
+                 placeholder="비밀번호를 입력하세요"
+                 required autocomplete="current-password">
         </div>
-        <button type="submit" class="btn btn-primary">로그인</button>
+        <button type="submit" class="lp-btn-primary">로그인</button>
       </form>
 
-      <div style="text-align:center; margin-top:12px;">
-        <a href="/forgot-password" style="font-size:0.85rem; color:var(--text-sub); text-decoration:none;">
-          비밀번호를 잊으셨나요?
-        </a>
-      </div>
-
-      <hr class="divider">
-      <a href="/register" class="btn btn-outline">회원가입 신청</a>
+      <a href="/forgot-password" class="lp-forgot">비밀번호를 잊으셨나요?</a>
+      <hr class="lp-divider">
+      <a href="/register" class="lp-btn-outline">회원가입 신청</a>
 
     </div>
   </div>
 
+  <!-- 배경 캔버스 애니메이션 -->
+  <canvas id="bgCanvas" style="position:fixed;inset:0;z-index:0;pointer-events:none;"></canvas>
+
   <script>
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
 
-    // ── PWA 설치 배너 ──────────────────────────────────────────────────────────
+    /* ── 배경 파티클 애니메이션 ── */
+    (function() {
+      const canvas = document.getElementById('bgCanvas');
+      const ctx    = canvas.getContext('2d');
+      let W, H, dots = [];
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // 오른쪽 패널에만 파티클 표시
+      const leftW = document.querySelector('.lp-left') ? 420 : 0;
+
+      for (let i = 0; i < 55; i++) {
+        dots.push({
+          x: leftW + Math.random() * (window.innerWidth - leftW),
+          y: Math.random() * window.innerHeight,
+          r: Math.random() * 1.5 + 0.5,
+          vx: (Math.random() - 0.5) * 0.25,
+          vy: (Math.random() - 0.5) * 0.25,
+          a: Math.random() * 0.4 + 0.1,
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        // 연결선
+        for (let i = 0; i < dots.length; i++) {
+          for (let j = i + 1; j < dots.length; j++) {
+            const dx = dots[i].x - dots[j].x;
+            const dy = dots[i].y - dots[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 130) {
+              ctx.beginPath();
+              ctx.strokeStyle = `rgba(249,115,22,${0.06 * (1 - dist/130)})`;
+              ctx.lineWidth = 0.6;
+              ctx.moveTo(dots[i].x, dots[i].y);
+              ctx.lineTo(dots[j].x, dots[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+        // 점
+        dots.forEach(d => {
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(249,115,22,${d.a})`;
+          ctx.fill();
+          d.x += d.vx; d.y += d.vy;
+          if (d.x < leftW || d.x > W) d.vx *= -1;
+          if (d.y < 0 || d.y > H) d.vy *= -1;
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    /* ── PWA 설치 배너 ── */
     var deferredPrompt = null;
+    function isIOS()        { return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()); }
+    function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
 
-    function isIOS() {
-      return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
-    }
-    function isAndroid() {
-      return /android/i.test(navigator.userAgent);
-    }
-    function isMobile() {
-      return isIOS() || isAndroid() || window.innerWidth <= 768;
-    }
-    function isStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-    }
-
-    // Android Chrome: 원클릭 설치 이벤트 캡처
-    window.addEventListener('beforeinstallprompt', function (e) {
-      e.preventDefault();
-      deferredPrompt = e;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault(); deferredPrompt = e;
       if (!sessionStorage.getItem('installDismissed') && !isStandalone()) {
-        // 원클릭 설치 버튼으로 업그레이드
         document.getElementById('androidGuide').style.display = 'none';
         document.getElementById('androidBtnWrap').style.display = 'block';
         document.getElementById('installBanner').style.display = 'block';
       }
     });
+    window.addEventListener('appinstalled', function() { hideBanner(); });
 
-    // 설치 완료 시 배너 숨김
-    window.addEventListener('appinstalled', function () { hideBanner(); });
-
-    // 페이지 로드 시 배너 표시 여부 결정
-    document.addEventListener('DOMContentLoaded', function () {
-      if (isStandalone()) return;                               // 이미 앱으로 실행 중
-      if (sessionStorage.getItem('installDismissed')) return;  // 이번 세션에 닫은 적 있음
-
-      var banner   = document.getElementById('installBanner');
-      var iosGuide = document.getElementById('iosGuide');
-      var aGuide   = document.getElementById('androidGuide');
-      var aBtn     = document.getElementById('androidBtnWrap');
-
+    document.addEventListener('DOMContentLoaded', function() {
+      if (isStandalone() || sessionStorage.getItem('installDismissed')) return;
+      var banner = document.getElementById('installBanner');
       if (isIOS()) {
-        // iOS: 사파리 공유 버튼 안내 표시
-        iosGuide.style.display = 'block';
-        aGuide.style.display   = 'none';
-        aBtn.style.display     = 'none';
-        banner.style.display   = 'block';
+        document.getElementById('iosGuide').style.display = 'block';
+        banner.style.display = 'block';
       } else {
-        // Android / PC Chrome 등: 수동 안내 표시 (beforeinstallprompt 오면 버튼으로 교체)
-        aGuide.style.display   = 'block';
-        iosGuide.style.display = 'none';
-        aBtn.style.display     = 'none';
-        banner.style.display   = 'block';
+        document.getElementById('androidGuide').style.display = 'block';
+        banner.style.display = 'block';
       }
     });
 
-    function hideBanner() {
-      document.getElementById('installBanner').style.display = 'none';
-    }
-
-    function dismissInstall() {
-      sessionStorage.setItem('installDismissed', '1');
-      hideBanner();
-    }
-
+    function hideBanner()     { document.getElementById('installBanner').style.display = 'none'; }
+    function dismissInstall() { sessionStorage.setItem('installDismissed','1'); hideBanner(); }
     function doInstall() {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function (r) {
+      deferredPrompt.userChoice.then(function(r) {
         if (r.outcome === 'accepted') hideBanner();
         deferredPrompt = null;
       });
