@@ -1336,12 +1336,20 @@ def admin():
 @admin_required
 def admin_data():
     now_ym = now_kst().strftime('%Y-%m')
-    email_enabled = get_setting('email_enabled', '1') == '1'
-    smtp_ok = email_config.ENABLED
+    email_settings = {
+        'email_enabled':          get_setting('email_enabled',          '1') == '1',
+        'email_approval_enabled': get_setting('email_approval_enabled', '1') == '1',
+        'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
+        'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
+        'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
+    }
+    smtp_ok   = email_config.ENABLED
+    smtp_addr = email_config.SENDER_EMAIL
     return render_template('admin_data.html',
                            now_ym=now_ym,
-                           email_enabled=email_enabled,
-                           smtp_ok=smtp_ok)
+                           email_settings=email_settings,
+                           smtp_ok=smtp_ok,
+                           smtp_addr=smtp_addr)
 
 
 
@@ -2496,25 +2504,7 @@ def admin_toggle_email():
     return redirect(url_for('admin_data'))
 
 
-# ── 메일발송 관리 페이지 ──────────────────────────────────────────────────────
-@app.route('/admin/email', methods=['GET'])
-@admin_required
-def admin_email():
-    settings = {
-        'email_enabled':          get_setting('email_enabled',          '1') == '1',
-        'email_approval_enabled': get_setting('email_approval_enabled', '1') == '1',
-        'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
-        'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
-        'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
-    }
-    smtp_ok = bool(email_config.ENABLED)
-    smtp_addr = email_config.SENDER_EMAIL
-    return render_template('admin_email.html',
-                           settings=settings,
-                           smtp_ok=smtp_ok,
-                           smtp_addr=smtp_addr)
-
-
+# ── 메일발송 설정 저장 (데이터 관리 페이지에 통합) ────────────────────────────
 @app.route('/admin/email/save', methods=['POST'])
 @admin_required
 def admin_email_save():
@@ -2529,7 +2519,7 @@ def admin_email_save():
         val = '1' if request.form.get(key) == '1' else '0'
         set_setting(key, val)
     flash('메일발송 설정이 저장되었습니다.', 'success')
-    return redirect(url_for('admin_email'))
+    return redirect(url_for('admin_data'))
 
 
 # ── 일별 점검 기록 삭제 (관리자 전용) ────────────────────────────────────────

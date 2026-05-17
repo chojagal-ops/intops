@@ -22,7 +22,6 @@
       <a href="/admin" class="nav-link">회원 관리</a>
       <a href="/admin/equipment" class="nav-link">설비 관리</a>
       <a href="/admin/data" class="nav-link active">데이터 관리</a>
-      <a href="/admin/email" class="nav-link">메일 설정</a>
     </div>
     <div class="topbar-user">
       {{ session.user_name }} 님
@@ -49,58 +48,122 @@
         <div class="card-desc">점검 기록 관리 및 데이터 백업을 처리합니다.</div>
       </div>
 
-      <!-- ⓪ 이메일 알림 설정 -->
-      <div class="section-title" style="margin-bottom:12px;">📧 이메일 알림 설정</div>
-      <div style="background:{% if email_enabled %}rgba(22,163,74,0.06){% else %}rgba(107,114,128,0.07){% endif %};
-                  border:1px solid {% if email_enabled %}rgba(22,163,74,0.25){% else %}rgba(107,114,128,0.22){% endif %};
-                  border-radius:12px; padding:20px 22px; margin-bottom:28px;">
+      <!-- ⓪ 메일발송 관리 -->
+      <div class="section-title" style="margin-bottom:14px;">✉️ 메일발송 관리</div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
-          <!-- 상태 표시 -->
-          <div>
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-              <span style="font-size:1.05rem; font-weight:700; color:var(--text);">
-                {% if email_enabled %}
-                  <span style="color:#15803d;">● ON</span> — 이메일 알림 발송 중
-                {% else %}
-                  <span style="color:#6b7280;">● OFF</span> — 이메일 알림 중단됨
-                {% endif %}
-              </span>
-            </div>
-            <div style="font-size:0.82rem; color:var(--text-sub); line-height:1.6;">
-              {% if smtp_ok %}
-                ✅ SMTP 서버 연결 설정 완료
-                ({{ 'junuheo09@gmail.com' if not smtp_ok else '' }})
-              {% else %}
-                ⚠️ SMTP 환경변수 미설정 — Render Environment에서 설정 필요
-              {% endif %}
-              <br>
-              적용 범위: <strong>점검 승인 요청</strong> · <strong>미점검 알림</strong> · <strong>비밀번호 재설정</strong>
-            </div>
+      <!-- SMTP 상태 배너 -->
+      <div style="display:flex; align-items:center; gap:12px;
+                  padding:14px 18px; border-radius:10px; margin-bottom:16px;
+                  background:{{ 'rgba(22,163,74,0.07)' if smtp_ok else 'rgba(220,38,38,0.06)' }};
+                  border:1px solid {{ 'rgba(22,163,74,0.28)' if smtp_ok else 'rgba(220,38,38,0.22)' }};">
+        <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;
+                     background:{{ '#22c55e' if smtp_ok else '#ef4444' }};
+                     box-shadow:0 0 0 3px {{ 'rgba(34,197,94,0.2)' if smtp_ok else 'rgba(239,68,68,0.18)' }};"></span>
+        <div>
+          <div style="font-size:0.88rem;font-weight:700;color:#1e293b;">
+            {{ 'SMTP 연결됨' if smtp_ok else 'SMTP 미설정' }}
           </div>
-
-          <!-- 토글 버튼 -->
-          <form method="POST" action="/admin/toggle-email"
-                onsubmit="return confirm('이메일 알림을 {% if email_enabled %}OFF{% else %}ON{% endif %}으로 변경하시겠습니까?')">
-            <button type="submit"
-                    style="padding:10px 28px; border-radius:10px; font-size:0.92rem; font-weight:700;
-                           cursor:pointer; border:2px solid;
-                           {% if email_enabled %}
-                             background:rgba(220,38,38,0.08); border-color:rgba(220,38,38,0.35); color:#dc2626;
-                           {% else %}
-                             background:rgba(22,163,74,0.1); border-color:rgba(22,163,74,0.35); color:#15803d;
-                           {% endif %}">
-              {% if email_enabled %}🔕 이메일 알림 OFF{% else %}🔔 이메일 알림 ON{% endif %}
-            </button>
-          </form>
-        </div>
-
-        <!-- 토글 설명 -->
-        <div style="margin-top:14px; padding-top:14px; border-top:1px solid {% if email_enabled %}rgba(22,163,74,0.15){% else %}rgba(107,114,128,0.15){% endif %};
-                    font-size:0.79rem; color:var(--text-muted); line-height:1.7;">
-          💡 OFF 상태에서도 SMTP 설정은 유지됩니다. 알림만 중단되며, ON으로 변경 시 즉시 재개됩니다.
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px;">
+            {% if smtp_ok %}발신 계정: {{ smtp_addr }}
+            {% else %}환경변수 SMTP_EMAIL / SMTP_PASSWORD 가 설정되지 않았습니다.{% endif %}
+          </div>
         </div>
       </div>
+
+      <form method="POST" action="/admin/email/save" id="emailForm">
+
+        <!-- 마스터 스위치 -->
+        <div style="display:flex; align-items:center; gap:16px;
+                    background:#fff8f1; border:1.5px solid rgba(249,115,22,0.3);
+                    border-radius:12px; padding:18px 20px; margin-bottom:12px;">
+          <span style="font-size:1.4rem;">🔌</span>
+          <div style="flex:1;">
+            <div style="font-size:0.93rem;font-weight:800;color:#1e293b;">전체 메일 발송 마스터 스위치</div>
+            <div style="font-size:0.79rem;color:#64748b;margin-top:3px;">OFF 시 아래 개별 설정과 무관하게 모든 메일 발송이 중단됩니다.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+              <input type="checkbox" id="masterChk" style="opacity:0;width:0;height:0;"
+                     {{ 'checked' if email_settings.email_enabled else '' }}
+                     onchange="syncMaster(this)">
+              <span id="masterSlider" style="position:absolute;inset:0;border-radius:28px;transition:background .2s;
+                     background:{{ '#f97316' if email_settings.email_enabled else '#cbd5e1' }};">
+                <span style="position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;
+                             top:4px;left:4px;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.2);
+                             transform:{{ 'translateX(24px)' if email_settings.email_enabled else 'none' }};"
+                      id="masterKnob"></span>
+              </span>
+            </label>
+            <input type="hidden" name="email_enabled" id="masterVal"
+                   value="{{ '1' if email_settings.email_enabled else '0' }}">
+            <span id="masterTxt" style="font-size:0.72rem;font-weight:700;
+                  color:{{ '#f97316' if email_settings.email_enabled else '#94a3b8' }};">
+              {{ 'ON' if email_settings.email_enabled else 'OFF' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 기능별 카드 -->
+        {% set feats = [
+          ('email_approval_enabled', '📬', '#eff6ff', 'rgba(37,99,235,0.18)', '승인 요청 알림',
+           '점검자가 점검을 제출하면 담당 승인자에게 승인 요청 메일을 발송합니다.'),
+          ('email_anomaly_enabled',  '🚨', '#fff5f5', 'rgba(220,38,38,0.15)', '이상발생 담당자 알림',
+           '이상발생이 등록될 때 조치 담당자에게 이상발생 안내 메일을 발송합니다.'),
+          ('email_reminder_enabled', '⏰', '#fefce8', 'rgba(234,179,8,0.20)', '미점검 알림 (평일 오전 11시)',
+           '평일 오전 11시 기준, 당일 미점검 설비의 담당자(정/부)에게 알림 메일을 발송합니다.'),
+          ('email_reset_enabled',    '🔐', '#faf5ff', 'rgba(139,92,246,0.18)', '비밀번호 재설정 인증코드',
+           '비밀번호 분실 시 이메일로 인증번호를 발송합니다. OFF 시 관리자 직접 초기화만 가능합니다.')
+        ] %}
+
+        <div id="featureList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        {% for key, icon, bg, icon_bg, title, desc in feats %}
+          {% set is_on = email_settings[key] %}
+          <div class="email-feat-card" style="display:flex;align-items:center;gap:14px;
+               background:{{ bg }}; border:1px solid rgba(0,0,0,0.07);
+               border-radius:11px; padding:15px 18px;
+               opacity:{{ '1' if email_settings.email_enabled else '0.5' }};">
+            <div style="width:40px;height:40px;border-radius:10px;flex-shrink:0;
+                        background:{{ icon_bg }};display:flex;align-items:center;
+                        justify-content:center;font-size:1.1rem;">{{ icon }}</div>
+            <div style="flex:1;">
+              <div style="font-size:0.88rem;font-weight:700;color:#1e293b;">{{ title }}</div>
+              <div style="font-size:0.76rem;color:#64748b;margin-top:3px;line-height:1.5;">{{ desc }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
+              <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+                <input type="checkbox" class="feat-chk" data-key="{{ key }}"
+                       style="opacity:0;width:0;height:0;"
+                       {{ 'checked' if is_on else '' }}
+                       onchange="syncToggle(this)">
+                <span class="feat-slider" data-key="{{ key }}"
+                      style="position:absolute;inset:0;border-radius:28px;transition:background .2s;
+                             background:{{ '#f97316' if is_on else '#cbd5e1' }};">
+                  <span class="feat-knob" data-key="{{ key }}"
+                        style="position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;
+                               top:4px;left:4px;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.2);
+                               transform:{{ 'translateX(24px)' if is_on else 'none' }};"></span>
+                </span>
+              </label>
+              <input type="hidden" name="{{ key }}" class="feat-val" data-key="{{ key }}"
+                     value="{{ '1' if is_on else '0' }}">
+              <span class="feat-txt" data-key="{{ key }}"
+                    style="font-size:0.72rem;font-weight:700;
+                           color:{{ '#f97316' if is_on else '#94a3b8' }};">
+                {{ 'ON' if is_on else 'OFF' }}
+              </span>
+            </div>
+          </div>
+        {% endfor %}
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:28px;">
+          <button type="submit" class="btn btn-primary"
+                  style="width:auto;padding:11px 32px;font-size:0.92rem;">
+            💾 메일 설정 저장
+          </button>
+        </div>
+
+      </form>
 
       <!-- ① 월별 점검 기록 삭제 -->
       <div class="section-title" style="margin-bottom:12px;">🗑 월별 점검 기록 삭제</div>
@@ -230,6 +293,32 @@
   </div>
 
   <script src="/static/nav.js"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js');}</script>
+  <script>
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
+
+    /* ── 마스터 스위치 ── */
+    function syncMaster(chk) {
+      var on = chk.checked;
+      document.getElementById('masterVal').value = on ? '1' : '0';
+      document.getElementById('masterSlider').style.background = on ? '#f97316' : '#cbd5e1';
+      document.getElementById('masterKnob').style.transform = on ? 'translateX(24px)' : 'none';
+      document.getElementById('masterTxt').textContent = on ? 'ON' : 'OFF';
+      document.getElementById('masterTxt').style.color  = on ? '#f97316' : '#94a3b8';
+      document.querySelectorAll('.email-feat-card').forEach(function(c) {
+        c.style.opacity = on ? '1' : '0.5';
+      });
+    }
+
+    /* ── 개별 토글 ── */
+    function syncToggle(chk) {
+      var key = chk.dataset.key;
+      var on  = chk.checked;
+      document.querySelector('.feat-slider[data-key="'+key+'"]').style.background = on ? '#f97316' : '#cbd5e1';
+      document.querySelector('.feat-knob[data-key="'+key+'"]').style.transform    = on ? 'translateX(24px)' : 'none';
+      document.querySelector('.feat-val[data-key="'+key+'"]').value               = on ? '1' : '0';
+      document.querySelector('.feat-txt[data-key="'+key+'"]').textContent         = on ? 'ON' : 'OFF';
+      document.querySelector('.feat-txt[data-key="'+key+'"]').style.color         = on ? '#f97316' : '#94a3b8';
+    }
+  </script>
 </body>
 </html>
