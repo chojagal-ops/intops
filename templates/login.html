@@ -8,157 +8,162 @@
   <link rel="icon" href="/static/logo.png" type="image/png">
   <link rel="manifest" href="/static/manifest.json">
   <style>
-    /* ── 전체 레이아웃 ── */
     html, body {
       margin: 0; padding: 0; min-height: 100vh;
       font-family: 'Malgun Gothic','맑은 고딕',sans-serif;
+      overflow-x: hidden;
     }
-    body { display: flex; background: #0a1628; }
 
-    /* ── 왼쪽 브랜딩 패널 ── */
+    /* ── 배경 사진 ── */
+    .lp-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background: url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1920&q=80')
+                  center center / cover no-repeat;
+    }
+    /* 좌→우 그라디언트 오버레이 (좌측 진하게, 우측 사진 보임) */
+    .lp-overlay {
+      position: fixed; inset: 0; z-index: 1;
+      background: linear-gradient(
+        105deg,
+        rgba(12,28,88,0.90) 0%,
+        rgba(18,42,105,0.80) 28%,
+        rgba(14,32,90,0.60) 50%,
+        rgba(8,18,55,0.30) 72%,
+        rgba(4,10,32,0.12) 100%
+      );
+    }
+
+    /* ── 전체 레이아웃 ── */
+    .lp-wrap {
+      position: relative; z-index: 2;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 48px 64px;
+      box-sizing: border-box;
+      gap: 0;
+    }
+
+    /* ── 왼쪽 브랜딩 ── */
     .lp-left {
-      width: 420px; min-width: 380px;
-      background: linear-gradient(160deg, #081020 0%, #0e2050 45%, #152d70 100%);
-      display: flex; flex-direction: column;
-      padding: 52px 44px;
-      position: relative; overflow: hidden; z-index: 1;
+      flex: 0 0 440px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
-    .lp-left::before {
-      content: ''; position: absolute;
-      width: 440px; height: 440px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(249,115,22,0.09) 0%, transparent 70%);
-      top: -100px; right: -120px; z-index: 0;
-    }
-    .lp-left::after {
-      content: ''; position: absolute;
-      width: 320px; height: 320px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 70%);
-      bottom: 80px; left: -70px; z-index: 0;
-    }
-    .lp-left > * { position: relative; z-index: 1; }
 
-    /* 로고 */
-    .lp-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 52px; }
-    .lp-logo img { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; }
-    .lp-logo-name { font-size: 1rem; font-weight: 800; color: #fff; letter-spacing: 1px; }
+    /* 로고 헤더 */
+    .lp-logo {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 36px;
+    }
+    .lp-logo img {
+      width: 42px; height: 42px; border-radius: 10px; object-fit: cover;
+    }
+    .lp-logo-name {
+      font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: 1.5px;
+    }
 
-    /* 타이틀 */
+    /* 메인 타이틀 */
     .lp-title {
-      font-size: 2.4rem; font-weight: 900; color: #fff;
-      line-height: 1.18; margin-bottom: 16px; letter-spacing: -0.5px;
+      font-size: 2.6rem; font-weight: 900; color: #fff;
+      line-height: 1.15; letter-spacing: -0.5px;
+      margin: 0 0 14px;
     }
-    .lp-title span { color: #f97316; }
 
     .lp-subtitle {
-      font-size: 0.9rem; color: rgba(255,255,255,0.55);
-      line-height: 1.75; margin-bottom: 44px;
+      font-size: 0.92rem; color: rgba(255,255,255,0.68);
+      line-height: 1.8; margin-bottom: 36px;
     }
 
     /* 기능 그리드 */
-    .lp-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: auto; }
+    .lp-features {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 40px;
+    }
     .lp-feat {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 12px; padding: 14px 14px 14px 12px;
-      display: flex; align-items: flex-start; gap: 10px;
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 16px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
       transition: background 0.2s;
     }
-    .lp-feat:hover { background: rgba(255,255,255,0.09); }
+    .lp-feat:hover { background: rgba(255,255,255,0.13); }
     .lp-feat-icon {
-      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
-      background: rgba(249,115,22,0.15);
-      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+      background: rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
     }
-    .lp-feat-name  { font-size: 0.82rem; font-weight: 700; color: #fff; margin-bottom: 3px; }
-    .lp-feat-desc  { font-size: 0.71rem; color: rgba(255,255,255,0.42); line-height: 1.4; }
+    .lp-feat-name  { font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .lp-feat-desc  { font-size: 0.73rem; color: rgba(255,255,255,0.54); line-height: 1.45; }
 
     /* 하단 슬로건 */
     .lp-tagline {
-      margin-top: 34px; padding: 16px 18px;
-      background: rgba(249,115,22,0.09);
-      border: 1px solid rgba(249,115,22,0.22); border-radius: 12px;
       display: flex; align-items: center; gap: 14px;
+      padding: 16px 20px;
+      background: rgba(10,20,60,0.55);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
     }
-    .lp-tagline-icon { font-size: 1.5rem; }
-    .lp-tagline-main { font-size: 0.9rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
-    .lp-tagline-sub  { font-size: 0.73rem; color: rgba(255,255,255,0.48); line-height: 1.5; }
+    .lp-tagline-icon { font-size: 1.4rem; }
+    .lp-tagline-main { font-size: 0.92rem; font-weight: 800; color: #fff; margin-bottom: 5px; }
+    .lp-tagline-sub  { font-size: 0.74rem; color: rgba(255,255,255,0.55); line-height: 1.6; }
 
-    /* ── 오른쪽 패널 (배경) ── */
-    .lp-right {
-      flex: 1; position: relative;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
-      background: linear-gradient(135deg, #0c1a38 0%, #162a56 35%, #0e2248 70%, #091528 100%);
-    }
-    /* 격자 패턴 */
-    .lp-right::before {
-      content: ''; position: absolute; inset: 0; z-index: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 52px 52px;
-    }
-    /* 대각선 라인 장식 */
-    .lp-right::after {
-      content: ''; position: absolute; inset: 0; z-index: 0;
-      background-image:
-        repeating-linear-gradient(
-          45deg,
-          transparent, transparent 80px,
-          rgba(249,115,22,0.015) 80px, rgba(249,115,22,0.015) 81px
-        );
-    }
-
-    .bg-orb {
-      position: absolute; border-radius: 50%; z-index: 0; pointer-events: none;
-    }
+    /* ── 가운데 여백 (카드 왼쪽으로 밀기) ── */
+    .lp-spacer { flex: 1; }
 
     /* ── 로그인 카드 ── */
     .lp-card {
-      position: relative; z-index: 1;
-      background: #fff;
-      border-radius: 20px;
-      padding: 44px 40px;
-      width: 400px; max-width: calc(100vw - 40px);
-      box-shadow: 0 32px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
+      flex: 0 0 420px;
+      background: #ffffff;
+      border-radius: 22px;
+      padding: 46px 42px;
+      box-shadow: 0 24px 72px rgba(0,0,0,0.38), 0 0 0 1px rgba(0,0,0,0.06);
     }
-    .lp-card-logo { text-align: center; margin-bottom: 22px; }
-    .lp-card-logo img { width: 54px; height: 54px; border-radius: 13px; object-fit: cover; }
+    .lp-card-logo { text-align: center; margin-bottom: 20px; }
+    .lp-card-logo img {
+      width: 56px; height: 56px; border-radius: 14px; object-fit: cover;
+    }
     .lp-card-title {
-      font-size: 1.2rem; font-weight: 900; color: #0f172a;
-      text-align: center; margin-bottom: 5px;
+      font-size: 1.18rem; font-weight: 900; color: #0f172a;
+      text-align: center; margin-bottom: 6px;
     }
     .lp-card-desc {
-      font-size: 0.78rem; color: #64748b; text-align: center; margin-bottom: 26px;
+      font-size: 0.79rem; color: #64748b; text-align: center; margin-bottom: 28px;
     }
 
     /* 폼 */
-    .lp-form-group { margin-bottom: 15px; }
+    .lp-form-group { margin-bottom: 16px; }
     .lp-label {
-      display: block; font-size: 0.82rem; font-weight: 700;
-      color: #334155; margin-bottom: 7px;
+      display: block; font-size: 0.84rem; font-weight: 700;
+      color: #1e293b; margin-bottom: 7px;
     }
     .lp-input {
       width: 100%; box-sizing: border-box;
-      padding: 12px 14px;
+      padding: 13px 15px;
       border: 1.5px solid #e2e8f0; border-radius: 10px;
-      font-size: 0.92rem; color: #0f172a; background: #f8fafc;
+      font-size: 0.93rem; color: #0f172a; background: #f8fafc;
       outline: none; transition: border-color .15s, box-shadow .15s;
       font-family: inherit;
     }
     .lp-input:focus {
       border-color: #f97316;
-      box-shadow: 0 0 0 3px rgba(249,115,22,0.13);
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.14);
       background: #fff;
     }
-    .lp-input::placeholder { color: #94a3b8; }
+    .lp-input::placeholder { color: #a0aec0; }
 
     .lp-btn-primary {
       width: 100%; padding: 14px;
-      background: linear-gradient(135deg, #f97316, #ea580c);
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
       color: #fff; border: none; border-radius: 10px;
       font-size: 1rem; font-weight: 800; cursor: pointer;
-      margin-top: 6px; letter-spacing: 0.5px;
+      margin-top: 8px; letter-spacing: 0.5px;
       transition: opacity .15s, transform .1s;
       font-family: inherit;
     }
@@ -166,18 +171,18 @@
     .lp-btn-primary:active { transform: scale(0.99); }
 
     .lp-forgot {
-      display: block; text-align: center; margin: 14px 0 18px;
-      font-size: 0.82rem; color: #6b7280; text-decoration: none;
+      display: block; text-align: center; margin: 15px 0 18px;
+      font-size: 0.83rem; color: #6b7280; text-decoration: none;
     }
-    .lp-forgot:hover { color: #f97316; }
+    .lp-forgot:hover { color: #f97316; text-decoration: underline; }
 
-    .lp-divider { border: none; border-top: 1px solid #e5e7eb; margin: 0 0 14px; }
+    .lp-divider { border: none; border-top: 1px solid #e5e7eb; margin: 0 0 16px; }
 
     .lp-btn-outline {
-      width: 100%; padding: 12px;
+      width: 100%; padding: 13px;
       background: transparent; color: #374151;
       border: 1.5px solid #d1d5db; border-radius: 10px;
-      font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      font-size: 0.92rem; font-weight: 700; cursor: pointer;
       text-align: center; text-decoration: none; display: block;
       transition: border-color .15s, color .15s, background .15s;
       font-family: inherit;
@@ -187,9 +192,9 @@
       background: rgba(249,115,22,0.04);
     }
 
-    /* 플래시 */
+    /* 플래시 메시지 */
     .lp-alert {
-      padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+      padding: 11px 15px; border-radius: 9px; font-size: 0.83rem;
       margin-bottom: 14px; font-weight: 600;
     }
     .lp-alert-error   { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
@@ -210,78 +215,88 @@
     }
 
     /* 반응형 */
-    @media (max-width: 860px) { .lp-left { display: none; } }
-    @media (max-width: 480px) { .lp-card { padding: 30px 22px; } }
+    @media (max-width: 1100px) {
+      .lp-wrap { padding: 40px 40px; gap: 40px; }
+      .lp-left { flex: 0 0 360px; }
+    }
+    @media (max-width: 860px) {
+      .lp-left { display: none; }
+      .lp-wrap { justify-content: center; padding: 32px 20px; }
+      .lp-spacer { display: none; }
+      .lp-card { flex: 0 0 auto; width: 100%; max-width: 420px; }
+    }
+    @media (max-width: 480px) { .lp-card { padding: 32px 24px; } }
   </style>
 </head>
 <body>
 
-  <!-- ── 왼쪽 브랜딩 패널 ── -->
-  <div class="lp-left">
-    <div class="lp-logo">
-      <img src="/static/logo.png" alt="INTOPS">
-      <div class="lp-logo-name">INTOPS</div>
+  <!-- 배경 사진 -->
+  <div class="lp-bg"></div>
+  <!-- 그라디언트 오버레이 -->
+  <div class="lp-overlay"></div>
+
+  <!-- 전체 콘텐츠 -->
+  <div class="lp-wrap">
+
+    <!-- ── 왼쪽 브랜딩 ── -->
+    <div class="lp-left">
+      <div class="lp-logo">
+        <img src="/static/logo.png" alt="INTOPS">
+        <div class="lp-logo-name">INTOPS</div>
+      </div>
+
+      <h1 class="lp-title">설비점검 시스템</h1>
+      <p class="lp-subtitle">
+        설비의 안전과 효율을 위한<br>
+        체계적인 점검 및 관리 솔루션
+      </p>
+
+      <div class="lp-features">
+        <div class="lp-feat">
+          <div class="lp-feat-icon">📋</div>
+          <div>
+            <div class="lp-feat-name">점검 관리</div>
+            <div class="lp-feat-desc">정기/일상/예방 점검</div>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon">⚠️</div>
+          <div>
+            <div class="lp-feat-name">이상 관리</div>
+            <div class="lp-feat-desc">이상 발생 및 조치 관리</div>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon">⚙️</div>
+          <div>
+            <div class="lp-feat-name">설비 관리</div>
+            <div class="lp-feat-desc">설비 정보 및 이력 관리</div>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon">📊</div>
+          <div>
+            <div class="lp-feat-name">통계 분석</div>
+            <div class="lp-feat-desc">점검 현황 및 데이터 분석</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lp-tagline">
+        <div class="lp-tagline-icon">🛡️</div>
+        <div>
+          <div class="lp-tagline-main">안전 · 신뢰 · 효율</div>
+          <div class="lp-tagline-sub">
+            체계적인 설비 관리를 통해<br>안전하고 효율적인 작업환경을 만듭니다.
+          </div>
+        </div>
+      </div>
     </div>
 
-    <h1 class="lp-title">설비점검<br><span>시스템</span></h1>
-    <p class="lp-subtitle">
-      설비의 안전과 효율을 위한<br>
-      체계적인 점검 및 관리 솔루션
-    </p>
+    <!-- 가운데 여백 -->
+    <div class="lp-spacer"></div>
 
-    <div class="lp-features">
-      <div class="lp-feat">
-        <div class="lp-feat-icon">📋</div>
-        <div>
-          <div class="lp-feat-name">점검 관리</div>
-          <div class="lp-feat-desc">정기/일상/예방 점검</div>
-        </div>
-      </div>
-      <div class="lp-feat">
-        <div class="lp-feat-icon">🚨</div>
-        <div>
-          <div class="lp-feat-name">이상 관리</div>
-          <div class="lp-feat-desc">이상 발생 및 조치 관리</div>
-        </div>
-      </div>
-      <div class="lp-feat">
-        <div class="lp-feat-icon">⚙️</div>
-        <div>
-          <div class="lp-feat-name">설비 관리</div>
-          <div class="lp-feat-desc">설비 정보 및 이력 관리</div>
-        </div>
-      </div>
-      <div class="lp-feat">
-        <div class="lp-feat-icon">📊</div>
-        <div>
-          <div class="lp-feat-name">통계 분석</div>
-          <div class="lp-feat-desc">점검 현황 및 데이터 분석</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="lp-tagline">
-      <div class="lp-tagline-icon">🛡️</div>
-      <div>
-        <div class="lp-tagline-main">안전 · 신뢰 · 효율</div>
-        <div class="lp-tagline-sub">체계적인 설비 관리를 통해<br>안전하고 효율적인 작업환경을 만듭니다.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 오른쪽 패널 ── -->
-  <div class="lp-right">
-    <!-- 배경 장식 -->
-    <div class="bg-orb" style="width:560px;height:560px;top:-140px;right:-140px;
-         background:radial-gradient(circle,rgba(249,115,22,0.08) 0%,transparent 65%);"></div>
-    <div class="bg-orb" style="width:380px;height:380px;bottom:-100px;left:8%;
-         background:radial-gradient(circle,rgba(37,99,235,0.09) 0%,transparent 65%);"></div>
-    <div class="bg-orb" style="width:220px;height:220px;top:38%;right:12%;
-         background:radial-gradient(circle,rgba(249,115,22,0.06) 0%,transparent 70%);"></div>
-    <div class="bg-orb" style="width:140px;height:140px;top:20%;left:18%;
-         background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 70%);"></div>
-
-    <!-- 로그인 카드 -->
+    <!-- ── 로그인 카드 ── -->
     <div class="lp-card">
 
       <div class="lp-card-logo">
@@ -347,73 +362,13 @@
       <a href="/register" class="lp-btn-outline">회원가입 신청</a>
 
     </div>
-  </div>
+    <!-- /lp-card -->
 
-  <!-- 배경 캔버스 애니메이션 -->
-  <canvas id="bgCanvas" style="position:fixed;inset:0;z-index:0;pointer-events:none;"></canvas>
+  </div>
+  <!-- /lp-wrap -->
 
   <script>
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
-
-    /* ── 배경 파티클 애니메이션 ── */
-    (function() {
-      const canvas = document.getElementById('bgCanvas');
-      const ctx    = canvas.getContext('2d');
-      let W, H, dots = [];
-
-      function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-      }
-      resize();
-      window.addEventListener('resize', resize);
-
-      // 오른쪽 패널에만 파티클 표시
-      const leftW = document.querySelector('.lp-left') ? 420 : 0;
-
-      for (let i = 0; i < 55; i++) {
-        dots.push({
-          x: leftW + Math.random() * (window.innerWidth - leftW),
-          y: Math.random() * window.innerHeight,
-          r: Math.random() * 1.5 + 0.5,
-          vx: (Math.random() - 0.5) * 0.25,
-          vy: (Math.random() - 0.5) * 0.25,
-          a: Math.random() * 0.4 + 0.1,
-        });
-      }
-
-      function draw() {
-        ctx.clearRect(0, 0, W, H);
-        // 연결선
-        for (let i = 0; i < dots.length; i++) {
-          for (let j = i + 1; j < dots.length; j++) {
-            const dx = dots[i].x - dots[j].x;
-            const dy = dots[i].y - dots[j].y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < 130) {
-              ctx.beginPath();
-              ctx.strokeStyle = `rgba(249,115,22,${0.06 * (1 - dist/130)})`;
-              ctx.lineWidth = 0.6;
-              ctx.moveTo(dots[i].x, dots[i].y);
-              ctx.lineTo(dots[j].x, dots[j].y);
-              ctx.stroke();
-            }
-          }
-        }
-        // 점
-        dots.forEach(d => {
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(249,115,22,${d.a})`;
-          ctx.fill();
-          d.x += d.vx; d.y += d.vy;
-          if (d.x < leftW || d.x > W) d.vx *= -1;
-          if (d.y < 0 || d.y > H) d.vy *= -1;
-        });
-        requestAnimationFrame(draw);
-      }
-      draw();
-    })();
 
     /* ── PWA 설치 배너 ── */
     var deferredPrompt = null;
