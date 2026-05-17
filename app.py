@@ -2757,6 +2757,46 @@ def admin_fill_missing_records():
     return redirect(url_for('admin_data'))
 
 
+# ── 세부 기록 누락 보정 (점검기록은 있으나 항목별 O표시 없을 때) ─────────────
+@app.route('/admin/fill-missing-details', methods=['POST'])
+@admin_required
+def admin_fill_missing_details():
+    """inspection_details 없는 inspections에 정상 항목별 세부기록 삽입"""
+    conn = get_db()
+    ph   = '%s' if conn._pg else '?'
+
+    # 세부기록(details)이 전혀 없는 점검 기록 목록 (휴동 제외)
+    orphans = conn.execute(f'''
+        SELECT i.id, i.equipment_id FROM inspections i
+        WHERE i.result != '휴동'
+          AND NOT EXISTS (
+              SELECT 1 FROM inspection_details d WHERE d.inspection_id = i.id
+          )
+    ''').fetchall()
+
+    filled = 0
+    for ins in orphans:
+        ins_id = ins['id']
+        eq_id  = ins['equipment_id']
+
+        items = conn.execute(
+            f'SELECT id FROM inspection_items WHERE equipment_id={ph} ORDER BY item_order',
+            (eq_id,)
+        ).fetchall()
+
+        for itm in items:
+            conn.execute(
+                f'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES ({ph},0,{ph},{ph},{ph})',
+                (ins_id, itm['id'], '정상', '')
+            )
+        filled += 1
+
+    conn.commit()
+    conn.close()
+    flash(f'항목별 세부기록 보정 완료 — {filled}건 처리', 'success')
+    return redirect(url_for('admin_data'))
+
+
 @app.route('/bulk-inspect', methods=['GET', 'POST'])
 @login_required
 def bulk_inspect():

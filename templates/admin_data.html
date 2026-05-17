@@ -278,6 +278,24 @@
         </form>
       </div>
 
+      <!-- ⑦ 항목별 세부기록 보정 -->
+      <div class="section-title" style="margin-bottom:12px;">🔬 항목별 세부기록 보정</div>
+      <div style="background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.2);
+                  border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          점검 기록은 있으나 <strong>항목별 O표시(세부기록)가 없는 경우</strong>에 자동으로 <strong style="color:#15803d;">정상</strong>으로 채웁니다.<br>
+          월별 점검표에서 칸이 비어 보일 때 사용하세요.
+        </div>
+        <form method="POST" action="/admin/fill-missing-details"
+              onsubmit="return confirm('점검기록은 있으나 항목 세부기록이 없는 건에 정상을 삽입합니다.\n계속하시겠습니까?')">
+          <button type="submit"
+                  style="padding:9px 20px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3);
+                         border-radius:8px; color:#2563eb; font-size:0.88rem; font-weight:700; cursor:pointer;">
+            🔬 항목별 세부기록 자동 보정
+          </button>
+        </form>
+      </div>
+
       <!-- ⑥ 데이터 백업 -->
       <div class="section-title" style="margin-bottom:12px;">🗄️ 데이터 백업</div>
       <div style="background:var(--bg-subtle); border:1px solid var(--border);
