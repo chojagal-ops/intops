@@ -114,8 +114,13 @@
     .lp-tagline-main { font-size: 0.92rem; font-weight: 800; color: #fff; margin-bottom: 5px; }
     .lp-tagline-sub  { font-size: 0.74rem; color: rgba(255,255,255,0.55); line-height: 1.6; }
 
-    /* ── 가운데 여백 (카드 왼쪽으로 밀기) ── */
-    .lp-spacer { flex: 1; }
+    /* ── 오른쪽 영역 (카드를 중앙에 배치) ── */
+    .lp-right-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     /* ── 로그인 카드 ── */
     .lp-card {
@@ -222,7 +227,6 @@
     @media (max-width: 860px) {
       .lp-left { display: none; }
       .lp-wrap { justify-content: center; padding: 32px 20px; }
-      .lp-spacer { display: none; }
       .lp-card { flex: 0 0 auto; width: 100%; max-width: 420px; }
     }
     @media (max-width: 480px) { .lp-card { padding: 32px 24px; } }
@@ -293,9 +297,8 @@
       </div>
     </div>
 
-    <!-- 가운데 여백 -->
-    <div class="lp-spacer"></div>
-
+    <!-- 오른쪽 영역: 카드를 중앙 배치 -->
+    <div class="lp-right-area">
     <!-- ── 로그인 카드 ── -->
     <div class="lp-card">
 
@@ -363,6 +366,8 @@
 
     </div>
     <!-- /lp-card -->
+    </div>
+    <!-- /lp-right-area -->
 
   </div>
   <!-- /lp-wrap -->
