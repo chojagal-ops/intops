@@ -33,20 +33,22 @@
       );
     }
 
-    /* ── 전체 레이아웃 ── */
+    /* ── 전체 레이아웃: 카드를 화면 정중앙에 ── */
     .lp-wrap {
       position: relative; z-index: 2;
       min-height: 100vh;
       display: flex;
       align-items: center;
-      padding: 48px 0 48px 56px;
+      justify-content: center;   /* 카드 수평 정중앙 */
       box-sizing: border-box;
-      gap: 0;
     }
 
-    /* ── 왼쪽 브랜딩 ── */
+    /* ── 왼쪽 브랜딩: 절대 위치로 분리 ── */
     .lp-left {
-      flex: 0 0 360px;
+      position: absolute;
+      left: 56px;
+      top: 50%; transform: translateY(-50%);
+      width: 340px;
       color: #fff;
       display: flex;
       flex-direction: column;
@@ -114,21 +116,20 @@
     .lp-tagline-main { font-size: 0.92rem; font-weight: 800; color: #fff; margin-bottom: 5px; }
     .lp-tagline-sub  { font-size: 0.74rem; color: rgba(255,255,255,0.55); line-height: 1.6; }
 
-    /* ── 오른쪽 영역 — 카드를 왼쪽 패널 바로 옆에 배치, 우측 사진 노출 ── */
+    /* ── 오른쪽 영역: 카드만 포함, wrap이 중앙 정렬 ── */
     .lp-right-area {
-      flex: 0 0 auto;
       display: flex;
       align-items: center;
-      padding-left: 56px;
+      justify-content: center;
     }
 
     /* ── 로그인 카드 ── */
     .lp-card {
-      width: 400px;
+      width: 420px;
       background: #ffffff;
       border-radius: 22px;
       padding: 44px 40px;
-      box-shadow: 0 24px 72px rgba(0,0,0,0.38), 0 0 0 1px rgba(0,0,0,0.06);
+      box-shadow: 0 24px 72px rgba(0,0,0,0.42), 0 0 0 1px rgba(0,0,0,0.06);
     }
     .lp-card-logo { text-align: center; margin-bottom: 20px; }
     .lp-card-logo img {
@@ -220,22 +221,13 @@
     }
 
     /* 반응형 */
-    @media (max-width: 1100px) {
-      .lp-wrap { padding: 40px 0 40px 40px; }
-      .lp-left { flex: 0 0 300px; }
-      .lp-right-area { padding-left: 40px; }
-      .lp-card { width: 360px; }
-    }
-    @media (max-width: 860px) {
+    /* 좌측 브랜딩 패널이 카드와 겹치지 않도록 숨김 */
+    @media (max-width: 960px) {
       .lp-left { display: none; }
-      .lp-wrap { justify-content: center; padding: 32px 20px; }
-      .lp-right-area { padding-left: 0; }
-      .lp-card { width: 100%; max-width: 420px; }
     }
     @media (max-width: 480px) {
-      .lp-card { padding: 32px 24px; }
+      .lp-card { width: calc(100vw - 40px); padding: 32px 24px; }
     }
-    @media (max-width: 480px) { .lp-card { padding: 32px 24px; } }
   </style>
 </head>
 <body>
