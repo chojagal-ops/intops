@@ -126,33 +126,68 @@
     .existing-photo-item .photo-del-chk { accent-color:#dc2626; width:16px; height:16px; cursor:pointer; }
 
     /* ── 프린트 스타일 ── */
-    @page { size: A4 landscape; margin: 10mm 12mm; }
+    @page { size: A4 landscape; margin: 8mm 10mm; }
     @media print {
       * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+
+      /* 화면 전용 요소 숨김 */
       .topbar, .filter-bar, .stat-cards, #add-anomaly-form,
       .action-form, .photo-upload-inline, .photo-count-badge,
       .photo-strip, #lb-overlay, .btn-sm, .btn-sm-red,
-      .no-print { display:none !important; }
-      .chart-section { page-break-before:always; }
-      body { background:#fff !important; }
-      .page-wrap { padding:0 !important; }
-      .card { box-shadow:none !important; border:none !important; padding:4px !important; }
+      .act-form-wrap, .no-print { display:none !important; }
+      .chart-section { display:none !important; }
+
+      body { background:#fff !important; font-family:'Malgun Gothic','맑은 고딕',sans-serif !important; }
+      .page-wrap { padding:0 !important; min-height:unset !important; }
+      .card { box-shadow:none !important; border:none !important; padding:4px 0 !important; }
       .card-wide { max-width:100% !important; width:100% !important; }
       .print-header { display:block !important; }
+      .print-only   { display:block !important; }
+
+      /* ── 테이블 전체 ── */
       .anomaly-table {
-        font-size:7.5pt !important; border-collapse:collapse !important;
+        font-size:7pt !important; border-collapse:collapse !important;
         width:100% !important; table-layout:fixed !important;
       }
+
+      /* ── 컬럼 너비 (landscape A4 ≈ 277mm 사용 폭) ── */
+      .anomaly-table th:nth-child(1),  .anomaly-table td:nth-child(1)  { width:4% !important; }  /* No. */
+      .anomaly-table th:nth-child(2),  .anomaly-table td:nth-child(2)  { width:9% !important; }  /* 발생일시 */
+      .anomaly-table th:nth-child(3),  .anomaly-table td:nth-child(3)  { width:12% !important; } /* 설비명 */
+      .anomaly-table th:nth-child(4),  .anomaly-table td:nth-child(4)  { width:7% !important; }  /* 팀 */
+      .anomaly-table th:nth-child(5),  .anomaly-table td:nth-child(5)  { width:6% !important; }  /* 우선순위 */
+      .anomaly-table th:nth-child(6),  .anomaly-table td:nth-child(6)  { width:20% !important; } /* 이상 내용 */
+      .anomaly-table th:nth-child(7),  .anomaly-table td:nth-child(7)  { width:22% !important; } /* 조치사항 */
+      .anomaly-table th:nth-child(8),  .anomaly-table td:nth-child(8)  { display:none !important; } /* 사진 숨김 */
+      .anomaly-table th:nth-child(9),  .anomaly-table td:nth-child(9)  { width:10% !important; } /* 예정일/완료일 */
+      .anomaly-table th:nth-child(10), .anomaly-table td:nth-child(10) { width:6% !important; }  /* 상태 */
+      .anomaly-table th:nth-child(11), .anomaly-table td:nth-child(11) { width:7% !important; }  /* 신고자 */
+      .anomaly-table th:nth-child(12), .anomaly-table td:nth-child(12) { display:none !important; } /* 관리 숨김 */
+
+      /* ── 셀 공통 ── */
       .anomaly-table th, .anomaly-table td {
-        border:1px solid #aaa !important; padding:3px 5px !important;
-        font-size:7.5pt !important; word-break:break-word !important;
+        border:1px solid #aaa !important; padding:3px 4px !important;
+        font-size:7pt !important; word-break:break-word !important;
         white-space:normal !important; vertical-align:top !important;
+        overflow:visible !important; text-overflow:unset !important;
+        max-width:unset !important;
       }
-      .anomaly-table th { background:#f0f0f0 !important; font-weight:bold !important; }
-      .priority-badge, .resolved-badge { border:1px solid #999 !important; }
-      .tmpl-table-wrap { overflow:visible !important; }
+      .anomaly-table th { background:#eeeeee !important; font-weight:bold !important; text-align:center !important; }
+
+      /* ── 셀 내부 div 말줄임 제거 ── */
+      .anomaly-table td div,
+      .anomaly-table td .act-summary {
+        overflow:visible !important; text-overflow:unset !important;
+        white-space:normal !important; max-width:unset !important;
+      }
+      .act-view { display:flex !important; flex-direction:column !important; gap:1px !important; }
+
+      .priority-badge  { font-size:6.5pt !important; padding:1px 4px !important; }
+      .resolved-badge  { font-size:6.5pt !important; padding:1px 4px !important; }
       a { text-decoration:none !important; color:inherit !important; }
-      .print-only { display:block !important; }
+
+      /* 행 줄바꿈 방지 */
+      .anomaly-table tr { page-break-inside:avoid !important; }
     }
     .print-header { display:none; }
     .print-only   { display:none; }
