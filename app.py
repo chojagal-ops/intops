@@ -3863,6 +3863,19 @@ def monthly_results(eq_id):
         if wd >= 5:  # 토(5), 일(6)
             weekend_days.add(d)
 
+    # 주말(토/일) DB 기록 없으면 자동으로 휴동 처리
+    for d in weekend_days:
+        if d not in insp_by_day:
+            insp_by_day[d] = {
+                'id': None,
+                'result': '휴동',
+                'inspector_name': '관리자',
+                'approved_name': '관리자',
+                'inspected_at': f'{year}-{month:02d}-{d:02d} 00:00:00',
+                'status': '승인완료',
+                'notes': '주말',
+            }
+
     return render_template('monthly_results.html',
         eq=eq, db_items=db_items, tmpl_rows=tmpl_rows,
         insp_by_day=insp_by_day, details_by_insp=details_by_insp,
@@ -3968,6 +3981,22 @@ def export_monthly(eq_id):
 
     conn.close()
 
+    days_in_month = calendar.monthrange(year, month)[1]
+
+    # 주말(토/일) DB 기록 없으면 자동으로 휴동 처리
+    import datetime as _dt2
+    for d in range(1, days_in_month + 1):
+        if _dt2.date(year, month, d).weekday() >= 5 and d not in insp_by_day:
+            insp_by_day[d] = {
+                'id': None,
+                'result': '휴동',
+                'inspector_name': '관리자',
+                'approved_name': '관리자',
+                'inspected_at': f'{year}-{month:02d}-{d:02d} 00:00:00',
+                'status': '승인완료',
+                'notes': '주말',
+            }
+
     # ── Excel 생성 ────────────────────────────────────────────────────────────
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -3975,8 +4004,6 @@ def export_monthly(eq_id):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"{month:02d}월 점검결과"
-
-    days_in_month = calendar.monthrange(year, month)[1]
     total_cols    = 4 + days_in_month  # 번호+항목+기준+단위 + 일수
 
     # 스타일 정의
@@ -4101,6 +4128,9 @@ def export_monthly(eq_id):
                     else:
                         c.value = '-'; c.fill = GRAY_FILL
                         c.font = Font(size=9, color='6B7280')
+                elif ins['result'] == '휴동':
+                    c.value = 'P'; c.fill = GRAY_FILL
+                    c.font = Font(size=9, color='6B7280')
                 else:
                     c.fill = EMPTY_FILL
             else:
@@ -4120,7 +4150,8 @@ def export_monthly(eq_id):
         c.border = bdr; c.alignment = center
         c.font = Font(size=7)
         if day in insp_by_day:
-            c.value = insp_by_day[day]['inspector_name']
+            ins_d = insp_by_day[day]
+            c.value = '관리자' if ins_d['result'] == '휴동' else ins_d['inspector_name']
             c.fill = LIGHT_FILL
         else:
             c.fill = EMPTY_FILL
