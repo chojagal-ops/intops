@@ -2765,12 +2765,20 @@ def admin_fill_missing_details():
     conn = get_db()
     ph   = '%s' if conn._pg else '?'
 
-    # 세부기록(details)이 전혀 없는 점검 기록 목록 (휴동 제외)
+    # 유효한 item_id 세부기록이 없는 점검 기록 (NULL item_id 포함)
+    # 기존 NULL-item_id 세부기록 먼저 삭제
+    conn.execute(f'''
+        DELETE FROM inspection_details
+        WHERE item_id IS NULL OR item_id = 0
+    ''')
+
+    # 세부기록이 없는 점검 (휴동 제외)
     orphans = conn.execute(f'''
         SELECT i.id, i.equipment_id FROM inspections i
         WHERE i.result != '휴동'
           AND NOT EXISTS (
-              SELECT 1 FROM inspection_details d WHERE d.inspection_id = i.id
+              SELECT 1 FROM inspection_details d
+              WHERE d.inspection_id = i.id AND d.item_id IS NOT NULL AND d.item_id != 0
           )
     ''').fetchall()
 
@@ -2783,6 +2791,9 @@ def admin_fill_missing_details():
             f'SELECT id FROM inspection_items WHERE equipment_id={ph} ORDER BY item_order',
             (eq_id,)
         ).fetchall()
+
+        if not items:   # 점검항목 없는 설비는 건너뜀
+            continue
 
         for itm in items:
             conn.execute(
