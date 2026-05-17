@@ -331,8 +331,14 @@
                         <td><span class="mark-na">–</span></td>
                       {% endif %}
                     {% elif ins_day.result == '휴동' %}
-                      {# 관리자 일괄 휴동: inspection_details 없음 → 전체결과로 표시 #}
                       <td class="td-idle"><span class="mark-idle">P</span></td>
+                    {% elif ins_day.result == '정상' %}
+                      {# 세부기록 없어도 전체결과가 정상이면 O 표시 #}
+                      <td class="td-ok"><span class="mark-ok">O</span></td>
+                    {% elif ins_day.result == '이상' %}
+                      <td class="td-ng"><span class="mark-ng">X</span></td>
+                    {% elif ins_day.result == '수리중' %}
+                      <td class="td-fix"><span class="mark-fix">R</span></td>
                     {% else %}
                       <td class="td-none"></td>
                     {% endif %}
@@ -372,8 +378,13 @@
                           <td><span class="mark-na">–</span></td>
                         {% endif %}
                       {% elif ins_day.result == '휴동' %}
-                        {# 관리자 일괄 휴동: inspection_details 없음 → 전체결과로 표시 #}
                         <td class="td-idle"><span class="mark-idle">P</span></td>
+                      {% elif ins_day.result == '정상' %}
+                        <td class="td-ok"><span class="mark-ok">O</span></td>
+                      {% elif ins_day.result == '이상' %}
+                        <td class="td-ng"><span class="mark-ng">X</span></td>
+                      {% elif ins_day.result == '수리중' %}
+                        <td class="td-fix"><span class="mark-fix">R</span></td>
                       {% else %}
                         <td class="td-none"></td>
                       {% endif %}
