@@ -83,15 +83,22 @@
 
       {% set done = rows | selectattr('insp_id') | list %}
       {% set total = rows | list %}
+      {% set not_done_cnt = total | length - done | length %}
 
       <!-- 요약 -->
       <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
         <span class="sum-badge" style="background:rgba(22,163,74,0.12); color:#15803d; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
           ✅ 점검완료 {{ done | length }}대
         </span>
-        <span class="sum-badge" style="background:rgba(249,115,22,0.12); color:#c2410c; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
-          ⚠️ 미점검 {{ total | length - done | length }}대
+        {% if is_weekend and not_done_cnt > 0 %}
+        <span class="sum-badge" style="background:rgba(107,114,128,0.12); color:#6b7280; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
+          ⏸ 휴동 {{ not_done_cnt }}대
         </span>
+        {% elif not_done_cnt > 0 %}
+        <span class="sum-badge" style="background:rgba(249,115,22,0.12); color:#c2410c; padding:5px 16px; border-radius:20px; font-size:0.82rem; font-weight:700;">
+          ⚠️ 미점검 {{ not_done_cnt }}대
+        </span>
+        {% endif %}
       </div>
 
       <!-- 결과 테이블 -->
@@ -115,7 +122,8 @@
           </thead>
           <tbody>
             {% for r in rows %}
-            <tr style="border-bottom:1px solid var(--border); {% if not r.insp_id %}background:rgba(249,115,22,0.03);{% endif %}">
+            {% set auto_idle = is_weekend and not r.insp_id %}
+            <tr style="border-bottom:1px solid var(--border); {% if auto_idle %}background:rgba(107,114,128,0.04);{% elif not r.insp_id %}background:rgba(249,115,22,0.03);{% endif %}">
               <td style="padding:10px 14px;"><strong>{{ r.eq_name }}</strong></td>
               <td style="padding:10px 14px; color:var(--text-sub);">{{ r.location or '-' }}</td>
               <td style="padding:10px 14px; font-size:0.8rem; color:var(--text-sub);">
@@ -124,6 +132,8 @@
               <td style="padding:10px 14px; text-align:center;">
                 {% if r.insp_id %}
                   <span style="background:rgba(22,163,74,0.12); color:#15803d; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">완료</span>
+                {% elif auto_idle %}
+                  <span style="background:rgba(107,114,128,0.12); color:#6b7280; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">⏸ 휴동</span>
                 {% else %}
                   <span style="background:rgba(249,115,22,0.12); color:#c2410c; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">미점검</span>
                 {% endif %}
@@ -132,12 +142,20 @@
                 {% if r.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
                 {% elif r.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>
                 {% elif r.result == '수리중' %}<span class="result-tag tag-repair">🔧 수리중</span>
+                {% elif r.result == '휴동' %}<span class="result-tag tag-idle">⏸ 휴동</span>
                 {% elif r.result %}{{ r.result }}
+                {% elif auto_idle %}<span class="result-tag tag-idle">⏸ 휴동</span>
                 {% else %}<span style="color:var(--text-muted);">-</span>{% endif %}
               </td>
-              <td style="padding:10px 14px; color:var(--text-sub);">{{ r.inspector_name or '-' }}</td>
+              <td style="padding:10px 14px; color:var(--text-sub);">
+                {% if r.result == '휴동' %}관리자
+                {% elif auto_idle %}관리자
+                {% else %}{{ r.inspector_name or '-' }}{% endif %}
+              </td>
               <td style="padding:10px 14px; text-align:center;">
                 {% if r.status == '승인완료' %}
+                  <span class="badge badge-approved">✔ 승인완료</span>
+                {% elif auto_idle %}
                   <span class="badge badge-approved">✔ 승인완료</span>
                 {% elif r.insp_id %}
                   <span class="badge badge-pending">⏳ 대기</span>

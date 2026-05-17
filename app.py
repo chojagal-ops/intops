@@ -3219,9 +3219,18 @@ def daily_results():
     ''', [selected_date] + dept_params).fetchall()
     conn.close()
 
+    # 선택일이 주말(토/일)이면 미점검 → 휴동으로 표시
+    import datetime as _dt
+    try:
+        _d = _dt.date.fromisoformat(selected_date)
+        is_weekend = _d.weekday() >= 5   # 5=토, 6=일
+    except Exception:
+        is_weekend = False
+
     return render_template('daily_results.html',
                            rows=rows, selected_date=selected_date,
-                           current_dept=current_dept, all_teams=TEAMS)
+                           current_dept=current_dept, all_teams=TEAMS,
+                           is_weekend=is_weekend)
 
 
 # ── 내 점검 결과 ──────────────────────────────────────────────────────────────
