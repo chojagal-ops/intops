@@ -249,7 +249,36 @@
         </form>
       </div>
 
-      <!-- ⑤ 데이터 백업 -->
+      <!-- ⑤ 누락 기록 보정 -->
+      <div class="section-title" style="margin-bottom:12px;">🩹 누락 기록 일괄 보정</div>
+      <div style="background:rgba(22,163,74,0.05); border:1px solid rgba(22,163,74,0.2);
+                  border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+        <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:16px; line-height:1.7;">
+          선택 기간 내 기록이 없는 <strong>평일(주말·기존기록 제외)</strong>에 <strong style="color:#15803d;">정상</strong> 기록을 자동 삽입합니다.<br>
+          이미 기록이 있는 날(휴동 포함)은 그대로 유지됩니다.
+        </div>
+        <form method="POST" action="/admin/fill-missing-records"
+              onsubmit="return confirm('선택 기간 내 기록 없는 평일에 정상 기록을 삽입합니다.\n기존 기록은 변경되지 않습니다.\n계속하시겠습니까?')"
+              style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div>
+            <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">시작일</label>
+            <input type="date" name="fill_date_from"
+                   style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">종료일</label>
+            <input type="date" name="fill_date_to"
+                   style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
+          </div>
+          <button type="submit"
+                  style="padding:9px 20px; background:rgba(22,163,74,0.12); border:1px solid rgba(22,163,74,0.3);
+                         border-radius:8px; color:#15803d; font-size:0.88rem; font-weight:700; cursor:pointer;">
+            🩹 누락 기록 보정 실행
+          </button>
+        </form>
+      </div>
+
+      <!-- ⑥ 데이터 백업 -->
       <div class="section-title" style="margin-bottom:12px;">🗄️ 데이터 백업</div>
       <div style="background:var(--bg-subtle); border:1px solid var(--border);
                   border-radius:12px; padding:20px 22px;">

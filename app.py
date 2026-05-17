@@ -2671,6 +2671,92 @@ def cleanup_duplicates():
     return redirect(url_for('admin_data'))
 
 
+# ── 누락 기록 일괄 정상 보정 (관리자 전용) ────────────────────────────────────
+@app.route('/admin/fill-missing-records', methods=['POST'])
+@admin_required
+def admin_fill_missing_records():
+    """선택 기간 내 주말·기존 기록 제외한 날짜에 정상 기록을 자동 삽입"""
+    import datetime as _dt2
+    date_from_s = request.form.get('fill_date_from', '').strip()
+    date_to_s   = request.form.get('fill_date_to',   '').strip()
+    if not date_from_s or not date_to_s:
+        flash('날짜 범위를 입력하세요.', 'error')
+        return redirect(url_for('admin_data'))
+    try:
+        d_from = _dt2.date.fromisoformat(date_from_s)
+        d_to   = _dt2.date.fromisoformat(date_to_s)
+    except ValueError:
+        flash('날짜 형식이 올바르지 않습니다.', 'error')
+        return redirect(url_for('admin_data'))
+
+    admin_id = session['user_id']
+    conn     = get_db()
+    ph       = '%s' if conn._pg else '?'
+
+    equipments = conn.execute('SELECT id, approver_id FROM equipment').fetchall()
+    inserted   = 0
+    skipped    = 0
+
+    cur_d = d_from
+    while cur_d <= d_to:
+        # 주말(토/일) 건너뜀
+        if cur_d.weekday() >= 5:
+            cur_d += _dt2.timedelta(days=1)
+            continue
+
+        date_str = cur_d.strftime('%Y-%m-%d')
+        ts       = date_str + ' 09:00:00'
+
+        for eq in equipments:
+            eq_id       = eq['id']
+            approver_id = eq['approver_id'] or admin_id
+
+            # 이미 기록(휴동 포함)이 있으면 건너뜀
+            existing = conn.execute(
+                f'SELECT id FROM inspections WHERE equipment_id={ph} AND {conn.date_col("inspected_at")}={ph} LIMIT 1',
+                (eq_id, date_str)
+            ).fetchone()
+            if existing:
+                skipped += 1
+                continue
+
+            # 정상 점검 기록 삽입
+            if conn._pg:
+                ins_id = conn.execute(
+                    f'''INSERT INTO inspections
+                        (equipment_id, inspector_id, result, status, notes, inspected_at, approved_by, approved_at)
+                        VALUES ({ph},{ph},'정상','승인완료','',{ph},{ph},NOW()) RETURNING id''',
+                    (eq_id, admin_id, ts, approver_id)
+                ).fetchone()['id']
+            else:
+                conn.execute(
+                    f'''INSERT INTO inspections
+                        (equipment_id, inspector_id, result, status, notes, inspected_at, approved_by, approved_at)
+                        VALUES ({ph},{ph},'정상','승인완료','',{ph},{ph},datetime('now','localtime'))''',
+                    (eq_id, admin_id, ts, approver_id)
+                )
+                ins_id = conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
+
+            # 점검 항목별 정상 세부 기록 삽입
+            items = conn.execute(
+                f'SELECT id FROM inspection_items WHERE equipment_id={ph} ORDER BY item_order',
+                (eq_id,)
+            ).fetchall()
+            for itm in items:
+                conn.execute(
+                    f'INSERT INTO inspection_details (inspection_id, row_index, item_id, result, detail_notes) VALUES ({ph},0,{ph},{ph},{ph})',
+                    (ins_id, itm['id'], '정상', '')
+                )
+            inserted += 1
+
+        cur_d += _dt2.timedelta(days=1)
+
+    conn.commit()
+    conn.close()
+    flash(f'누락 기록 보정 완료 — {inserted}건 삽입 / {skipped}건 기존 기록 유지', 'success')
+    return redirect(url_for('admin_data'))
+
+
 @app.route('/bulk-inspect', methods=['GET', 'POST'])
 @login_required
 def bulk_inspect():
