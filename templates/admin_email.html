@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메일발송 관리 - INTOPS 설비점검 시스템</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/logo.png" type="image/png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    .email-wrap { width:100%; max-width:760px; margin:0 auto; padding:36px 28px 64px; box-sizing:border-box; }
+
+    /* SMTP 상태 배너 */
+    .smtp-banner {
+      display:flex; align-items:center; gap:14px;
+      padding:16px 20px; border-radius:12px; margin-bottom:28px;
+      font-size:0.88rem;
+    }
+    .smtp-banner.ok  { background:rgba(22,163,74,0.1); border:1px solid rgba(22,163,74,0.3); }
+    .smtp-banner.err { background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.25); }
+    .smtp-dot {
+      width:10px; height:10px; border-radius:50%; flex-shrink:0;
+    }
+    .smtp-dot.ok  { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.25); }
+    .smtp-dot.err { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.20); }
+    .smtp-label { font-weight:700; color:var(--text); }
+    .smtp-addr  { font-size:0.81rem; color:var(--text-sub); margin-top:2px; }
+
+    /* 마스터 스위치 카드 */
+    .master-card {
+      background:rgba(249,115,22,0.06);
+      border:1.5px solid rgba(249,115,22,0.25);
+      border-radius:14px; padding:22px 24px;
+      display:flex; align-items:center; gap:18px;
+      margin-bottom:24px;
+    }
+    .master-card-icon { font-size:1.6rem; }
+    .master-card-title { font-size:1rem; font-weight:800; color:var(--text); }
+    .master-card-desc  { font-size:0.81rem; color:var(--text-sub); margin-top:3px; }
+    .master-card .toggle-wrap { margin-left:auto; flex-shrink:0; }
+
+    /* 기능별 카드 목록 */
+    .feature-list { display:flex; flex-direction:column; gap:12px; margin-bottom:28px; }
+    .feature-card {
+      background:var(--card-bg,#1e2530);
+      border:1px solid var(--border,#2d3748);
+      border-radius:12px; padding:18px 22px;
+      display:flex; align-items:center; gap:16px;
+      transition:border-color .15s;
+    }
+    .feature-card:hover { border-color:rgba(249,115,22,0.35); }
+    .feature-card.disabled { opacity:0.45; pointer-events:none; }
+
+    .feature-icon {
+      width:42px; height:42px; border-radius:10px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.2rem;
+    }
+    .feature-title { font-size:0.92rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .feature-desc  { font-size:0.79rem; color:var(--text-sub); line-height:1.5; }
+    .feature-card .toggle-wrap { margin-left:auto; flex-shrink:0; }
+
+    /* 토글 스위치 */
+    .toggle-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .toggle-label-txt { font-size:0.72rem; font-weight:700; }
+
+    .toggle {
+      position:relative; display:inline-block;
+      width:52px; height:28px; cursor:pointer;
+    }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider {
+      position:absolute; inset:0;
+      background:#3a4455; border-radius:28px;
+      transition:background .2s;
+    }
+    .toggle-slider::before {
+      content:''; position:absolute;
+      width:20px; height:20px; border-radius:50%;
+      left:4px; top:4px; background:#fff;
+      transition:transform .2s, box-shadow .2s;
+      box-shadow:0 1px 4px rgba(0,0,0,0.3);
+    }
+    .toggle input:checked + .toggle-slider { background:#f97316; }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(24px); }
+
+    /* 저장 버튼 */
+    .save-row { display:flex; justify-content:flex-end; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
+      INTOPS 설비점검 시스템
+    </div>
+    <div class="topbar-nav">
+      <a href="/dashboard"          class="nav-link">홈</a>
+      <a href="/my-inspections"     class="nav-link">내 점검 결과</a>
+      <a href="/daily-results"      class="nav-link">일별 점검 결과</a>
+      <a href="/equipment-list"     class="nav-link">월별 점검 결과</a>
+      <a href="/monitoring"         class="nav-link">점검율 모니터링</a>
+      <a href="/anomaly-management" class="nav-link">이상발생관리</a>
+      <a href="/admin"              class="nav-link">회원 관리</a>
+      <a href="/admin/equipment"    class="nav-link">설비 관리</a>
+      <a href="/admin/data"         class="nav-link">데이터 관리</a>
+      <a href="/admin/email"        class="nav-link active">메일 설정</a>
+    </div>
+    <div class="topbar-user">
+      {{ session.user_name }} 님
+      <a href="/help" class="help-btn">❓ 도움말</a>
+      <a href="/my-profile" class="help-btn" style="background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.25);">👤 내 정보</a>
+      <a href="/logout">로그아웃</a>
+    </div>
+  </div>
+
+  <div class="email-wrap">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div style="margin-bottom:24px;">
+      <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:4px;">✉️ 메일발송 관리</div>
+      <div style="font-size:0.85rem;color:var(--text-sub);">기능별 이메일 발송을 개별적으로 ON/OFF 설정합니다.</div>
+    </div>
+
+    <!-- SMTP 연결 상태 -->
+    <div class="smtp-banner {{ 'ok' if smtp_ok else 'err' }}">
+      <div class="smtp-dot {{ 'ok' if smtp_ok else 'err' }}"></div>
+      <div>
+        <div class="smtp-label">
+          {% if smtp_ok %}SMTP 연결됨{% else %}SMTP 미설정{% endif %}
+        </div>
+        <div class="smtp-addr">
+          {% if smtp_ok %}발신 계정: {{ smtp_addr }}
+          {% else %}환경변수 SMTP_EMAIL / SMTP_PASSWORD 가 설정되지 않았습니다. 아래 설정과 무관하게 메일이 발송되지 않습니다.{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <form method="POST" action="/admin/email/save" id="emailForm">
+
+      <!-- 마스터 스위치 -->
+      <div class="master-card">
+        <div class="master-card-icon">🔌</div>
+        <div>
+          <div class="master-card-title">전체 메일 발송 마스터 스위치</div>
+          <div class="master-card-desc">OFF 시 아래 개별 설정과 무관하게 모든 메일 발송이 중단됩니다.</div>
+        </div>
+        <div class="toggle-wrap">
+          <label class="toggle" title="전체 메일 ON/OFF">
+            <input type="checkbox" name="email_enabled_chk" id="masterChk"
+                   {% if settings.email_enabled %}checked{% endif %}
+                   onchange="syncMaster(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <input type="hidden" name="email_enabled" id="masterVal"
+                 value="{{ '1' if settings.email_enabled else '0' }}">
+          <span class="toggle-label-txt"
+                id="masterTxt"
+                style="color:{{ '#f97316' if settings.email_enabled else '#6b7280' }}">
+            {{ 'ON' if settings.email_enabled else 'OFF' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 기능별 카드 -->
+      <div class="feature-list" id="featureList">
+
+        <!-- 승인 요청 알림 -->
+        <div class="feature-card {% if not settings.email_enabled %}disabled{% endif %}">
+          <div class="feature-icon" style="background:rgba(37,99,235,0.12);">📬</div>
+          <div>
+            <div class="feature-title">승인 요청 알림</div>
+            <div class="feature-desc">
+              점검자가 점검을 제출하면 담당 승인자에게 승인 요청 메일을 발송합니다.
+            </div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" name="email_approval_chk"
+                     class="feat-chk" data-key="email_approval_enabled"
+                     {% if settings.email_approval_enabled %}checked{% endif %}
+                     onchange="syncToggle(this)">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="hidden" name="email_approval_enabled" class="feat-val"
+                   value="{{ '1' if settings.email_approval_enabled else '0' }}">
+            <span class="toggle-label-txt feat-txt"
+                  style="color:{{ '#f97316' if settings.email_approval_enabled else '#6b7280' }}">
+              {{ 'ON' if settings.email_approval_enabled else 'OFF' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 이상발생 담당자 알림 -->
+        <div class="feature-card {% if not settings.email_enabled %}disabled{% endif %}">
+          <div class="feature-icon" style="background:rgba(220,38,38,0.10);">🚨</div>
+          <div>
+            <div class="feature-title">이상발생 담당자 알림</div>
+            <div class="feature-desc">
+              이상발생이 등록될 때 조치 담당자에게 이상발생 안내 메일을 발송합니다.
+            </div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" name="email_anomaly_chk"
+                     class="feat-chk" data-key="email_anomaly_enabled"
+                     {% if settings.email_anomaly_enabled %}checked{% endif %}
+                     onchange="syncToggle(this)">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="hidden" name="email_anomaly_enabled" class="feat-val"
+                   value="{{ '1' if settings.email_anomaly_enabled else '0' }}">
+            <span class="toggle-label-txt feat-txt"
+                  style="color:{{ '#f97316' if settings.email_anomaly_enabled else '#6b7280' }}">
+              {{ 'ON' if settings.email_anomaly_enabled else 'OFF' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 미점검 알림 -->
+        <div class="feature-card {% if not settings.email_enabled %}disabled{% endif %}">
+          <div class="feature-icon" style="background:rgba(234,179,8,0.12);">⏰</div>
+          <div>
+            <div class="feature-title">미점검 알림 (평일 오전 11시)</div>
+            <div class="feature-desc">
+              평일 오전 11시 기준, 당일 미점검 설비의 담당자(정/부)에게 알림 메일을 발송합니다.
+            </div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" name="email_reminder_chk"
+                     class="feat-chk" data-key="email_reminder_enabled"
+                     {% if settings.email_reminder_enabled %}checked{% endif %}
+                     onchange="syncToggle(this)">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="hidden" name="email_reminder_enabled" class="feat-val"
+                   value="{{ '1' if settings.email_reminder_enabled else '0' }}">
+            <span class="toggle-label-txt feat-txt"
+                  style="color:{{ '#f97316' if settings.email_reminder_enabled else '#6b7280' }}">
+              {{ 'ON' if settings.email_reminder_enabled else 'OFF' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 비밀번호 재설정 -->
+        <div class="feature-card {% if not settings.email_enabled %}disabled{% endif %}">
+          <div class="feature-icon" style="background:rgba(139,92,246,0.12);">🔐</div>
+          <div>
+            <div class="feature-title">비밀번호 재설정 인증코드</div>
+            <div class="feature-desc">
+              비밀번호 분실 시 이메일로 인증번호를 발송합니다. OFF 시 관리자 직접 초기화만 가능합니다.
+            </div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" name="email_reset_chk"
+                     class="feat-chk" data-key="email_reset_enabled"
+                     {% if settings.email_reset_enabled %}checked{% endif %}
+                     onchange="syncToggle(this)">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="hidden" name="email_reset_enabled" class="feat-val"
+                   value="{{ '1' if settings.email_reset_enabled else '0' }}">
+            <span class="toggle-label-txt feat-txt"
+                  style="color:{{ '#f97316' if settings.email_reset_enabled else '#6b7280' }}">
+              {{ 'ON' if settings.email_reset_enabled else 'OFF' }}
+            </span>
+          </div>
+        </div>
+
+      </div>
+      <!-- /feature-list -->
+
+      <!-- 저장 -->
+      <div class="save-row">
+        <button type="submit" class="btn btn-primary" style="width:auto;padding:12px 36px;font-size:0.95rem;">
+          💾 설정 저장
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+
+  <script src="/static/nav.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
+
+    /* 마스터 스위치 변경 시 하위 카드 dim 처리 */
+    function syncMaster(chk) {
+      const on = chk.checked;
+      document.getElementById('masterVal').value = on ? '1' : '0';
+      document.getElementById('masterTxt').textContent = on ? 'ON' : 'OFF';
+      document.getElementById('masterTxt').style.color = on ? '#f97316' : '#6b7280';
+      document.querySelectorAll('.feature-card').forEach(function(card) {
+        if (on) card.classList.remove('disabled');
+        else    card.classList.add('disabled');
+      });
+    }
+
+    /* 개별 토글 변경 */
+    function syncToggle(chk) {
+      const key  = chk.dataset.key;
+      const on   = chk.checked;
+      const wrap = chk.closest('.toggle-wrap');
+      // hidden input 업데이트
+      const hiddenArr = document.querySelectorAll('[name="' + key + '"]');
+      hiddenArr.forEach(function(h){ h.value = on ? '1' : '0'; });
+      // 라벨 텍스트
+      const txt = wrap.querySelector('.feat-txt');
+      if (txt) {
+        txt.textContent = on ? 'ON' : 'OFF';
+        txt.style.color = on ? '#f97316' : '#6b7280';
+      }
+    }
+  </script>
+</body>
+</html>

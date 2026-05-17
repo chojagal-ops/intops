@@ -358,6 +358,8 @@ def send_approval_request(to_email, approver_name, inspector_name,
         return
     if get_setting('email_enabled', '1') != '1':
         return
+    if get_setting('email_approval_enabled', '1') != '1':
+        return
     inspect_url = host_url.rstrip('/') + url_for('inspect', eq_id=eq_id)
     subject     = f'[설비점검] 승인 요청 - {eq_name}'
     html_body   = _build_email_html(approver_name, inspector_name,
@@ -432,6 +434,9 @@ def send_anomaly_notification(action_person_name, reporter_name, eq_name, eq_loc
         return
     if get_setting('email_enabled', '1') != '1':
         print(f'[이상알림] 이메일 발송 OFF - 발송 스킵', flush=True)
+        return
+    if get_setting('email_anomaly_enabled', '1') != '1':
+        print(f'[이상알림] 이상발생 알림 OFF - 발송 스킵', flush=True)
         return
     if not action_person_name or not action_person_name.strip():
         return
@@ -794,6 +799,9 @@ def _send_inspection_reminders():
     if get_setting('email_enabled', '1') != '1':
         print('[알림] 관리자 설정으로 이메일 발송 OFF - 점검 알림 스킵', flush=True)
         return
+    if get_setting('email_reminder_enabled', '1') != '1':
+        print('[알림] 미점검 알림 OFF - 발송 스킵', flush=True)
+        return
 
     now = datetime.now()
     today_str = now.strftime('%Y-%m-%d')
@@ -1056,9 +1064,12 @@ def forgot_password():
             mail_sent = f'SMTP 환경변수 미설정 (EMAIL={email_config.SENDER_EMAIL!r})'
         elif get_setting('email_enabled', '1') != '1':
             mail_sent = '관리자 설정으로 이메일 발송 OFF'
+        elif get_setting('email_reset_enabled', '1') != '1':
+            mail_sent = '비밀번호 재설정 이메일 발송 OFF'
         elif not user['email']:
             mail_sent = '계정에 이메일 주소가 없음'
-        if email_config.ENABLED and get_setting('email_enabled', '1') == '1' and user['email']:
+        if (email_config.ENABLED and get_setting('email_enabled', '1') == '1'
+                and get_setting('email_reset_enabled', '1') == '1' and user['email']):
             # 동기 발송으로 성공 여부 즉시 확인
             subject = '[INTOPS] 비밀번호 재설정 인증번호'
             html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
@@ -2483,6 +2494,42 @@ def admin_toggle_email():
     state = 'ON' if new_val == '1' else 'OFF'
     flash(f'이메일 알림이 {state}으로 변경되었습니다.', 'success')
     return redirect(url_for('admin_data'))
+
+
+# ── 메일발송 관리 페이지 ──────────────────────────────────────────────────────
+@app.route('/admin/email', methods=['GET'])
+@admin_required
+def admin_email():
+    settings = {
+        'email_enabled':          get_setting('email_enabled',          '1') == '1',
+        'email_approval_enabled': get_setting('email_approval_enabled', '1') == '1',
+        'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
+        'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
+        'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
+    }
+    smtp_ok = bool(email_config.ENABLED)
+    smtp_addr = email_config.SENDER_EMAIL
+    return render_template('admin_email.html',
+                           settings=settings,
+                           smtp_ok=smtp_ok,
+                           smtp_addr=smtp_addr)
+
+
+@app.route('/admin/email/save', methods=['POST'])
+@admin_required
+def admin_email_save():
+    keys = [
+        'email_enabled',
+        'email_approval_enabled',
+        'email_anomaly_enabled',
+        'email_reminder_enabled',
+        'email_reset_enabled',
+    ]
+    for key in keys:
+        val = '1' if request.form.get(key) == '1' else '0'
+        set_setting(key, val)
+    flash('메일발송 설정이 저장되었습니다.', 'success')
+    return redirect(url_for('admin_email'))
 
 
 # ── 일별 점검 기록 삭제 (관리자 전용) ────────────────────────────────────────
