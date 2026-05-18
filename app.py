@@ -1355,44 +1355,30 @@ def admin_data():
     }
     smtp_ok   = email_config.ENABLED
     smtp_addr = email_config.SENDER_EMAIL
-    # 현재 관리자 이메일을 기본 수신 주소로
-    conn = get_db()
-    me = conn.execute('SELECT email FROM users WHERE id=?', (session['user_id'],)).fetchone()
-    conn.close()
-    test_target = me['email'] if me else ''
     return render_template('admin_data.html',
                            now_ym=now_ym,
                            email_settings=email_settings,
                            smtp_ok=smtp_ok,
-                           smtp_addr=smtp_addr,
-                           test_target=test_target,
-                           test_result=None)
+                           smtp_addr=smtp_addr)
 
 
 @app.route('/admin/send-test-email', methods=['POST'])
 @admin_required
 def admin_send_test_email():
-    """SMTP 테스트 메일 즉시 발송 (동기 실행, 결과 즉시 표시)"""
+    """SMTP 테스트 메일 즉시 발송"""
     to_email = request.form.get('test_email', '').strip()
-    now_ym = now_kst().strftime('%Y-%m')
-    email_settings = {
-        'email_enabled':          get_setting('email_enabled',          '1') == '1',
-        'email_approval_enabled': get_setting('email_approval_enabled', '1') == '1',
-        'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
-        'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
-        'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
-    }
-    smtp_ok   = email_config.ENABLED
-    smtp_addr = email_config.SENDER_EMAIL
 
-    test_result = None
     if not to_email:
-        test_result = {'ok': False, 'msg': '수신 이메일을 입력하세요.'}
-    elif not smtp_ok:
-        test_result = {'ok': False, 'msg': 'SMTP 환경변수(SMTP_EMAIL / SMTP_PASSWORD)가 설정되지 않았습니다.'}
-    else:
-        now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
-        html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+        flash('수신 이메일 주소를 입력하세요.', 'error')
+        return redirect(url_for('admin_data'))
+
+    if not email_config.ENABLED:
+        flash('SMTP 환경변수(SMTP_EMAIL / SMTP_PASSWORD)가 설정되지 않아 발송할 수 없습니다.', 'error')
+        return redirect(url_for('admin_data'))
+
+    now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+    smtp_addr = email_config.SENDER_EMAIL
+    html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
             box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
   <div style="background:#f97316;padding:24px 32px;">
@@ -1415,19 +1401,14 @@ def admin_send_test_email():
     </p>
   </div>
 </div></body></html>'''
-        result = _send_mail(to_email, '[INTOPS] 테스트 메일 발송 확인', html)
-        if result is True:
-            test_result = {'ok': True,  'msg': f'{to_email} 으로 발송 완료 ({now_str})'}
-        else:
-            test_result = {'ok': False, 'msg': str(result)}
 
-    return render_template('admin_data.html',
-                           now_ym=now_ym,
-                           email_settings=email_settings,
-                           smtp_ok=smtp_ok,
-                           smtp_addr=smtp_addr,
-                           test_target=to_email,
-                           test_result=test_result)
+    result = _send_mail(to_email, '[INTOPS] 테스트 메일 발송 확인', html)
+    if result is True:
+        flash(f'✅ 테스트 메일 발송 성공 → {to_email}', 'success')
+    else:
+        flash(f'❌ 테스트 메일 발송 실패: {result}', 'error')
+
+    return redirect(url_for('admin_data'))
 
 
 

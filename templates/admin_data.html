@@ -78,8 +78,7 @@
           SMTP 연결 및 메일 발송이 정상 동작하는지 확인합니다. 입력한 주소로 테스트 메일이 즉시 발송됩니다.
         </div>
         <form method="POST" action="/admin/send-test-email" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input type="email" name="test_email" required
-                 value="{{ test_target or '' }}"
+          <input type="email" name="test_email" required id="testEmailInput"
                  placeholder="수신 이메일 주소"
                  style="flex:1; min-width:220px; padding:9px 14px; border-radius:8px;
                         border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.88rem;">
@@ -90,14 +89,6 @@
             ✉️ 테스트 발송
           </button>
         </form>
-        {% if test_result %}
-        <div style="margin-top:12px; padding:10px 14px; border-radius:8px; font-size:0.82rem; font-weight:600;
-                    background:{{ 'rgba(22,163,74,0.08)' if test_result.ok else 'rgba(220,38,38,0.08)' }};
-                    border:1px solid {{ 'rgba(22,163,74,0.3)' if test_result.ok else 'rgba(220,38,38,0.3)' }};
-                    color:{{ '#15803d' if test_result.ok else '#dc2626' }};">
-          {{ '✅ 발송 성공 — ' + test_result.msg if test_result.ok else '❌ 발송 실패 — ' + test_result.msg }}
-        </div>
-        {% endif %}
       </div>
 
       <form method="POST" action="/admin/email/save" id="emailForm">
