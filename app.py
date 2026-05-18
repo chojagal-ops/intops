@@ -291,20 +291,29 @@ def _build_email_html(approver_name, inspector_name, eq_name, location,
 
 def _send_mail(to_email, subject, html_body):
     try:
+        import socket as _socket
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From']    = email_config.SENDER_EMAIL
         msg['To']      = to_email
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-        # timeout=10: 연결 무한 대기 방지 (gunicorn 워커 강제종료 방지)
-        with smtplib.SMTP(email_config.SMTP_SERVER, email_config.SMTP_PORT, timeout=10) as s:
+
+        # IPv6 불가 환경(Render 무료)에서 IPv4 주소로 강제 연결
+        try:
+            ipv4 = _socket.getaddrinfo(
+                email_config.SMTP_SERVER, email_config.SMTP_PORT,
+                _socket.AF_INET  # IPv4 only
+            )[0][4][0]
+        except Exception:
+            ipv4 = email_config.SMTP_SERVER  # fallback: 원래 호스트명 사용
+
+        with smtplib.SMTP(ipv4, email_config.SMTP_PORT, timeout=15) as s:
             s.starttls()
             s.login(email_config.SENDER_EMAIL, email_config.SENDER_PASSWORD)
             s.sendmail(email_config.SENDER_EMAIL, to_email, msg.as_string())
-        print(f'[이메일] 발송 완료 → {to_email}')
+        print(f'[이메일] 발송 완료 → {to_email}', flush=True)
         return True
     except BaseException as e:
-        # SystemExit 포함 모든 예외 처리 (gunicorn timeout 시 SystemExit 발생)
         print(f'[이메일] 발송 실패: {e}', flush=True)
         import sys; sys.stderr.write(f'[이메일] 발송 실패: {e}\n'); sys.stderr.flush()
         return str(e)
