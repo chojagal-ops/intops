@@ -1362,38 +1362,46 @@ def admin_data():
                            smtp_addr=smtp_addr)
 
 
-@app.route('/admin/send-test-email', methods=['POST'])
-@admin_required
+@app.route('/admin/send-test-email', methods=['GET', 'POST'])
+@login_required
 def admin_send_test_email():
-    """SMTP 테스트 메일 즉시 발송"""
+    """SMTP 테스트 메일 즉시 발송 (관리자 전용)"""
+    if not session.get('is_admin'):
+        flash('관리자 권한이 필요합니다.', 'error')
+        return redirect('/dashboard')
+
+    if request.method == 'GET':
+        return redirect('/admin/data')
+
     try:
         to_email = (request.form.get('test_email') or '').strip()
 
         if not to_email:
             flash('수신 이메일 주소를 입력하세요.', 'error')
-            return redirect(url_for('admin_data'))
+            return redirect('/admin/data')
 
         if not email_config.ENABLED:
-            flash(f'SMTP 미설정 — SMTP_EMAIL={email_config.SENDER_EMAIL!r}, SMTP_PASSWORD 설정 여부 확인 필요', 'error')
-            return redirect(url_for('admin_data'))
+            flash(
+                f'SMTP 미설정 — SMTP_EMAIL={email_config.SENDER_EMAIL!r} / '
+                'SMTP_PASSWORD 환경변수를 Render 대시보드에서 확인하세요.',
+                'error'
+            )
+            return redirect('/admin/data')
 
-        now_str  = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+        now_str   = now_kst().strftime('%Y-%m-%d %H:%M:%S')
         smtp_addr = email_config.SENDER_EMAIL
-        subject  = '[INTOPS] 테스트 메일 발송 확인'
-        html = (
-            '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">'
-            '<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;'
-            'box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">'
-            '<div style="background:#f97316;padding:24px 32px;">'
-            '<h2 style="color:#fff;margin:0;font-size:1.2rem;">&#129514; INTOPS 테스트 메일</h2>'
-            '</div>'
-            '<div style="padding:28px 32px;">'
-            '<p style="color:#374151;margin:0 0 16px;">SMTP 발송 테스트가 성공적으로 완료되었습니다.</p>'
-            f'<p style="color:#374151;margin:0 0 8px;">&#128197; 발송 시각: <strong>{now_str} (KST)</strong></p>'
-            f'<p style="color:#374151;margin:0 0 8px;">&#9993;&#65039; 발신 계정: <strong>{smtp_addr}</strong></p>'
-            f'<p style="color:#374151;margin:0;">&#128236; 수신 주소: <strong>{to_email}</strong></p>'
-            '</div></div></body></html>'
-        )
+        subject   = '[INTOPS] 테스트 메일 발송 확인'
+        html = '\n'.join([
+            '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">',
+            '<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">',
+            '<div style="background:#f97316;padding:24px 32px;"><h2 style="color:#fff;margin:0;font-size:1.2rem;">INTOPS 테스트 메일</h2></div>',
+            '<div style="padding:28px 32px;">',
+            '<p style="color:#374151;margin:0 0 12px;">SMTP 발송 테스트가 성공적으로 완료되었습니다.</p>',
+            f'<p style="color:#374151;margin:0 0 6px;">발송 시각: <strong>{now_str} (KST)</strong></p>',
+            f'<p style="color:#374151;margin:0 0 6px;">발신 계정: <strong>{smtp_addr}</strong></p>',
+            f'<p style="color:#374151;margin:0;">수신 주소: <strong>{to_email}</strong></p>',
+            '</div></div></body></html>',
+        ])
 
         result = _send_mail(to_email, subject, html)
         if result is True:
@@ -1403,9 +1411,9 @@ def admin_send_test_email():
 
     except Exception as e:
         app.logger.exception('admin_send_test_email error')
-        flash(f'❌ 오류 발생: {type(e).__name__}: {e}', 'error')
+        flash(f'❌ 예외 발생: {type(e).__name__}: {e}', 'error')
 
-    return redirect(url_for('admin_data'))
+    return redirect('/admin/data')
 
 
 
