@@ -388,7 +388,6 @@ def _send_mail(to_email, subject, html_body):
 
     # Resend 키 없음 → SMTP만 시도
     return _send_mail_smtp(to_email, subject, html_body)
-        return str(e)
 
 
 def _auto_fill_cycle(conn, eq_id, inspector_id, approver_id, result, inspected_date_str, cycle):
