@@ -289,7 +289,52 @@ def _build_email_html(approver_name, inspector_name, eq_name, location,
 </body></html>'''
 
 
+def _send_mail_resend(api_key, to_email, subject, html_body):
+    """Resend HTTP API를 통한 메일 발송 (SMTP 포트 차단 환경용)"""
+    import urllib.request as _urlreq
+    import urllib.error  as _urlerr
+    import json as _json
+
+    sender = email_config.SENDER_EMAIL or ''
+    from_field = f'INTOPS <{sender}>' if sender else 'INTOPS <onboarding@resend.dev>'
+
+    payload = _json.dumps({
+        'from':    from_field,
+        'to':      [to_email],
+        'subject': subject,
+        'html':    html_body,
+    }).encode('utf-8')
+
+    req = _urlreq.Request(
+        'https://api.resend.com/emails',
+        data=payload,
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type':  'application/json',
+        },
+        method='POST'
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=15) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+            print(f'[Resend] 발송 완료 → {to_email} id={result.get("id","?")}', flush=True)
+            return True
+    except _urlerr.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        print(f'[Resend] HTTP {e.code}: {body}', flush=True)
+        return f'Resend HTTP {e.code}: {body}'
+    except BaseException as e:
+        print(f'[Resend] 발송 실패: {e}', flush=True)
+        return str(e)
+
+
 def _send_mail(to_email, subject, html_body):
+    # RESEND_API_KEY 환경변수가 있으면 Resend API 사용 (HTTPS, Render 포트 차단 우회)
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if resend_key:
+        return _send_mail_resend(resend_key, to_email, subject, html_body)
+
+    # SMTP 방식 (로컬 개발 환경 또는 SMTP 허용 서버)
     try:
         import socket as _socket
         msg = MIMEMultipart('alternative')
@@ -298,14 +343,13 @@ def _send_mail(to_email, subject, html_body):
         msg['To']      = to_email
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
-        # IPv6 불가 환경(Render 무료)에서 IPv4 주소로 강제 연결
         try:
             ipv4 = _socket.getaddrinfo(
                 email_config.SMTP_SERVER, email_config.SMTP_PORT,
-                _socket.AF_INET  # IPv4 only
+                _socket.AF_INET
             )[0][4][0]
         except Exception:
-            ipv4 = email_config.SMTP_SERVER  # fallback: 원래 호스트명 사용
+            ipv4 = email_config.SMTP_SERVER
 
         with smtplib.SMTP(ipv4, email_config.SMTP_PORT, timeout=15) as s:
             s.starttls()
