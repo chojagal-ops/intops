@@ -803,13 +803,19 @@ def _send_inspection_reminders():
         print('[알림] 미점검 알림 OFF - 발송 스킵', flush=True)
         return
 
-    now = datetime.now()
+    # ★ UTC가 아닌 KST 기준으로 날짜/시각 산출
+    now = now_kst()
     today_str = now.strftime('%Y-%m-%d')
+    # 주말(토/일)은 발송 생략
+    if now.weekday() >= 5:
+        print(f'[알림] 주말({today_str}) - 미점검 알림 스킵', flush=True)
+        return
+
     print(f'[알림] 미점검 알림 실행 - {today_str}', flush=True)
 
     conn = get_db()
     try:
-        # 당일 미점검 설비 목록
+        # 당일 점검완료/승인완료 기록이 없는 설비만 대상
         if conn._pg:
             rows = conn.execute("""
                 SELECT e.id, e.name, e.manager_primary, e.manager_secondary
@@ -817,7 +823,8 @@ def _send_inspection_reminders():
                 WHERE NOT EXISTS (
                     SELECT 1 FROM inspections i
                     WHERE i.equipment_id = e.id
-                    AND DATE(i.inspected_at) = %s
+                      AND DATE(i.inspected_at) = %s
+                      AND i.status IN ('점검완료', '승인완료')
                 )
             """, (today_str,)).fetchall()
         else:
@@ -827,9 +834,12 @@ def _send_inspection_reminders():
                 WHERE NOT EXISTS (
                     SELECT 1 FROM inspections i
                     WHERE i.equipment_id = e.id
-                    AND DATE(i.inspected_at) = ?
+                      AND DATE(i.inspected_at) = ?
+                      AND i.status IN ('점검완료', '승인완료')
                 )
             """, (today_str,)).fetchall()
+
+        print(f'[알림] 미점검 설비 {len(rows)}건', flush=True)
 
         for eq in rows:
             recipients = set()
@@ -2601,6 +2611,20 @@ def admin_bulk_idle():
     conn.close()
     flash(f'{date_str} — {inserted}개 설비 휴동 처리 완료되었습니다.', 'success')
     return redirect(url_for('admin_data'))
+
+
+# ── 관리자: 미점검 알림 수동 발송 ────────────────────────────────────────────
+@app.route('/admin/send-reminder', methods=['POST'])
+@admin_required
+def admin_send_reminder():
+    """관리자가 수동으로 미점검 알림 이메일을 즉시 발송"""
+    try:
+        _send_inspection_reminders()
+        flash('미점검 알림 이메일 발송을 완료했습니다.', 'success')
+    except Exception as e:
+        app.logger.exception('수동 알림 발송 오류')
+        flash(f'발송 중 오류: {e}', 'error')
+    return redirect(url_for('admin'))
 
 
 # ── 대시보드: 오늘 날짜 전 설비 휴동 처리 (관리자 전용 빠른 버튼) ──────────────

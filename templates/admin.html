@@ -152,6 +152,20 @@
         </tbody>
       </table>
 
+      <!-- 관리자 도구 -->
+      <hr class="divider">
+      <div class="section-title" style="margin-bottom:12px;">🛠 관리자 도구</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <form method="POST" action="/admin/send-reminder" style="margin:0;"
+              onsubmit="return confirm('오늘 미점검 설비 담당자에게 알림 이메일을 즉시 발송합니다.\n계속하시겠습니까?')">
+          <button type="submit"
+                  style="padding:9px 18px; background:rgba(249,115,22,0.10); border:1.5px solid rgba(249,115,22,0.35);
+                         border-radius:8px; color:#c2410c; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap;">
+            📧 미점검 알림 즉시 발송
+          </button>
+        </form>
+      </div>
+
       <!-- 비밀번호 재설정 요청 -->
       {% if reset_requests %}
       <hr class="divider">
