@@ -90,6 +90,18 @@
           <div class="dash-card-value">{{ total_eq }} 대</div>
           <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">목록 보기 →</div>
         </a>
+        {% if uninspected and not today_is_idle %}
+        <div class="dash-card" id="uninsp-card"
+             onclick="toggleUninspected()"
+             style="cursor:pointer; border-color:rgba(220,38,38,0.3); transition:box-shadow 0.2s, transform 0.2s;"
+             onmouseover="this.style.boxShadow='0 4px 16px rgba(220,38,38,0.18)';this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='';this.style.transform=''">
+          <div class="dash-card-icon">❗</div>
+          <div class="dash-card-label">미점검</div>
+          <div class="dash-card-value" style="color:#dc2626;">{{ uninspected | length }} 대</div>
+          <div style="font-size:0.75rem; color:#dc2626; margin-top:6px;">목록 보기 →</div>
+        </div>
+        {% endif %}
         {% if session.role == '승인자' or session.is_admin %}
         <a href="#pending-section" onclick="scrollToPending()"
            class="dash-card" style="text-decoration:none; cursor:pointer; transition:box-shadow 0.2s, transform 0.2s;
@@ -181,6 +193,41 @@
               {% endfor %}
             </tbody>
           </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 오늘 미점검 설비 목록 (토글) -->
+      {% if uninspected and not today_is_idle %}
+      <div id="uninsp-detail" style="display:none; margin-top:16px;">
+        <hr class="divider" style="margin-top:0;">
+        <div class="section-title" style="color:#dc2626; margin-bottom:12px;">
+          ❗ 오늘 미점검 설비
+          <span style="font-size:0.82rem; font-weight:600; color:#dc2626;">({{ uninspected | length }}대)</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          {% for eq in uninspected %}
+          <a href="/inspect/{{ eq.id }}"
+             style="display:flex; align-items:center; gap:12px;
+                    padding:11px 14px; border-radius:10px;
+                    border:1.5px solid rgba(220,38,38,0.2); background:rgba(220,38,38,0.03);
+                    text-decoration:none; color:var(--text);
+                    transition:border-color 0.15s, background 0.15s;"
+             onmouseover="this.style.borderColor='rgba(220,38,38,0.45)';this.style.background='rgba(220,38,38,0.07)'"
+             onmouseout="this.style.borderColor='rgba(220,38,38,0.2)';this.style.background='rgba(220,38,38,0.03)'">
+            <span style="font-size:1.1rem; flex-shrink:0;">🔧</span>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:0.88rem;">{{ eq.name }}</div>
+              {% if eq.location or eq.department %}
+              <div style="font-size:0.75rem; color:var(--text-sub); margin-top:2px;">
+                {% if eq.location %}📍 {{ eq.location }}{% endif %}
+                {% if eq.department %}&nbsp;·&nbsp;{{ eq.department }}{% endif %}
+              </div>
+              {% endif %}
+            </div>
+            <span style="font-size:0.78rem; color:#dc2626; font-weight:600; flex-shrink:0;">점검하기 →</span>
+          </a>
+          {% endfor %}
         </div>
       </div>
       {% endif %}
@@ -367,6 +414,14 @@
     function scrollToPending() {
       const el = document.getElementById('pending-section');
       if (el) { setTimeout(function(){ el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 50); }
+    }
+    function toggleUninspected() {
+      const el = document.getElementById('uninsp-detail');
+      if (!el) return;
+      const open = el.style.display !== 'none';
+      el.style.display = open ? 'none' : 'block';
+      const card = document.getElementById('uninsp-card');
+      if (card) card.style.borderColor = open ? 'rgba(220,38,38,0.3)' : '#dc2626';
     }
   </script>
 </body>
