@@ -30,6 +30,10 @@ except ImportError:
         SENDER_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
         ENABLED       = bool(SENDER_EMAIL and SENDER_PASSWORD)
 
+def _mail_enabled():
+    """SMTP 또는 Resend API 중 하나라도 설정되어 있으면 True"""
+    return bool(email_config.ENABLED or os.environ.get('RESEND_API_KEY', '').strip())
+
 try:
     import openpyxl
     HAS_OPENPYXL = True
@@ -409,7 +413,7 @@ def _auto_fill_cycle(conn, eq_id, inspector_id, approver_id, result, inspected_d
 
 def send_approval_request(to_email, approver_name, inspector_name,
                           eq_name, location, result, notes, eq_id, host_url):
-    if not email_config.ENABLED or not to_email:
+    if not _mail_enabled() or not to_email:
         return
     if get_setting('email_enabled', '1') != '1':
         return
@@ -484,8 +488,8 @@ def send_anomaly_notification(action_person_name, reporter_name, eq_name, eq_loc
                                description, action_taken, priority, occurred_at,
                                planned_resolve_date, host_url):
     """조치담당자 이름으로 users 테이블에서 이메일 조회 후 이상발생 알림 발송 (백그라운드)"""
-    if not email_config.ENABLED:
-        print(f'[이상알림] SMTP 미설정 - 발송 스킵 (담당자: {action_person_name})', flush=True)
+    if not _mail_enabled():
+        print(f'[이상알림] 이메일 미설정 - 발송 스킵 (담당자: {action_person_name})', flush=True)
         return
     if get_setting('email_enabled', '1') != '1':
         print(f'[이상알림] 이메일 발송 OFF - 발송 스킵', flush=True)
@@ -848,8 +852,8 @@ def send_reset_code(to_email, user_name, code):
 # ── 평일 오전 11시 미점검 알림 ───────────────────────────────────────────────
 def _send_inspection_reminders():
     """평일 오전 11시(KST), 당일 미점검 설비 담당자(정/부)에게 알림 이메일 발송"""
-    if not email_config.ENABLED:
-        print('[알림] SMTP 미설정 - 점검 알림 스킵', flush=True)
+    if not _mail_enabled():
+        print('[알림] 이메일 미설정 - 점검 알림 스킵', flush=True)
         return
     if get_setting('email_enabled', '1') != '1':
         print('[알림] 관리자 설정으로 이메일 발송 OFF - 점검 알림 스킵', flush=True)
@@ -1125,15 +1129,15 @@ def forgot_password():
             }
 
         mail_sent = False
-        if not email_config.ENABLED:
-            mail_sent = f'SMTP 환경변수 미설정 (EMAIL={email_config.SENDER_EMAIL!r})'
+        if not _mail_enabled():
+            mail_sent = f'이메일 미설정 (RESEND_API_KEY 또는 SMTP 환경변수 필요)'
         elif get_setting('email_enabled', '1') != '1':
             mail_sent = '관리자 설정으로 이메일 발송 OFF'
         elif get_setting('email_reset_enabled', '1') != '1':
             mail_sent = '비밀번호 재설정 이메일 발송 OFF'
         elif not user['email']:
             mail_sent = '계정에 이메일 주소가 없음'
-        if (email_config.ENABLED and get_setting('email_enabled', '1') == '1'
+        if (_mail_enabled() and get_setting('email_enabled', '1') == '1'
                 and get_setting('email_reset_enabled', '1') == '1' and user['email']):
             # 동기 발송으로 성공 여부 즉시 확인
             subject = '[INTOPS] 비밀번호 재설정 인증번호'
@@ -1405,8 +1409,8 @@ def admin_data():
         to_email = (request.form.get('test_email') or '').strip()
         if not to_email:
             flash('수신 이메일 주소를 입력하세요.', 'error')
-        elif not email_config.ENABLED:
-            flash(f'SMTP 미설정 (SMTP_EMAIL={email_config.SENDER_EMAIL!r}). Render 환경변수를 확인하세요.', 'error')
+        elif not _mail_enabled():
+            flash('이메일 미설정: RESEND_API_KEY 또는 SMTP 환경변수(SMTP_EMAIL+SMTP_PASSWORD)를 Render에 추가하세요.', 'error')
         else:
             try:
                 now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
@@ -1443,8 +1447,8 @@ def admin_data():
     return render_template('admin_data.html',
                            now_ym=now_ym,
                            email_settings=email_settings,
-                           smtp_ok=email_config.ENABLED,
-                           smtp_addr=email_config.SENDER_EMAIL)
+                           smtp_ok=_mail_enabled(),
+                           smtp_addr=email_config.SENDER_EMAIL or ('Resend API' if os.environ.get('RESEND_API_KEY','').strip() else ''))
 
 
 
