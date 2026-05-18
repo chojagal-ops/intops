@@ -294,13 +294,21 @@ def _build_email_html(approver_name, inspector_name, eq_name, location,
 
 
 def _send_mail_resend(api_key, to_email, subject, html_body):
-    """Resend HTTP API를 통한 메일 발송 (SMTP 포트 차단 환경용)"""
+    """Resend HTTP API를 통한 메일 발송 (SMTP 포트 차단 환경용)
+    발신 주소 우선순위:
+      1. RESEND_FROM_EMAIL 환경변수 (예: noreply@your-domain.com)
+      2. onboarding@resend.dev (Resend 기본 테스트 발신주소 — 도메인 인증 불필요)
+    ※ gmail.com 등 본인 미소유 도메인은 Resend에서 거부됨(에러 1010)
+    """
     import urllib.request as _urlreq
     import urllib.error  as _urlerr
     import json as _json
 
-    sender = email_config.SENDER_EMAIL or ''
-    from_field = f'INTOPS <{sender}>' if sender else 'INTOPS <onboarding@resend.dev>'
+    # 발신 주소: RESEND_FROM_EMAIL > onboarding@resend.dev (gmail 등 외부 도메인 사용 불가)
+    resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip()
+    if not resend_from:
+        resend_from = 'onboarding@resend.dev'
+    from_field = f'INTOPS <{resend_from}>'
 
     payload = _json.dumps({
         'from':    from_field,
@@ -332,13 +340,8 @@ def _send_mail_resend(api_key, to_email, subject, html_body):
         return str(e)
 
 
-def _send_mail(to_email, subject, html_body):
-    # RESEND_API_KEY 환경변수가 있으면 Resend API 사용 (HTTPS, Render 포트 차단 우회)
-    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
-    if resend_key:
-        return _send_mail_resend(resend_key, to_email, subject, html_body)
-
-    # SMTP 방식 (로컬 개발 환경 또는 SMTP 허용 서버)
+def _send_mail_smtp(to_email, subject, html_body):
+    """SMTP 방식 메일 발송 (로컬 개발 또는 SMTP 허용 서버)"""
     try:
         import socket as _socket
         msg = MIMEMultipart('alternative')
@@ -359,11 +362,32 @@ def _send_mail(to_email, subject, html_body):
             s.starttls()
             s.login(email_config.SENDER_EMAIL, email_config.SENDER_PASSWORD)
             s.sendmail(email_config.SENDER_EMAIL, to_email, msg.as_string())
-        print(f'[이메일] 발송 완료 → {to_email}', flush=True)
+        print(f'[SMTP] 발송 완료 → {to_email}', flush=True)
         return True
     except BaseException as e:
-        print(f'[이메일] 발송 실패: {e}', flush=True)
-        import sys; sys.stderr.write(f'[이메일] 발송 실패: {e}\n'); sys.stderr.flush()
+        print(f'[SMTP] 발송 실패: {e}', flush=True)
+        import sys; sys.stderr.write(f'[SMTP] 발송 실패: {e}\n'); sys.stderr.flush()
+        return str(e)
+
+
+def _send_mail(to_email, subject, html_body):
+    """메일 발송 — Resend API 우선, 실패 시 SMTP 폴백"""
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if resend_key:
+        result = _send_mail_resend(resend_key, to_email, subject, html_body)
+        if result is True:
+            return True
+        # Resend 실패 → SMTP 폴백 시도
+        print(f'[메일] Resend 실패({result}), SMTP 폴백 시도...', flush=True)
+        if email_config.ENABLED:
+            smtp_result = _send_mail_smtp(to_email, subject, html_body)
+            if smtp_result is True:
+                return True
+            return f'Resend: {result} / SMTP: {smtp_result}'
+        return result  # SMTP 미설정 → Resend 오류 그대로 반환
+
+    # Resend 키 없음 → SMTP만 시도
+    return _send_mail_smtp(to_email, subject, html_body)
         return str(e)
 
 
@@ -1444,11 +1468,15 @@ def admin_data():
         'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
         'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
     }
+    _resend_key  = os.environ.get('RESEND_API_KEY', '').strip()
+    _resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip() or ('onboarding@resend.dev' if _resend_key else '')
     return render_template('admin_data.html',
                            now_ym=now_ym,
                            email_settings=email_settings,
                            smtp_ok=_mail_enabled(),
-                           smtp_addr=email_config.SENDER_EMAIL or ('Resend API' if os.environ.get('RESEND_API_KEY','').strip() else ''))
+                           smtp_addr=email_config.SENDER_EMAIL or '',
+                           resend_ok=bool(_resend_key),
+                           resend_from=_resend_from)
 
 
 
