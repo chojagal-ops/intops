@@ -76,9 +76,9 @@
           <div class="dash-card-icon">🔍</div>
           <div class="dash-card-label">오늘 점검</div>
           <div class="dash-card-value">{{ today_count }} 건</div>
-          {% if today_count > 0 %}
-          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">내역 보기 →</div>
-          {% endif %}
+          <div style="font-size:0.75rem; color:var(--orange); margin-top:6px;">
+            {% if today_count > 0 %}내역 보기 →{% else %}아직 없음{% endif %}
+          </div>
         </div>
         {% endif %}
         <a href="/equipment-list"
@@ -161,6 +161,7 @@
               <tr>
                 <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">설비명</th>
                 <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">위치</th>
+                <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검자</th>
                 <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">점검 결과</th>
                 <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">승인 상태</th>
                 <th style="background:var(--orange-faint); color:var(--text-sub); font-size:0.78rem; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);">승인자</th>
@@ -173,6 +174,7 @@
               <tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:10px 14px;"><strong>{{ r.eq_name }}</strong></td>
                 <td style="padding:10px 14px; color:var(--text-sub);">{{ r.eq_location or '-' }}</td>
+                <td style="padding:10px 14px; color:var(--text-sub);">{{ r.inspector_name or '-' }}</td>
                 <td style="padding:10px 14px;">
                   {% if r.result == '정상' %}<span class="result-tag tag-normal">✅ 정상</span>
                   {% elif r.result == '이상' %}<span class="result-tag tag-abnormal">⚠️ 이상</span>

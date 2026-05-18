@@ -3570,25 +3570,28 @@ def my_approvals():
 def dashboard():
     conn = get_db()
 
-    # 설비별 오늘 최선 점검 1건 (승인완료 우선, 이후 최신순)
+    # 설비별 오늘 최선 점검 1건 (전체 점검자 기준, 승인완료 우선, 이후 최신순)
     today_list = conn.execute(f'''
         SELECT i.id, i.result, i.status, i.inspected_at, i.notes,
                e.id AS equipment_id, e.name AS eq_name, e.location AS eq_location,
+               u.name AS inspector_name,
                a.name AS approved_name
         FROM inspections i
         JOIN equipment e ON i.equipment_id = e.id
+        JOIN users u ON i.inspector_id = u.id
         LEFT JOIN users a ON i.approved_by = a.id
-        WHERE i.inspector_id=?
-          AND {conn.date_col("i.inspected_at")}={conn.today}
+        WHERE {conn.date_col("i.inspected_at")}={conn.today}
+          AND i.status IN ('점검완료', '승인완료')
           AND i.id = (
               SELECT id FROM inspections
               WHERE equipment_id = i.equipment_id
                 AND {conn.date_col("inspected_at")}={conn.today}
+                AND status IN ('점검완료', '승인완료')
               ORDER BY CASE WHEN status='승인완료' THEN 0 ELSE 1 END, inspected_at DESC
               LIMIT 1
           )
         ORDER BY i.inspected_at DESC
-    ''', (session['user_id'],)).fetchall()
+    ''').fetchall()
 
     today_count = len(today_list)
 
