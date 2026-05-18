@@ -3638,7 +3638,7 @@ def dashboard():
               AND {conn.date_col("i.inspected_at")}={conn.today}
         ''', (session['user_id'],)).fetchone()['cnt']
 
-    # 오늘 미점검 설비 목록 (현재 사용자 기준, 휴동일 제외)
+    # 오늘 미점검 설비 목록 (누구도 점검하지 않은 설비, 휴동일 제외)
     uninspected = []
     if not today_is_idle:
         uninspected = conn.execute(f'''
@@ -3647,11 +3647,11 @@ def dashboard():
             WHERE NOT EXISTS (
                 SELECT 1 FROM inspections i
                 WHERE i.equipment_id = e.id
-                  AND i.inspector_id = ?
                   AND {conn.date_col("i.inspected_at")} = {conn.today}
+                  AND i.status IN ('점검완료', '승인완료')
             )
             ORDER BY e.name
-        ''', (session['user_id'],)).fetchall()
+        ''').fetchall()
 
     conn.close()
     return render_template('dashboard.html', today_count=today_count,
