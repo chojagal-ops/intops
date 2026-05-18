@@ -1355,11 +1355,79 @@ def admin_data():
     }
     smtp_ok   = email_config.ENABLED
     smtp_addr = email_config.SENDER_EMAIL
+    # 현재 관리자 이메일을 기본 수신 주소로
+    conn = get_db()
+    me = conn.execute('SELECT email FROM users WHERE id=?', (session['user_id'],)).fetchone()
+    conn.close()
+    test_target = me['email'] if me else ''
     return render_template('admin_data.html',
                            now_ym=now_ym,
                            email_settings=email_settings,
                            smtp_ok=smtp_ok,
-                           smtp_addr=smtp_addr)
+                           smtp_addr=smtp_addr,
+                           test_target=test_target,
+                           test_result=None)
+
+
+@app.route('/admin/send-test-email', methods=['POST'])
+@admin_required
+def admin_send_test_email():
+    """SMTP 테스트 메일 즉시 발송 (동기 실행, 결과 즉시 표시)"""
+    to_email = request.form.get('test_email', '').strip()
+    now_ym = now_kst().strftime('%Y-%m')
+    email_settings = {
+        'email_enabled':          get_setting('email_enabled',          '1') == '1',
+        'email_approval_enabled': get_setting('email_approval_enabled', '1') == '1',
+        'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
+        'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
+        'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
+    }
+    smtp_ok   = email_config.ENABLED
+    smtp_addr = email_config.SENDER_EMAIL
+
+    test_result = None
+    if not to_email:
+        test_result = {'ok': False, 'msg': '수신 이메일을 입력하세요.'}
+    elif not smtp_ok:
+        test_result = {'ok': False, 'msg': 'SMTP 환경변수(SMTP_EMAIL / SMTP_PASSWORD)가 설정되지 않았습니다.'}
+    else:
+        now_str = now_kst().strftime('%Y-%m-%d %H:%M:%S')
+        html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
+            box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+  <div style="background:#f97316;padding:24px 32px;">
+    <h2 style="color:#fff;margin:0;font-size:1.2rem;">🧪 INTOPS 테스트 메일</h2>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="color:#374151;margin:0 0 16px;">안녕하세요.</p>
+    <p style="color:#374151;margin:0 0 20px;">
+      INTOPS 설비점검 시스템의 메일 발송 설정이 <strong style="color:#16a34a;">정상적으로 동작</strong>합니다.
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+      <div style="font-size:0.85rem;color:#374151;line-height:1.8;">
+        <div>📅 발송 시각: <strong>{now_str} (KST)</strong></div>
+        <div>✉️ 발신 계정: <strong>{smtp_addr}</strong></div>
+        <div>📬 수신 주소: <strong>{to_email}</strong></div>
+      </div>
+    </div>
+    <p style="color:#6b7280;font-size:0.82rem;margin:0;">
+      이 메일은 관리자 테스트 발송으로 자동 생성되었습니다.
+    </p>
+  </div>
+</div></body></html>'''
+        result = _send_mail(to_email, '[INTOPS] 테스트 메일 발송 확인', html)
+        if result is True:
+            test_result = {'ok': True,  'msg': f'{to_email} 으로 발송 완료 ({now_str})'}
+        else:
+            test_result = {'ok': False, 'msg': str(result)}
+
+    return render_template('admin_data.html',
+                           now_ym=now_ym,
+                           email_settings=email_settings,
+                           smtp_ok=smtp_ok,
+                           smtp_addr=smtp_addr,
+                           test_target=to_email,
+                           test_result=test_result)
 
 
 
