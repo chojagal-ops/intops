@@ -296,16 +296,18 @@ def _send_mail(to_email, subject, html_body):
         msg['From']    = email_config.SENDER_EMAIL
         msg['To']      = to_email
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-        with smtplib.SMTP(email_config.SMTP_SERVER, email_config.SMTP_PORT) as s:
+        # timeout=10: 연결 무한 대기 방지 (gunicorn 워커 강제종료 방지)
+        with smtplib.SMTP(email_config.SMTP_SERVER, email_config.SMTP_PORT, timeout=10) as s:
             s.starttls()
             s.login(email_config.SENDER_EMAIL, email_config.SENDER_PASSWORD)
             s.sendmail(email_config.SENDER_EMAIL, to_email, msg.as_string())
         print(f'[이메일] 발송 완료 → {to_email}')
         return True
-    except Exception as e:
+    except BaseException as e:
+        # SystemExit 포함 모든 예외 처리 (gunicorn timeout 시 SystemExit 발생)
         print(f'[이메일] 발송 실패: {e}', flush=True)
         import sys; sys.stderr.write(f'[이메일] 발송 실패: {e}\n'); sys.stderr.flush()
-        return str(e)  # 에러 메시지 반환
+        return str(e)
 
 
 def _auto_fill_cycle(conn, eq_id, inspector_id, approver_id, result, inspected_date_str, cycle):
