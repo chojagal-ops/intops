@@ -52,52 +52,59 @@
       <div class="section-title" style="margin-bottom:14px;">✉️ 메일발송 관리</div>
 
       <!-- 이메일 발신 상태 배너 -->
-      {% if resend_ok %}
-      <!-- Resend API 사용 중 -->
-      <div style="display:flex; align-items:flex-start; gap:12px;
-                  padding:14px 18px; border-radius:10px; margin-bottom:8px;
-                  background:rgba(99,102,241,0.07); border:1px solid rgba(99,102,241,0.28);">
-        <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;margin-top:4px;
-                     background:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.2);"></span>
+      {% if brevo_ok %}
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:10px;margin-bottom:6px;
+                  background:rgba(22,163,74,0.07);border:1px solid rgba(22,163,74,0.28);">
+        <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;margin-top:3px;
+                     background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>
         <div>
-          <div style="font-size:0.88rem;font-weight:700;color:var(--text);">Resend API 사용 중</div>
+          <div style="font-size:0.88rem;font-weight:700;color:var(--text);">✅ Brevo API 사용 중 (1순위)</div>
+          <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">
+            발신 주소: <strong>{{ brevo_from or '미설정' }}</strong>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% if resend_ok %}
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:10px;margin-bottom:6px;
+                  background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.28);">
+        <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;margin-top:3px;
+                     background:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.2);"></span>
+        <div>
+          <div style="font-size:0.88rem;font-weight:700;color:var(--text);">
+            {{ '2순위 폴백' if brevo_ok else '사용 중' }}: Resend API
+          </div>
           <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">
             발신 주소: <strong>{{ resend_from }}</strong>
             {% if 'onboarding@resend.dev' in resend_from %}
-            — <span style="color:#f59e0b;">⚠ 테스트 주소 사용 중. Resend에서 도메인 인증 후
-            <code>RESEND_FROM_EMAIL</code> 환경변수를 설정하세요.</span>
+            <span style="color:#f59e0b;">— ⚠ Resend 계정 이메일로만 수신 가능</span>
             {% endif %}
           </div>
-          {% if smtp_addr %}
-          <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">
-            SMTP 폴백: {{ smtp_addr }} (Resend 실패 시 자동 시도)
-          </div>
-          {% endif %}
         </div>
       </div>
-      {% elif smtp_ok %}
-      <!-- SMTP만 설정됨 -->
-      <div style="display:flex; align-items:center; gap:12px;
-                  padding:14px 18px; border-radius:10px; margin-bottom:8px;
-                  background:rgba(22,163,74,0.07); border:1px solid rgba(22,163,74,0.28);">
+      {% endif %}
+      {% if smtp_addr %}
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:10px;margin-bottom:6px;
+                  background:rgba(100,116,139,0.07);border:1px solid rgba(100,116,139,0.22);">
         <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;
-                     background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.2);"></span>
+                     background:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,0.18);"></span>
         <div>
-          <div style="font-size:0.88rem;font-weight:700;color:var(--text);">SMTP 설정됨</div>
-          <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">발신 계정: {{ smtp_addr }}</div>
+          <div style="font-size:0.88rem;font-weight:700;color:var(--text);">
+            {{ '3순위 폴백' if (brevo_ok or resend_ok) else 'SMTP 설정됨' }}: SMTP
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">{{ smtp_addr }}</div>
         </div>
       </div>
-      {% else %}
-      <!-- 미설정 -->
-      <div style="display:flex; align-items:center; gap:12px;
-                  padding:14px 18px; border-radius:10px; margin-bottom:8px;
-                  background:rgba(220,38,38,0.06); border:1px solid rgba(220,38,38,0.22);">
+      {% endif %}
+      {% if not smtp_ok %}
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:10px;margin-bottom:6px;
+                  background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.22);">
         <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;
-                     background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.18);"></span>
+                     background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.18);"></span>
         <div>
           <div style="font-size:0.88rem;font-weight:700;color:var(--text);">이메일 미설정</div>
           <div style="font-size:0.78rem;color:var(--text-sub);margin-top:2px;">
-            Render 환경변수에 <code>RESEND_API_KEY</code> 또는 <code>SMTP_EMAIL</code>+<code>SMTP_PASSWORD</code>를 추가하세요.
+            Render 환경변수에 <code>BREVO_API_KEY</code> 또는 <code>RESEND_API_KEY</code>를 추가하세요.
           </div>
         </div>
       </div>

@@ -31,8 +31,12 @@ except ImportError:
         ENABLED       = bool(SENDER_EMAIL and SENDER_PASSWORD)
 
 def _mail_enabled():
-    """SMTP 또는 Resend API 중 하나라도 설정되어 있으면 True"""
-    return bool(email_config.ENABLED or os.environ.get('RESEND_API_KEY', '').strip())
+    """SMTP / Resend / Brevo 중 하나라도 설정되어 있으면 True"""
+    return bool(
+        email_config.ENABLED
+        or os.environ.get('RESEND_API_KEY', '').strip()
+        or os.environ.get('BREVO_API_KEY', '').strip()
+    )
 
 try:
     import openpyxl
@@ -294,21 +298,13 @@ def _build_email_html(approver_name, inspector_name, eq_name, location,
 
 
 def _send_mail_resend(api_key, to_email, subject, html_body):
-    """Resend HTTP API를 통한 메일 발송 (SMTP 포트 차단 환경용)
-    발신 주소 우선순위:
-      1. RESEND_FROM_EMAIL 환경변수 (예: noreply@your-domain.com)
-      2. onboarding@resend.dev (Resend 기본 테스트 발신주소 — 도메인 인증 불필요)
-    ※ gmail.com 등 본인 미소유 도메인은 Resend에서 거부됨(에러 1010)
-    """
+    """Resend HTTP API를 통한 메일 발송"""
     import urllib.request as _urlreq
     import urllib.error  as _urlerr
     import json as _json
 
-    # 발신 주소: RESEND_FROM_EMAIL > onboarding@resend.dev (gmail 등 외부 도메인 사용 불가)
-    resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip()
-    if not resend_from:
-        resend_from = 'onboarding@resend.dev'
-    from_field = f'INTOPS <{resend_from}>'
+    resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip() or 'onboarding@resend.dev'
+    from_field  = f'INTOPS <{resend_from}>'
 
     payload = _json.dumps({
         'from':    from_field,
@@ -323,6 +319,8 @@ def _send_mail_resend(api_key, to_email, subject, html_body):
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type':  'application/json',
+            'User-Agent':    'resend-python/2.0.0',
+            'Accept':        'application/json',
         },
         method='POST'
     )
@@ -333,10 +331,62 @@ def _send_mail_resend(api_key, to_email, subject, html_body):
             return True
     except _urlerr.HTTPError as e:
         body = e.read().decode('utf-8', errors='replace')
-        print(f'[Resend] HTTP {e.code}: {body}', flush=True)
-        return f'Resend HTTP {e.code}: {body}'
+        # 전체 응답 출력 (Cloudflare HTML vs Resend JSON 구분용)
+        print(f'[Resend] HTTP {e.code} 전체 응답:\n{body[:800]}', flush=True)
+        # JSON 파싱 시도 — Resend 에러 메시지 추출
+        try:
+            err = _json.loads(body)
+            msg = err.get('message') or err.get('name') or body[:200]
+        except Exception:
+            msg = body[:200]  # Cloudflare HTML 등 비JSON 응답
+        return f'Resend HTTP {e.code}: {msg}'
     except BaseException as e:
         print(f'[Resend] 발송 실패: {e}', flush=True)
+        return str(e)
+
+
+def _send_mail_brevo(api_key, to_email, subject, html_body):
+    """Brevo(Sendinblue) HTTP API를 통한 메일 발송 (Resend 불가 시 대안)"""
+    import urllib.request as _urlreq
+    import urllib.error  as _urlerr
+    import json as _json
+
+    sender_email = os.environ.get('BREVO_FROM_EMAIL', email_config.SENDER_EMAIL or 'noreply@intops.app')
+    sender_name  = 'INTOPS'
+
+    payload = _json.dumps({
+        'sender':      {'name': sender_name, 'email': sender_email},
+        'to':          [{'email': to_email}],
+        'subject':     subject,
+        'htmlContent': html_body,
+    }).encode('utf-8')
+
+    req = _urlreq.Request(
+        'https://api.brevo.com/v3/smtp/email',
+        data=payload,
+        headers={
+            'api-key':      api_key,
+            'Content-Type': 'application/json',
+            'Accept':       'application/json',
+        },
+        method='POST'
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=15) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+            print(f'[Brevo] 발송 완료 → {to_email} id={result.get("messageId","?")}', flush=True)
+            return True
+    except _urlerr.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        print(f'[Brevo] HTTP {e.code}: {body[:400]}', flush=True)
+        try:
+            err = _json.loads(body)
+            msg = err.get('message') or body[:200]
+        except Exception:
+            msg = body[:200]
+        return f'Brevo HTTP {e.code}: {msg}'
+    except BaseException as e:
+        print(f'[Brevo] 발송 실패: {e}', flush=True)
         return str(e)
 
 
@@ -371,23 +421,37 @@ def _send_mail_smtp(to_email, subject, html_body):
 
 
 def _send_mail(to_email, subject, html_body):
-    """메일 발송 — Resend API 우선, 실패 시 SMTP 폴백"""
+    """메일 발송 우선순위: Brevo → Resend → SMTP"""
+    errors = []
+
+    # 1순위: Brevo API (Cloudflare 차단 없음, 무료 300통/일)
+    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+    if brevo_key:
+        result = _send_mail_brevo(brevo_key, to_email, subject, html_body)
+        if result is True:
+            return True
+        errors.append(f'Brevo: {result}')
+        print(f'[메일] Brevo 실패 — {result}', flush=True)
+
+    # 2순위: Resend API
     resend_key = os.environ.get('RESEND_API_KEY', '').strip()
     if resend_key:
         result = _send_mail_resend(resend_key, to_email, subject, html_body)
         if result is True:
             return True
-        # Resend 실패 → SMTP 폴백 시도
-        print(f'[메일] Resend 실패({result}), SMTP 폴백 시도...', flush=True)
-        if email_config.ENABLED:
-            smtp_result = _send_mail_smtp(to_email, subject, html_body)
-            if smtp_result is True:
-                return True
-            return f'Resend: {result} / SMTP: {smtp_result}'
-        return result  # SMTP 미설정 → Resend 오류 그대로 반환
+        errors.append(f'Resend: {result}')
+        print(f'[메일] Resend 실패 — {result}', flush=True)
 
-    # Resend 키 없음 → SMTP만 시도
-    return _send_mail_smtp(to_email, subject, html_body)
+    # 3순위: SMTP
+    if email_config.ENABLED:
+        result = _send_mail_smtp(to_email, subject, html_body)
+        if result is True:
+            return True
+        errors.append(f'SMTP: {result}')
+
+    if errors:
+        return ' / '.join(errors)
+    return 'SMTP·Resend·Brevo 모두 미설정'
 
 
 def _auto_fill_cycle(conn, eq_id, inspector_id, approver_id, result, inspected_date_str, cycle):
@@ -1469,13 +1533,17 @@ def admin_data():
     }
     _resend_key  = os.environ.get('RESEND_API_KEY', '').strip()
     _resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip() or ('onboarding@resend.dev' if _resend_key else '')
+    _brevo_key   = os.environ.get('BREVO_API_KEY', '').strip()
+    _brevo_from  = os.environ.get('BREVO_FROM_EMAIL', email_config.SENDER_EMAIL or '')
     return render_template('admin_data.html',
                            now_ym=now_ym,
                            email_settings=email_settings,
                            smtp_ok=_mail_enabled(),
                            smtp_addr=email_config.SENDER_EMAIL or '',
                            resend_ok=bool(_resend_key),
-                           resend_from=_resend_from)
+                           resend_from=_resend_from,
+                           brevo_ok=bool(_brevo_key),
+                           brevo_from=_brevo_from)
 
 
 
