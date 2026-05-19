@@ -334,47 +334,56 @@
       </div>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:10px;">
 
-        {% if session.role != '승인자' %}
-        <a href="/bulk-inspect" style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='var(--orange)';this.style.background='var(--orange-faint)'"
-           onmouseout="this.style.borderColor='var(--border-light)';this.style.background='var(--bg-subtle)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🔍</div>
-          <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">일괄 점검 <span style="font-size:0.75rem; color:var(--orange); font-weight:600;">→ 바로가기</span></div>
-            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
-              여러 설비를 한 화면에서 한꺼번에 점검합니다. 설비별 정상·이상·수리필요를 선택하고 한 번에 저장합니다.
-            </div>
-          </div>
-        </a>
-        {% else %}
-        <a href="/equipment-list" style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='var(--orange)';this.style.background='var(--orange-faint)'"
-           onmouseout="this.style.borderColor='var(--border-light)';this.style.background='var(--bg-subtle)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🔍</div>
-          <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">설비 점검 현황 <span style="font-size:0.75rem; color:var(--orange); font-weight:600;">→ 바로가기</span></div>
-            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
-              월별 점검 결과 메뉴에서 설비 현황과 오늘 점검 여부를 확인합니다.
-            </div>
-          </div>
-        </a>
-        {% endif %}
-
-        {% if session.role == '승인자' or session.is_admin %}
-        <a href="/bulk-approve" style="display:flex; gap:12px; align-items:flex-start; background:rgba(22,163,74,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(22,163,74,0.18); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='#16a34a';this.style.background='rgba(22,163,74,0.1)'"
-           onmouseout="this.style.borderColor='rgba(22,163,74,0.18)';this.style.background='rgba(22,163,74,0.04)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">✅</div>
-          <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">일괄 승인 <span style="font-size:0.75rem; color:#16a34a; font-weight:600;">→ 바로가기</span></div>
-            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
-              승인 대기 중인 점검 결과를 한 화면에서 확인하고 일괄 승인 처리합니다.
-            </div>
-          </div>
-        </a>
-        {% else %}
         <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">✅</div>
+          {% if session.role != '승인자' %}
+          <a href="/bulk-inspect"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(249,115,22,0.12); border:1.5px solid rgba(249,115,22,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="일괄점검 바로가기"
+             onmouseover="this.style.background='rgba(249,115,22,0.25)';this.style.borderColor='var(--orange)'"
+             onmouseout="this.style.background='rgba(249,115,22,0.12)';this.style.borderColor='rgba(249,115,22,0.35)'">🔍</a>
+          {% else %}
+          <a href="/equipment-list"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(249,115,22,0.12); border:1.5px solid rgba(249,115,22,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="설비 현황 바로가기"
+             onmouseover="this.style.background='rgba(249,115,22,0.25)';this.style.borderColor='var(--orange)'"
+             onmouseout="this.style.background='rgba(249,115,22,0.12)';this.style.borderColor='rgba(249,115,22,0.35)'">🔍</a>
+          {% endif %}
+          <div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">
+              {% if session.role != '승인자' %}일괄 점검{% else %}설비 점검 현황{% endif %}
+            </div>
+            <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
+              {% if session.role != '승인자' %}
+              여러 설비를 한 화면에서 한꺼번에 점검합니다. 설비별 정상·이상·수리필요를 선택하고 한 번에 저장합니다.
+              {% else %}
+              월별 점검 결과 메뉴에서 설비 현황과 오늘 점검 여부를 확인합니다.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          {% if session.role == '승인자' or session.is_admin %}
+          <a href="/bulk-approve"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(22,163,74,0.12); border:1.5px solid rgba(22,163,74,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="일괄승인 바로가기"
+             onmouseover="this.style.background='rgba(22,163,74,0.25)';this.style.borderColor='#16a34a'"
+             onmouseout="this.style.background='rgba(22,163,74,0.12)';this.style.borderColor='rgba(22,163,74,0.35)'">✅</a>
+          {% else %}
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">✅</div>
+          {% endif %}
           <div>
             <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">점검 승인</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
@@ -382,34 +391,45 @@
             </div>
           </div>
         </div>
-        {% endif %}
 
-        <a href="/anomaly-management" style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='#dc2626';this.style.background='rgba(239,68,68,0.1)'"
-           onmouseout="this.style.borderColor='rgba(239,68,68,0.15)';this.style.background='rgba(239,68,68,0.04)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">🚨</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15);">
+          <a href="/anomaly-management"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(239,68,68,0.12); border:1.5px solid rgba(239,68,68,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="이상발생관리 바로가기"
+             onmouseover="this.style.background='rgba(239,68,68,0.25)';this.style.borderColor='#dc2626'"
+             onmouseout="this.style.background='rgba(239,68,68,0.12)';this.style.borderColor='rgba(239,68,68,0.35)'">🚨</a>
           <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리 <span style="font-size:0.75rem; color:#dc2626; font-weight:600;">→ 바로가기</span></div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
               점검 중 이상 발견 시 이상내용·조치사항·사진(최대 5장)을 등록합니다. 조치담당자 지정 시 이메일로 즉시 통보됩니다.
             </div>
           </div>
-        </a>
+        </div>
 
-        <a href="/anomaly-management" style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='#dc2626';this.style.background='rgba(239,68,68,0.1)'"
-           onmouseout="this.style.borderColor='rgba(239,68,68,0.15)';this.style.background='rgba(239,68,68,0.04)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📋</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:rgba(239,68,68,0.04); border-radius:10px; padding:14px 16px; border:1px solid rgba(239,68,68,0.15);">
+          <a href="/anomaly-management"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(239,68,68,0.12); border:1.5px solid rgba(239,68,68,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="이상발생관리 대장 바로가기"
+             onmouseover="this.style.background='rgba(239,68,68,0.25)';this.style.borderColor='#dc2626'"
+             onmouseout="this.style.background='rgba(239,68,68,0.12)';this.style.borderColor='rgba(239,68,68,0.35)'">📋</a>
           <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리 대장 <span style="font-size:0.75rem; color:#dc2626; font-weight:600;">→ 바로가기</span></div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">이상발생관리 대장</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
               전체 이상 이력을 팀·우선순위·상태별로 필터링하고 엑셀 다운로드·인쇄를 지원합니다. 월별·팀별 차트도 제공됩니다.
             </div>
           </div>
-        </a>
+        </div>
 
         <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">⏰</div>
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">⏰</div>
           <div>
             <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">자동 이메일 알림</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
@@ -419,20 +439,26 @@
           </div>
         </div>
 
-        <a href="/monitoring" style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light); text-decoration:none; cursor:pointer; transition:border-color 0.15s, background 0.15s;"
-           onmouseover="this.style.borderColor='var(--orange)';this.style.background='var(--orange-faint)'"
-           onmouseout="this.style.borderColor='var(--border-light)';this.style.background='var(--bg-subtle)'">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📊</div>
+        <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
+          <a href="/monitoring"
+             style="font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:1px; text-decoration:none;
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:40px; height:40px; border-radius:10px;
+                    background:rgba(249,115,22,0.12); border:1.5px solid rgba(249,115,22,0.35);
+                    transition:background 0.15s, border-color 0.15s;"
+             title="점검율 모니터링 바로가기"
+             onmouseover="this.style.background='rgba(249,115,22,0.25)';this.style.borderColor='var(--orange)'"
+             onmouseout="this.style.background='rgba(249,115,22,0.12)';this.style.borderColor='rgba(249,115,22,0.35)'">📊</a>
           <div>
-            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">점검율 모니터링 <span style="font-size:0.75rem; color:var(--orange); font-weight:600;">→ 바로가기</span></div>
+            <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">점검율 모니터링</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
               팀별·설비별 월간 점검율을 차트와 표로 한눈에 확인합니다. 목표 점검율 대비 달성 현황을 색상으로 구분하며, 엑셀 다운로드도 지원합니다.
             </div>
           </div>
-        </a>
+        </div>
 
         <div style="display:flex; gap:12px; align-items:flex-start; background:var(--bg-subtle); border-radius:10px; padding:14px 16px; border:1px solid var(--border-light);">
-          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px;">📅</div>
+          <div style="font-size:1.3rem; line-height:1; flex-shrink:0; margin-top:1px; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">📅</div>
           <div>
             <div style="font-weight:700; font-size:0.87rem; color:var(--text); margin-bottom:3px;">토·일요일 자동 휴동</div>
             <div style="font-size:0.80rem; color:var(--text-sub); line-height:1.55;">
