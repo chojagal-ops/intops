@@ -1077,6 +1077,148 @@ def _send_inspection_reminders():
         conn.close()
 
 
+# ── 오후 3시 승인 대기 알림 ───────────────────────────────────────────────────
+def _send_approval_reminders():
+    """평일 오후 3시(KST), 승인자별로 오늘 승인 대기 점검 목록을 1통으로 발송"""
+    if not _mail_enabled():
+        print('[알림] 이메일 미설정 - 승인 알림 스킵', flush=True)
+        return
+    if get_setting('email_enabled', '1') != '1':
+        print('[알림] 관리자 설정으로 이메일 발송 OFF - 승인 알림 스킵', flush=True)
+        return
+    if get_setting('email_approval_enabled', '1') != '1':
+        print('[알림] 승인 알림 OFF - 발송 스킵', flush=True)
+        return
+
+    now = now_kst()
+    if now.weekday() >= 5:
+        print(f'[알림] 주말 - 승인 알림 스킵', flush=True)
+        return
+
+    today_str = now.strftime('%Y-%m-%d')
+    print(f'[알림] 승인 대기 알림 실행 - {today_str}', flush=True)
+
+    conn = get_db()
+    try:
+        # 오늘 점검완료(승인대기) 건 + 승인자·점검자·팀 정보 조회
+        ph = '%s' if conn._pg else '?'
+        rows = conn.execute(f"""
+            SELECT i.id        AS insp_id,
+                   i.result,
+                   i.inspected_at,
+                   e.name      AS eq_name,
+                   e.department,
+                   u_ins.name  AS inspector_name,
+                   u_apr.id    AS approver_id,
+                   u_apr.name  AS approver_name,
+                   u_apr.email AS approver_email
+            FROM inspections i
+            JOIN equipment  e     ON e.id = i.equipment_id
+            LEFT JOIN users u_ins ON u_ins.id = i.inspector_id
+            LEFT JOIN users u_apr ON u_apr.id = e.approver_id
+            WHERE i.status = '점검완료'
+              AND DATE(i.inspected_at) = {ph}
+            ORDER BY u_apr.name, e.department, e.name
+        """, (today_str,)).fetchall()
+
+        if not rows:
+            print(f'[알림] 승인 대기 건 없음 - 발송 생략', flush=True)
+            return
+
+        print(f'[알림] 승인 대기 {len(rows)}건', flush=True)
+
+        # 승인자별 그룹핑
+        from collections import defaultdict
+        approver_rows = defaultdict(list)
+        for r in rows:
+            key = (r['approver_id'], r['approver_name'], r['approver_email'])
+            approver_rows[key].append(r)
+
+        result_label = {'정상': '✅ 정상', '이상': '⚠️ 이상',
+                        '수리필요': '🔴 수리필요', '수리중': '🔧 수리중', '휴동': '⏸ 휴동'}
+        result_color = {'정상': '#15803d', '이상': '#c2410c',
+                        '수리필요': '#dc2626', '수리중': '#d97706', '휴동': '#6b7280'}
+
+        for (apr_id, apr_name, apr_email), items in approver_rows.items():
+            if not apr_email:
+                print(f'[알림] [{apr_name or "미지정"}] 이메일 없음 - 스킵', flush=True)
+                continue
+
+            # 팀별로 재그룹핑하여 HTML 생성
+            team_items = defaultdict(list)
+            for it in items:
+                team_items[it['department'] or '미분류'].append(it)
+
+            sections_html = ''
+            for team, t_items in team_items.items():
+                rows_html = ''
+                for idx, it in enumerate(t_items, 1):
+                    rlabel = result_label.get(it['result'], it['result'])
+                    rcolor = result_color.get(it['result'], '#374151')
+                    row_bg = 'background:#f9fafb;' if idx % 2 == 0 else ''
+                    time_str = str(it['inspected_at'])[11:16] if it['inspected_at'] else '-'
+                    rows_html += f'''
+                    <tr style="{row_bg}">
+                      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#9ca3af;font-size:0.78rem;">{idx}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#111827;">{it["eq_name"]}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:{rcolor};font-weight:600;">{rlabel}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;">{it["inspector_name"] or "-"}</td>
+                      <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;">{time_str}</td>
+                    </tr>'''
+                sections_html += f'''
+                <div style="margin-bottom:20px;">
+                  <div style="font-size:0.82rem;font-weight:700;color:#f97316;
+                              background:#fff7ed;border-left:3px solid #f97316;
+                              padding:6px 12px;margin-bottom:0;">
+                    🏭 {team}
+                  </div>
+                  <table style="width:100%;border-collapse:collapse;
+                                border:1px solid #e5e7eb;border-top:none;">
+                    <thead>
+                      <tr style="background:#f3f4f6;">
+                        <th style="padding:7px 12px;text-align:left;font-size:0.75rem;color:#6b7280;font-weight:700;">#</th>
+                        <th style="padding:7px 12px;text-align:left;font-size:0.75rem;color:#6b7280;font-weight:700;">설비명</th>
+                        <th style="padding:7px 12px;text-align:left;font-size:0.75rem;color:#6b7280;font-weight:700;">결과</th>
+                        <th style="padding:7px 12px;text-align:left;font-size:0.75rem;color:#6b7280;font-weight:700;">점검자</th>
+                        <th style="padding:7px 12px;text-align:left;font-size:0.75rem;color:#6b7280;font-weight:700;">점검시각</th>
+                      </tr>
+                    </thead>
+                    <tbody>{rows_html}
+                    </tbody>
+                  </table>
+                </div>'''
+
+            subject = f'[INTOPS] 승인 대기 알림 - {len(items)}건 ({now.strftime("%m/%d")})'
+            html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+<div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;
+            box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+  <div style="background:#1e40af;padding:24px 32px;">
+    <h2 style="color:#fff;margin:0;font-size:1.2rem;">✅ 승인 대기 알림</h2>
+    <p style="color:#bfdbfe;margin:6px 0 0;font-size:0.88rem;">
+      {apr_name} 승인자님 · {now.strftime("%Y년 %m월 %d일")} 오후 3시 기준
+    </p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="color:#374151;margin:0 0 6px;">안녕하세요, <strong>{apr_name}</strong> 승인자님.</p>
+    <p style="color:#374151;margin:0 0 20px;">
+      현재 승인 대기 중인 점검이
+      <strong style="color:#1e40af;">{len(items)}건</strong> 있습니다.
+      INTOPS 시스템에서 확인 후 승인해 주세요.
+    </p>
+    {sections_html}
+    <p style="color:#9ca3af;font-size:0.82rem;margin:16px 0 0;">
+      이미 처리하신 건은 시스템에서 자동으로 제외됩니다.
+    </p>
+  </div>
+</div></body></html>'''
+
+            _send_mail(apr_email, subject, html)
+            print(f'[알림] 승인대기 {len(items)}건 → {apr_email} 발송', flush=True)
+
+    finally:
+        conn.close()
+
+
 # gunicorn 포함 모든 실행 환경에서 DB 초기화 보장
 with app.app_context():
     init_db()
@@ -1092,8 +1234,13 @@ with app.app_context():
             _send_inspection_reminders,
             CronTrigger(day_of_week='mon-fri', hour=11, minute=0, timezone=_kst)
         )
+        _scheduler.add_job(
+            _send_approval_reminders,
+            CronTrigger(day_of_week='mon-fri', hour=15, minute=0, timezone=_kst)
+        )
         _scheduler.start()
         print('[스케줄러] 평일 오전 11시 미점검 알림 등록 완료', flush=True)
+        print('[스케줄러] 평일 오후 3시 승인 대기 알림 등록 완료', flush=True)
     except Exception as _e:
         print(f'[스케줄러] 시작 실패: {_e}', flush=True)
 
@@ -2319,24 +2466,8 @@ def inspect(eq_id):
                 if auto_cnt > 0:
                     flash(f'({cycle}) 나머지 {auto_cnt}일 자동 점검완료 처리됐습니다.', 'info')
 
-            if eq['approver_id']:
-                approver = conn.execute(
-                    'SELECT name, email FROM users WHERE id=?', (eq['approver_id'],)
-                ).fetchone()
-                if approver and approver['email']:
-                    send_approval_request(
-                        to_email       = approver['email'],
-                        approver_name  = approver['name'],
-                        inspector_name = session['user_name'],
-                        eq_name        = eq['name'],
-                        location       = eq['location'] or '-',
-                        result         = result,
-                        notes          = overall_notes,
-                        eq_id          = eq_id,
-                        host_url       = request.host_url,
-                    )
-
-            flash('점검이 완료되었습니다. 승인자에게 알림이 발송됩니다.', 'success')
+            # 승인 알림은 오후 3시 배치(_send_approval_reminders)에서 일괄 발송
+            flash('점검이 완료되었습니다. 승인 알림은 오후 3시에 일괄 발송됩니다.', 'success')
             return redirect(url_for('inspect', eq_id=eq_id))
 
         elif action == 'resubmit' and is_inspector:
@@ -2854,6 +2985,19 @@ def admin_send_reminder():
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/send-approval-reminder', methods=['POST'])
+@admin_required
+def admin_send_approval_reminder():
+    """관리자가 수동으로 승인 대기 알림 이메일을 즉시 발송"""
+    try:
+        _send_approval_reminders()
+        flash('승인 대기 알림 이메일 발송을 완료했습니다.', 'success')
+    except Exception as e:
+        app.logger.exception('승인 알림 발송 오류')
+        flash(f'발송 중 오류: {e}', 'error')
+    return redirect(url_for('admin'))
+
+
 # ── 대시보드: 오늘 날짜 전 설비 휴동 처리 (관리자 전용 빠른 버튼) ──────────────
 @app.route('/dashboard/bulk-idle-today', methods=['POST'])
 @admin_required
@@ -3164,8 +3308,7 @@ def _bulk_inspect_inner():
                 approver_map[r['id']] = _to_dict(r)
 
         # ── ② 폼 데이터를 순수 Python으로 처리 (DB 없음) ──────────────────────
-        skip_count  = 0
-        email_tasks = []
+        skip_count = 0
 
         # 저장할 데이터: [(eq_id, overall_result, notes, [(item_id,r,n), ...])]
         to_save = []
@@ -3234,23 +3377,7 @@ def _bulk_inspect_inner():
                 item_results = []
 
             to_save.append((eq_id, overall, overall_notes, item_results))
-
-            # 이메일 큐
-            approver_id = eq.get('approver_id')
-            if approver_id:
-                approver = approver_map.get(approver_id)
-                if approver and approver.get('email'):
-                    email_tasks.append(dict(
-                        to_email       = approver['email'],
-                        approver_name  = approver['name'],
-                        inspector_name = session['user_name'],
-                        eq_name        = eq.get('name', ''),
-                        location       = eq.get('location') or '-',
-                        result         = overall,
-                        notes          = overall_notes,
-                        eq_id          = eq_id,
-                        host_url       = request.host_url,
-                    ))
+            # 승인 알림은 오후 3시 배치(_send_approval_reminders)에서 일괄 발송
 
         success_count = 0
         fail_names    = []
@@ -3344,13 +3471,7 @@ def _bulk_inspect_inner():
             except Exception:
                 pass
 
-        # ── ⑥ 이메일 일괄 발송 (백그라운드 스레드) ───────────────────────────
-        for task in email_tasks:
-            try:
-                send_approval_request(**task)
-            except Exception:
-                pass
-
+        # 승인 알림은 오후 3시 배치(_send_approval_reminders)에서 일괄 발송
         if fail_names:
             flash(f'일괄 점검 오류 ⚠️  저장 실패 ({len(fail_names)}건). '
                   f'다시 시도해 주세요.', 'error')

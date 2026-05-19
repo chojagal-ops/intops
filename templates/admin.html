@@ -170,6 +170,14 @@
             📧 미점검 알림 즉시 발송
           </button>
         </form>
+        <form method="POST" action="/admin/send-approval-reminder" style="margin:0;"
+              onsubmit="return confirm('현재 승인 대기 중인 점검 목록을 승인자에게 즉시 발송합니다.\n계속하시겠습니까?')">
+          <button type="submit"
+                  style="padding:9px 18px; background:rgba(30,64,175,0.08); border:1.5px solid rgba(30,64,175,0.35);
+                         border-radius:8px; color:#1e40af; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap;">
+            ✅ 승인 대기 알림 즉시 발송
+          </button>
+        </form>
       </div>
 
       <!-- 비밀번호 재설정 요청 -->
