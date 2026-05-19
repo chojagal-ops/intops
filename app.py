@@ -961,10 +961,10 @@ def _send_inspection_reminders():
 
     conn = get_db()
     try:
-        # 당일 점검완료/승인완료 기록이 없는 설비만 대상
+        # 당일 점검완료/승인완료 기록이 없는 설비 - 팀(department) 포함, 팀·설비명 정렬
         if conn._pg:
             rows = conn.execute("""
-                SELECT e.id, e.name, e.manager_primary, e.manager_secondary
+                SELECT e.id, e.name, e.department, e.manager_primary, e.manager_secondary
                 FROM equipment e
                 WHERE NOT EXISTS (
                     SELECT 1 FROM inspections i
@@ -972,10 +972,11 @@ def _send_inspection_reminders():
                       AND DATE(i.inspected_at) = %s
                       AND i.status IN ('점검완료', '승인완료')
                 )
+                ORDER BY e.department, e.name
             """, (today_str,)).fetchall()
         else:
             rows = conn.execute("""
-                SELECT e.id, e.name, e.manager_primary, e.manager_secondary
+                SELECT e.id, e.name, e.department, e.manager_primary, e.manager_secondary
                 FROM equipment e
                 WHERE NOT EXISTS (
                     SELECT 1 FROM inspections i
@@ -983,53 +984,95 @@ def _send_inspection_reminders():
                       AND DATE(i.inspected_at) = ?
                       AND i.status IN ('점검완료', '승인완료')
                 )
+                ORDER BY e.department, e.name
             """, (today_str,)).fetchall()
+
+        if not rows:
+            print(f'[알림] 미점검 설비 없음 - 발송 생략', flush=True)
+            return
 
         print(f'[알림] 미점검 설비 {len(rows)}건', flush=True)
 
+        # ── 팀별로 그룹핑 ─────────────────────────────────────────────────────
+        from collections import defaultdict
+        team_equips = defaultdict(list)
         for eq in rows:
-            recipients = set()
-            for mgr_name in [eq['manager_primary'], eq['manager_secondary']]:
-                if not mgr_name:
-                    continue
-                if conn._pg:
-                    u = conn.execute(
-                        "SELECT email FROM users WHERE TRIM(name)=%s AND is_approved=1",
-                        (mgr_name.strip(),)
-                    ).fetchone()
-                else:
-                    u = conn.execute(
-                        "SELECT email FROM users WHERE TRIM(name)=? AND is_approved=1",
-                        (mgr_name.strip(),)
-                    ).fetchone()
-                if u and u['email']:
-                    recipients.add(u['email'])
+            team_equips[eq['department'] or '미분류'].append(eq)
 
-            for email in recipients:
-                subject = f'[INTOPS] 점검 알림 - {eq["name"]} 오늘 미점검'
-                html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;
+        # ── 팀별로 1통 발송 ───────────────────────────────────────────────────
+        for team, equips in team_equips.items():
+            # 해당 팀 설비 담당자(정/부) 이메일 수집 (중복 제거)
+            recipients = set()
+            for eq in equips:
+                for mgr_name in [eq['manager_primary'], eq['manager_secondary']]:
+                    if not mgr_name:
+                        continue
+                    if conn._pg:
+                        u = conn.execute(
+                            "SELECT email FROM users WHERE TRIM(name)=%s AND is_approved=1",
+                            (mgr_name.strip(),)
+                        ).fetchone()
+                    else:
+                        u = conn.execute(
+                            "SELECT email FROM users WHERE TRIM(name)=? AND is_approved=1",
+                            (mgr_name.strip(),)
+                        ).fetchone()
+                    if u and u['email']:
+                        recipients.add(u['email'])
+
+            if not recipients:
+                print(f'[알림] [{team}] 수신자 없음 - 스킵', flush=True)
+                continue
+
+            # 설비 목록 HTML 행 생성
+            eq_rows_html = ''
+            for idx, eq in enumerate(equips, 1):
+                managers = ' / '.join(filter(None, [eq['manager_primary'], eq['manager_secondary']]))
+                row_bg = 'background:#fff7ed;' if idx % 2 == 0 else ''
+                eq_rows_html += f'''
+                <tr style="{row_bg}">
+                  <td style="padding:9px 14px;border-bottom:1px solid #fed7aa;color:#374151;">{idx}</td>
+                  <td style="padding:9px 14px;border-bottom:1px solid #fed7aa;font-weight:700;color:#c2410c;">{eq["name"]}</td>
+                  <td style="padding:9px 14px;border-bottom:1px solid #fed7aa;color:#6b7280;">{managers or '-'}</td>
+                </tr>'''
+
+            subject = f'[INTOPS] 미점검 알림 - {team} ({len(equips)}건) {now.strftime("%m/%d")}'
+            html = f'''<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:sans-serif;">
+<div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;
             box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
   <div style="background:#f97316;padding:24px 32px;">
-    <h2 style="color:#fff;margin:0;font-size:1.2rem;">⚠️ 설비 점검 알림</h2>
+    <h2 style="color:#fff;margin:0;font-size:1.2rem;">⚠️ 미점검 설비 알림</h2>
+    <p style="color:#fed7aa;margin:6px 0 0;font-size:0.88rem;">{team} · {now.strftime("%Y년 %m월 %d일")}</p>
   </div>
   <div style="padding:28px 32px;">
     <p style="color:#374151;margin:0 0 16px;">안녕하세요.</p>
-    <p style="color:#374151;margin:0 0 16px;">
+    <p style="color:#374151;margin:0 0 4px;">
       오늘 <strong style="color:#f97316;">{now.strftime("%Y년 %m월 %d일")}</strong> 오전 11시까지
-      아래 설비의 점검이 완료되지 않았습니다.
+      <strong style="color:#c2410c;">{team}</strong> 팀의 아래
+      <strong style="color:#c2410c;">{len(equips)}개</strong> 설비 점검이 완료되지 않았습니다.
     </p>
-    <div style="background:#fff7ed;border:2px solid #f97316;border-radius:10px;
-                padding:16px 20px;margin:0 0 20px;">
-      <div style="font-size:1.1rem;font-weight:800;color:#c2410c;">{eq["name"]}</div>
-    </div>
+    <table style="width:100%;border-collapse:collapse;border:1.5px solid #f97316;border-radius:10px;
+                  overflow:hidden;margin:16px 0 20px;">
+      <thead>
+        <tr style="background:#f97316;">
+          <th style="padding:9px 10px;text-align:left;color:#fff;font-size:0.78rem;font-weight:700;width:32px;">#</th>
+          <th style="padding:9px 14px;text-align:left;color:#fff;font-size:0.78rem;font-weight:700;">설비명</th>
+          <th style="padding:9px 14px;text-align:left;color:#fff;font-size:0.78rem;font-weight:700;">담당자</th>
+        </tr>
+      </thead>
+      <tbody>{eq_rows_html}
+      </tbody>
+    </table>
     <p style="color:#6b7280;font-size:0.85rem;margin:0;">
-      점검을 완료한 경우 이 알림을 무시하세요.
+      이미 점검을 완료한 설비는 무시하세요.
     </p>
   </div>
 </div></body></html>'''
+
+            for email in recipients:
                 _send_mail(email, subject, html)
-                print(f'[알림] {eq["name"]} → {email} 발송', flush=True)
+            print(f'[알림] [{team}] {len(equips)}건 → {len(recipients)}명 발송', flush=True)
+
     finally:
         conn.close()
 
