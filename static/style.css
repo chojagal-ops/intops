@@ -115,7 +115,10 @@ body {
   color: var(--orange);
   letter-spacing: 1px;
   white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.15s;
 }
+a.topbar-title:hover { opacity: 0.75; }
 
 .topbar-nav {
   display: flex;

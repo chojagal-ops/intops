@@ -11,10 +11,10 @@
 <body>
 
   <div class="topbar">
-    <div class="topbar-title">
+    <a href="{{ '/bulk-approve' if (session.role == '승인자' or session.is_admin) else '/bulk-inspect' }}" class="topbar-title" style="text-decoration:none;color:inherit;">
       <img src="/static/logo.png" alt="INTOPS" style="width:28px;height:28px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">
       INTOPS 설비점검 시스템
-    </div>
+    </a>
     <div class="topbar-user">
       <span class="role-badge-sm">{{ session.role }}</span>
       {{ session.user_name }} 님
