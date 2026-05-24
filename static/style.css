@@ -97,12 +97,12 @@ body {
 .topbar {
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 0 32px;
+  padding: 0 16px;
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -110,10 +110,10 @@ body {
 }
 
 .topbar-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--orange);
-  letter-spacing: 1px;
+  letter-spacing: 0;
   white-space: nowrap;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -122,7 +122,7 @@ a.topbar-title:hover { opacity: 0.75; }
 
 .topbar-nav {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
   justify-content: center;
   flex-wrap: nowrap;
@@ -131,9 +131,9 @@ a.topbar-title:hover { opacity: 0.75; }
 }
 
 .nav-link {
-  padding: 5px 9px;
+  padding: 5px 7px;
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-sub);
   text-decoration: none;
@@ -153,11 +153,11 @@ a.topbar-title:hover { opacity: 0.75; }
 .hist-btn:hover { background:var(--bg-subtle); color:var(--orange); border-color:var(--orange); }
 
 .topbar-user {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-sub);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   white-space: nowrap;
 }
 .topbar-user a { color: #ef4444; text-decoration: none; font-size: 0.82rem; }
