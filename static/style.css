@@ -183,7 +183,7 @@ a.topbar-title:hover { opacity: 0.75; }
   box-shadow: var(--shadow-lg);
 }
 
-.card-wide { max-width: 960px; }
+.card-wide { max-width: 1280px; }
 
 .card-header {
   text-align: center;
@@ -340,13 +340,14 @@ select option { background: var(--bg); color: var(--text); }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 
 thead th {
-  padding: 10px 14px;
+  padding: 10px 12px;
   text-align: left;
   color: var(--text-sub);
   font-size: 0.78rem;
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
+  white-space: nowrap;
 }
 
 tbody tr {
@@ -355,7 +356,7 @@ tbody tr {
 }
 tbody tr:hover { background: var(--bg-subtle); }
 
-td { padding: 12px 14px; color: var(--text); }
+td { padding: 10px 12px; color: var(--text); white-space: nowrap; }
 .empty-row { text-align: center; color: var(--text-muted); padding: 32px !important; line-height: 2; }
 .action-btns { display: flex; gap: 8px; }
 
