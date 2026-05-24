@@ -60,7 +60,7 @@
               <td>{{ u.employee_id }}</td>
               <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
               <td>{{ u.phone }}</td>
-              <td>{{ u.team }}</td>
+              <td style="white-space:nowrap;">{{ u.team }}</td>
               <td style="font-size:0.82rem; color:#78909c;">{{ u.created_at }}</td>
               <td>
                 <div style="display:flex; flex-direction:row; align-items:center; gap:6px; flex-wrap:nowrap;">
@@ -95,7 +95,7 @@
       <table>
         <thead>
           <tr>
-            <th>성명</th><th>사번</th><th>이메일</th><th>소속팀</th><th>역할</th><th>역할 변경</th><th>비밀번호 초기화</th><th>삭제</th>
+            <th style="white-space:nowrap;">성명</th><th style="white-space:nowrap;">사번</th><th style="white-space:nowrap;">이메일</th><th style="white-space:nowrap;">소속팀</th><th style="white-space:nowrap;">역할</th><th style="white-space:nowrap;">역할 변경</th><th style="white-space:nowrap;">비밀번호 초기화</th><th style="white-space:nowrap;">삭제</th>
           </tr>
         </thead>
         <tbody>
@@ -105,7 +105,7 @@
               <td><strong style="color:var(--text);">{{ u.name }}</strong></td>
               <td>{{ u.employee_id }}</td>
               <td style="font-size:0.82rem;">{{ u.email or '-' }}</td>
-              <td>{{ u.team }}</td>
+              <td style="white-space:nowrap;">{{ u.team }}</td>
               <td>
                 {% if u.role == '승인자' %}
                   <span class="badge" style="background:rgba(30,136,229,0.2);color:#90caf9;">승인자</span>

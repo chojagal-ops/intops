@@ -348,6 +348,7 @@ thead th {
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
   white-space: nowrap;
+  word-break: keep-all;
 }
 
 tbody tr {
@@ -356,7 +357,7 @@ tbody tr {
 }
 tbody tr:hover { background: var(--bg-subtle); }
 
-td { padding: 10px 12px; color: var(--text); white-space: nowrap; }
+td { padding: 10px 12px; color: var(--text); white-space: nowrap; word-break: keep-all; }
 .empty-row { text-align: center; color: var(--text-muted); padding: 32px !important; line-height: 2; }
 .action-btns { display: flex; gap: 8px; }
 
