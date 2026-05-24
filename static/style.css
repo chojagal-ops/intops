@@ -159,6 +159,7 @@ a.topbar-title:hover { opacity: 0.75; }
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .topbar-user a { color: #ef4444; text-decoration: none; font-size: 0.82rem; }
 .topbar-user a:hover { text-decoration: underline; }
@@ -1200,4 +1201,47 @@ td { padding: 10px 12px; color: var(--text); white-space: nowrap; word-break: ke
 }
 @media (max-width: 600px) {
   .dept-pill { font-size: 0.72rem; padding: 4px 10px; }
+}
+
+/* ── 로고 히든 메뉴 팝업 ───────────────────────────── */
+.topbar-title img {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.topbar-title img:hover {
+  opacity: 0.75;
+}
+.logo-hidden-menu {
+  position: absolute;
+  top: 52px;
+  left: 12px;
+  z-index: 9999;
+  background: var(--bg-card, #fff);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 8px 6px;
+  min-width: 150px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+.logo-hidden-menu.open {
+  display: flex;
+}
+.logo-hidden-menu a {
+  display: block;
+  padding: 9px 18px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.13s;
+  white-space: nowrap;
+}
+.logo-hidden-menu a:hover {
+  background: var(--orange-light, rgba(249,115,22,0.08));
+  color: var(--orange);
+  text-decoration: none;
 }
