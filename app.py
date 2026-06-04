@@ -124,10 +124,10 @@ class DBConn:
                 print(f'[DB] ⚠ PostgreSQL 연결 실패({e}) → SQLite 폴백', flush=True)
                 self._pg = False
                 self._conn = sqlite3.connect('facility.db')
-                self._conn.row_factory = sqlite3.Row
+                self._conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
         else:
             self._conn = sqlite3.connect('facility.db')
-            self._conn.row_factory = sqlite3.Row
+            self._conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
 
     def execute(self, sql, params=()):
         if self._pg:
@@ -3986,6 +3986,10 @@ def dashboard():
     pending_list = []
     approved_count = 0
     if session.get('role') == '승인자' or session.get('is_admin'):
+        is_admin = session.get('is_admin')
+        approver_filter = '' if is_admin else 'AND e.approver_id=?'
+        approver_params = () if is_admin else (session['user_id'],)
+
         pending_list = conn.execute(f'''
             SELECT i.id, i.result, i.inspected_at,
                    e.id AS eq_id, e.name AS eq_name,
@@ -3993,7 +3997,8 @@ def dashboard():
             FROM inspections i
             JOIN equipment e ON i.equipment_id = e.id
             JOIN users u ON i.inspector_id = u.id
-            WHERE e.approver_id=? AND i.status='점검완료'
+            WHERE i.status='점검완료'
+              {approver_filter}
               AND i.result != '휴동'
               AND i.id = (
                   SELECT MAX(id) FROM inspections
@@ -4002,16 +4007,17 @@ def dashboard():
                     AND {conn.date_col("inspected_at")} = {conn.date_col("i.inspected_at")}
               )
             ORDER BY i.inspected_at DESC
-        ''', (session['user_id'],)).fetchall()
+        ''', approver_params).fetchall()
 
         approved_count = conn.execute(f'''
             SELECT COUNT(DISTINCT i.equipment_id) AS cnt
             FROM inspections i
             JOIN equipment e ON i.equipment_id = e.id
-            WHERE e.approver_id=? AND i.status='승인완료'
+            WHERE i.status='승인완료'
+              {approver_filter}
               AND i.result != '휴동'
               AND {conn.date_col("i.inspected_at")}={conn.today}
-        ''', (session['user_id'],)).fetchone()['cnt']
+        ''', approver_params).fetchone()['cnt']
 
     # 오늘 미점검 설비 목록 (누구도 점검하지 않은 설비, 휴동일 제외)
     uninspected = []
