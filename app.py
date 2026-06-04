@@ -5501,6 +5501,66 @@ def logout():
     return redirect(url_for('login'))
 
 
+# ── 임시 데이터 이전 API (로컬 SQLite -> Render PostgreSQL) ───────────────────
+@app.route('/api/migrate-import', methods=['POST'])
+def migrate_import():
+    """로컬 SQLite 데이터를 Render PostgreSQL로 이전하는 임시 API"""
+    import json as _json
+    secret = request.headers.get('X-Migrate-Secret', '')
+    if secret != os.environ.get('MIGRATE_SECRET', 'intops-migrate-2025'):
+        return {'ok': False, 'error': 'unauthorized'}, 401
+
+    data = request.get_json(force=True)
+    table = data.get('table')
+    rows  = data.get('rows', [])
+    reset_seq = data.get('reset_seq', False)
+
+    if not table or not rows:
+        return {'ok': True, 'inserted': 0}
+
+    conn = get_db()
+    ph = '%s' if conn._pg else '?'
+    inserted = 0
+    try:
+        if data.get('truncate'):
+            conn.execute(f'DELETE FROM {table}')
+            conn.commit()
+
+        cols = list(rows[0].keys())
+        col_str = ', '.join(f'"{c}"' for c in cols)
+        placeholders = ', '.join([ph] * len(cols))
+
+        for row in rows:
+            vals = [row[c] for c in cols]
+            if conn._pg:
+                conn.execute(
+                    f'INSERT INTO {table} ({col_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING',
+                    vals
+                )
+            else:
+                conn.execute(
+                    f'INSERT OR IGNORE INTO {table} ({col_str}) VALUES ({placeholders})',
+                    vals
+                )
+            inserted += 1
+        conn.commit()
+
+        if reset_seq and conn._pg and rows:
+            max_id = max(r.get('id', 0) for r in rows if r.get('id'))
+            if max_id:
+                conn.execute(
+                    f"SELECT setval(pg_get_serial_sequence('{table}','id'), {max_id})"
+                )
+                conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return {'ok': False, 'error': str(e)}, 500
+
+    conn.close()
+    return {'ok': True, 'table': table, 'inserted': inserted}
+
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5000))
