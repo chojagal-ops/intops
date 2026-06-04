@@ -684,7 +684,8 @@ def init_db():
             inspection_id INTEGER NOT NULL,
             row_index     INTEGER NOT NULL,
             result        TEXT NOT NULL DEFAULT '정상',
-            detail_notes  TEXT DEFAULT ''
+            detail_notes  TEXT DEFAULT '',
+            item_id       INTEGER
         )
     ''')
 
@@ -5502,51 +5503,91 @@ def logout():
 
 
 # ── 임시 데이터 이전 API (로컬 SQLite -> Render PostgreSQL) ───────────────────
+_MIGRATE_TABLES = [
+    'users', 'equipment', 'inspections',
+    'inspection_templates', 'inspection_details', 'inspection_items',
+    'monthly_notes', 'password_reset_requests', 'system_settings',
+    'equipment_anomalies', 'anomaly_photos',
+]
+
 @app.route('/api/migrate-import', methods=['POST'])
 def migrate_import():
     """로컬 SQLite 데이터를 Render PostgreSQL로 이전하는 임시 API"""
-    import json as _json
     secret = request.headers.get('X-Migrate-Secret', '')
     if secret != os.environ.get('MIGRATE_SECRET', 'intops-migrate-2025'):
         return {'ok': False, 'error': 'unauthorized'}, 401
 
     data = request.get_json(force=True)
+    conn = get_db()
+
+    # 전체 초기화 요청: FK 무시하고 역순으로 전체 삭제
+    if data.get('clear_all'):
+        try:
+            if conn._pg:
+                conn.execute("SET session_replication_role = replica")
+            for tbl in reversed(_MIGRATE_TABLES):
+                try:
+                    conn.execute(f'DELETE FROM {tbl}')
+                except Exception:
+                    pass
+            if conn._pg:
+                conn.execute("SET session_replication_role = DEFAULT")
+            conn.commit()
+            conn.close()
+            return {'ok': True, 'action': 'cleared'}
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            return {'ok': False, 'error': str(e)}, 500
+
     table = data.get('table')
     rows  = data.get('rows', [])
     reset_seq = data.get('reset_seq', False)
 
     if not table or not rows:
+        conn.close()
         return {'ok': True, 'inserted': 0}
 
-    conn = get_db()
     ph = '%s' if conn._pg else '?'
     inserted = 0
+    errors = 0
     try:
-        if data.get('truncate'):
-            conn.execute(f'DELETE FROM {table}')
-            conn.commit()
+        # PostgreSQL: 실제 존재하는 컬럼만 사용
+        if conn._pg:
+            pg_cur = conn._conn.cursor()
+            pg_cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = %s AND table_schema = 'public'
+            """, (table,))
+            valid_cols = {r[0] for r in pg_cur.fetchall()}
+            all_cols = list(rows[0].keys())
+            cols = [c for c in all_cols if c in valid_cols]
+        else:
+            cols = list(rows[0].keys())
 
-        cols = list(rows[0].keys())
         col_str = ', '.join(f'"{c}"' for c in cols)
         placeholders = ', '.join([ph] * len(cols))
 
         for row in rows:
-            vals = [row[c] for c in cols]
-            if conn._pg:
-                conn.execute(
-                    f'INSERT INTO {table} ({col_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING',
-                    vals
-                )
-            else:
-                conn.execute(
-                    f'INSERT OR IGNORE INTO {table} ({col_str}) VALUES ({placeholders})',
-                    vals
-                )
-            inserted += 1
+            vals = [row.get(c) for c in cols]
+            try:
+                if conn._pg:
+                    conn.execute(
+                        f'INSERT INTO {table} ({col_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING',
+                        vals
+                    )
+                else:
+                    conn.execute(
+                        f'INSERT OR IGNORE INTO {table} ({col_str}) VALUES ({placeholders})',
+                        vals
+                    )
+                inserted += 1
+            except Exception:
+                errors += 1
         conn.commit()
 
         if reset_seq and conn._pg and rows:
-            max_id = max(r.get('id', 0) for r in rows if r.get('id'))
+            max_id = max((r.get('id') or 0) for r in rows)
             if max_id:
                 conn.execute(
                     f"SELECT setval(pg_get_serial_sequence('{table}','id'), {max_id})"
