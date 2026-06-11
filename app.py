@@ -176,6 +176,7 @@ if not _secret_key:
     _secret_key = _secrets.token_hex(32)
     print('[보안경고] SECRET_KEY 환경변수 미설정 - 서버 재시작 시 세션이 초기화됩니다. Render 환경변수에 SECRET_KEY를 반드시 설정하세요.', flush=True)
 app.secret_key = _secret_key
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 # ── 보안: 세션 30분 타임아웃
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
@@ -1000,10 +1001,15 @@ def _send_inspection_reminders():
         for eq in rows:
             team_equips[eq['department'] or '미분류'].append(eq)
 
+        # 추가 수신 이메일 (관리자 설정)
+        extra_email = get_setting('reminder_extra_email', '').strip()
+
         # ── 팀별로 1통 발송 ───────────────────────────────────────────────────
         for team, equips in team_equips.items():
             # 해당 팀 설비 담당자(정/부) 이메일 수집 (중복 제거)
             recipients = set()
+            if extra_email:
+                recipients.add(extra_email)
             for eq in equips:
                 for mgr_name in [eq['manager_primary'], eq['manager_secondary']]:
                     if not mgr_name:
@@ -1721,6 +1727,7 @@ def admin_data():
         'email_anomaly_enabled':  get_setting('email_anomaly_enabled',  '1') == '1',
         'email_reminder_enabled': get_setting('email_reminder_enabled', '1') == '1',
         'email_reset_enabled':    get_setting('email_reset_enabled',    '1') == '1',
+        'reminder_extra_email':   get_setting('reminder_extra_email',   ''),
     }
     _resend_key  = os.environ.get('RESEND_API_KEY', '').strip()
     _resend_from = os.environ.get('RESEND_FROM_EMAIL', '').strip() or ('onboarding@resend.dev' if _resend_key else '')
@@ -2887,6 +2894,8 @@ def admin_email_save():
     for key in keys:
         val = '1' if request.form.get(key) == '1' else '0'
         set_setting(key, val)
+    extra = request.form.get('reminder_extra_email', '').strip()
+    set_setting('reminder_extra_email', extra)
     flash('메일발송 설정이 저장되었습니다.', 'success')
     return redirect(url_for('admin_data'))
 

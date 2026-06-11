@@ -222,6 +222,28 @@
         {% endfor %}
         </div>
 
+        <!-- 미점검 알림 추가 수신 이메일 -->
+        <div style="background:#f0fdf4; border:1px solid rgba(22,163,74,0.25);
+                    border-radius:11px; padding:16px 18px; margin-bottom:16px;">
+          <div style="display:flex;align-items:flex-start;gap:14px;">
+            <div style="width:40px;height:40px;border-radius:10px;flex-shrink:0;
+                        background:rgba(22,163,74,0.15);display:flex;align-items:center;
+                        justify-content:center;font-size:1.1rem;">📮</div>
+            <div style="flex:1;">
+              <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:3px;">미점검 알림 추가 수신 이메일</div>
+              <div style="font-size:0.76rem;color:#64748b;margin-bottom:10px;line-height:1.5;">
+                설비 담당자 외에 항상 미점검 알림을 받을 이메일 주소를 지정합니다. 비워두면 담당자에게만 발송됩니다.
+              </div>
+              <input type="email" name="reminder_extra_email"
+                     value="{{ email_settings.reminder_extra_email }}"
+                     placeholder="예: manager@company.com"
+                     style="width:100%;box-sizing:border-box;padding:9px 14px;border-radius:8px;
+                            border:1px solid rgba(22,163,74,0.35);background:#fff;
+                            color:#1e293b;font-size:0.88rem;">
+            </div>
+          </div>
+        </div>
+
         <div style="display:flex;justify-content:flex-end;margin-bottom:28px;">
           <button type="submit" class="btn btn-primary"
                   style="width:auto;padding:11px 32px;font-size:0.92rem;">
